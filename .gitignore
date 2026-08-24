@@ -1,0 +1,36 @@
+# Dependencies
+node_modules/
+.pnpm-store/
+
+# Build outputs
+dist/
+coverage/
+*.tsbuildinfo
+
+# Test outputs
+playwright-report/
+test-results/
+
+# Environment files
+.env
+.env.*
+!.env.example
+!**/.env.example
+
+# Logs
+*.log
+npm-debug.log*
+pnpm-debug.log*
+
+# Editors
+.history/
+.specstory/
+.idea/
+.vscode/
+
+# Operating systems
+.DS_Store
+
+# Temporary files
+*.tmp
+*.temp
