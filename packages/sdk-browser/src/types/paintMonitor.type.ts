@@ -1,0 +1,65 @@
+import type {
+    Environment
+} from '@performance-platform/protocol'
+import type { SessionStorageLike } from './ids.type'
+import type { CreatePaintObserver } from './paintCollector.type'
+import type { FetchTransport, SendBeacon } from './reporter.type'
+
+// SDK使用者关心的业务配置：监控哪个应用？什么版本？什么环境？上报到哪里？
+export interface PaintMonitorConfig {
+    appId: string // 上报应用的id
+    appVersion: string // 上报应用的版本
+    environment: Environment // 上报时 环境
+    endpoint: string // 上报地址
+    debug?: ( // SDK 内部诊断出口
+        message: string,
+        error?: unknown,
+    ) => void
+}
+
+export interface PaintMonitor {
+    // 启动 PaintCollector，并安装页面生命周期监听
+    start(): void
+
+    // 等待 Reporter 尝试发送当前队列
+    flush(): Promise<void>
+
+    // 销毁 Collector 并移除页面生命周期监听
+    destroy(): void
+}
+
+export interface PaintEventContext {
+    eventId: string
+    appId: string
+    appVersion: string
+    environment: Environment
+    sessionId: string
+    viewId: string
+}
+
+// 定义页面生命周期的最小接口
+export interface PageLifecycleLike {
+    visibilityState: string
+
+    addEventListener(
+        type: 'visibilitychange',
+        listener: () => void,
+    ): void
+
+    removeEventListener(
+        type: 'visibilitychange',
+        listener: () => void,
+    ): void
+}
+
+// 运行环境提供的能力：如何生成UUID？如何监听 Paint? 如何发送请求？ 如何监听页面隐藏？
+export interface PaintMonitorDependencies {
+    timeOrigin: number
+    randomUUID(): string
+
+    sessionStorage?: SessionStorageLike
+    createObserver?: CreatePaintObserver
+    sendBeacon?: SendBeacon
+    fetch?: FetchTransport
+    pageLifecycle?: PageLifecycleLike
+}
