@@ -1,0 +1,28 @@
+services:
+  # 服务名称，之后命令中的 docker compose ... up -d postgres-test，就是指定启动这个服务
+  postgres-test:
+    image: postgres:16-alpine
+
+    # PostgreSQL 容器首次启动时会创建 postgres 用户，密码 postgres，数据库 performance_platform_test
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: performance_platform_test
+
+    ports:
+      # 把本机端口 5433 映射到 容器端口 5432 上
+      - '5433:5432'
+
+    # Repository 集成测试必须等待状态成为 healthy
+    healthcheck:
+      # 容器定期执行 pg_isready，检查指定数据库是否已经能够接受连接
+      test: 
+        - CMD-SHELL
+        - pg_isready -U postgres -d performance_platform_test
+      # 每 2s 检查一次
+      interval: 2s
+      timeout: 5s
+      # 连续失败 20次 后，才把容器标记为 unhealthy
+      retries: 20
+      # 容器启动后的前5秒属于初始化宽限期，这期间 postgreSQL 可能正在创建数据库，不应太早判定失败
+      start_period: 5s
