@@ -6,7 +6,7 @@ import type {
     PaintEventValidationContext,
     PaintMetric,
     ValidationResult,
-} from './types'
+} from './types.js'
 
 const MAX_PAINT_VALUE_MS = 86_400_000
 // 允许最早： NOW - 30 天

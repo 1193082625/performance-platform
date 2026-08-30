@@ -17,9 +17,9 @@ export type {
     PaintStats,
     ValidatedPaintBatch,
     ValidationResult,
-} from './types'
+} from './types.js'
 
 export {
     validatePaintBatch,
     validatePaintEvent,
-} from './validate'
+} from './validate.js'
