@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@performance-platform/protocol": "workspace:*",
+    "fastify": "^5.12.1",
     "pg": "^8.23.0"
   },
   "devDependencies": {
