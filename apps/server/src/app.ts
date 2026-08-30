@@ -10,12 +10,15 @@ import type {
 import { registerEventRoutes } from './routes/events.js'
 import { createPaintMetricsService } from './services/paint-metrics-service.js'
 import { registerMetricsRoutes } from './routes/metrics.js'
-
+import { registerHealthRoutes } from './routes/health.js'
+import cors from '@fastify/cors'
 
 interface BuildAppOptions {
     eventRepository: EventRepository
     appId: string
     now: () => number
+    corsOrigins?: string[]
+    logLevel?: string
 }
 
 export function buildApp(
@@ -23,6 +26,9 @@ export function buildApp(
 ): FastifyInstance {
     const app = Fastify({
         bodyLimit: 32 * 1024,
+        logger: options.logLevel ? {
+            level: options.logLevel
+        } : false
     })
 
     // <FastifyError> 是在告诉 ts ，这个错误处理器处理的是 Fastify 框架错误
@@ -70,6 +76,15 @@ export function buildApp(
         appId: options.appId,
         now: options.now,
     })
+
+    app.register(registerHealthRoutes)
+
+    app.register(
+        cors,
+        {
+            origin: options.corsOrigins || [],
+        }
+    )
 
     app.register(
         registerEventRoutes,
