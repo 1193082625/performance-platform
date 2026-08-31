@@ -9,6 +9,7 @@ import {
     createPaintCollector,
 } from './paint-collector'
 import type { PaintEntryListLike, PaintSample } from './types/paintCollector.type'
+import type { PageLifecycleLike } from './types/paintMonitor.type'
 
 describe('createPaintCollector', () => {
     it('observes buffered paint entries when started', () => {
@@ -544,5 +545,64 @@ describe('createPaintCollector', () => {
             valueMs: 100,
             occurredAt: 1_000_100,
         })
+    })
+
+    it('notifies once after all entries have been handled', () => {
+        const callOrder: string[] = []
+
+        let observerCallback:
+            | ((entryList: PaintEntryListLike) => void)
+            | undefined
+
+        const createObserver = vi.fn((callback) => {
+            observerCallback = callback
+
+            return {
+                observe: vi.fn(),
+                disconnect: vi.fn(),
+            }
+        })
+
+        const onEntriesComplete = vi.fn(() => {
+            callOrder.push('complete')
+        })
+
+        const collector = createPaintCollector({
+            timeOrigin: 1_000_000,
+            createObserver,
+            onSample: vi.fn((sample: PaintSample) => {
+                callOrder.push(sample.type)
+            }),
+            onEntriesComplete,
+        })
+
+        collector.start()
+
+        const callback = observerCallback
+        if(callback === undefined) {
+            throw new Error('Observer callback was not registered')
+        }
+
+
+        callback({
+            getEntries: () => [
+                {
+                    name: 'first-paint',
+                    startTime: 100,
+                },
+                {
+                    name: 'first-contentful-paint',
+                    startTime: 200,
+                },
+            ],
+        })
+        
+        expect(callOrder).toEqual([
+            'web.paint.fp',
+            'web.paint.fcp',
+            'complete',
+        ])
+
+        expect(onEntriesComplete).toHaveBeenCalledTimes(1)
     })
 })

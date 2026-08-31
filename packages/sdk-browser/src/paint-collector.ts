@@ -61,6 +61,12 @@ export function createPaintCollector(
                 // 样本处理失败不能影响业务页面
             }
         }
+
+        try {
+            options.onEntriesComplete?.()
+        } catch {
+            // 完成通知失败不能影响宿主页面
+        }
     }
 
     const start = (): void => {

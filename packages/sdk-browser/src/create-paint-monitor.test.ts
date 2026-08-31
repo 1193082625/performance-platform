@@ -4,13 +4,14 @@ import {
     expect,
     vi,
 } from 'vitest'
-import type { PaintEntryListLike } from './types/paintCollector.type'
+import type { PaintEntryListLike, PaintSample } from './types/paintCollector.type'
 import {
     createPaintMonitor,
     createPaintMonitorWithDependencies
 } from './create-paint-monitor'
 import type { PageLifecycleLike } from './types/paintMonitor.type'
 import { SESSION_ID_STORAGE_KEY } from './ids'
+import { createPaintCollector } from './paint-collector'
 
 const SESSION_ID = 'session-test-1'
 const VIEW_ID = '04f080c8-0625-4b76-a53e-d67f99a03380'
@@ -124,7 +125,7 @@ describe('createPaintMonitor', () => {
      * 页面仍 visible 时不发送；
      * 页面变 hidden 时发送队列。
      */
-    it('registers the visibility listener once and flushes when hidden', () => {
+    it('registers the visibility listener once and flushes when hidden', async () => {
         const randomUUID = vi.fn()
             .mockReturnValueOnce(VIEW_ID)
             .mockReturnValueOnce(EVENT_ID)
@@ -150,7 +151,14 @@ describe('createPaintMonitor', () => {
             }
         })
 
-        const sendBeacon = vi.fn(() => true)
+        const sendBeacon = vi.fn(
+            (
+                _endpoint: string,
+                _body: string,
+            ): boolean => false,
+        )
+            .mockReturnValueOnce(false)
+            .mockReturnValueOnce(true)
 
         let visibilityListener:
             | (() => void)
@@ -211,7 +219,9 @@ describe('createPaintMonitor', () => {
                 }
             ]
         })
-
+        // 等待自动 flush 完整结束；第一次 Beacon 返回 false，事件留在队列
+        await monitor.flush()
+        expect(sendBeacon).toHaveBeenCalledTimes(1)
         const listener = visibilityListener
 
         if (listener === undefined) {
@@ -221,15 +231,19 @@ describe('createPaintMonitor', () => {
         }
 
         listener()
-        expect(sendBeacon).not.toHaveBeenCalled()
+
+        expect(sendBeacon).toHaveBeenCalledTimes(1)
 
         pageLifecycle.visibilityState = 'hidden'
 
         listener()
 
-        expect(sendBeacon).toHaveBeenCalledTimes(1)
+        // 加入刚才由 visibility listener 启动的 flush
+        await monitor.flush()
 
-        expect(sendBeacon).toHaveBeenCalledWith(
+        expect(sendBeacon).toHaveBeenCalledTimes(2)
+
+        expect(sendBeacon).toHaveBeenLastCalledWith(
             ENDPOINT,
             expect.stringContaining(
                 '"type":"web.paint.fcp"',
@@ -415,4 +429,88 @@ describe('createPaintMonitor', () => {
             vi.unstubAllGlobals()
         }
     })
+
+    it('flushes the current paint entries automatically', async () => {
+        const randomUUID = vi.fn()
+            .mockReturnValueOnce(VIEW_ID)
+            .mockReturnValueOnce(EVENT_ID)
+        
+        let observerCallback:
+            | ((entryList: PaintEntryListLike) => void)
+            | undefined
+        const createObserver = vi.fn((callback) => {
+            observerCallback = callback
+            return {
+                observe: vi.fn(),
+                disconnect: vi.fn()
+            }
+        })
+
+        const sendBeacon = vi.fn(
+            (
+                _endpoint: string,
+                _body: string,
+            ): boolean => true,
+        )
+
+        const monitor = createPaintMonitorWithDependencies(
+            {
+                appId: 'demo-web',
+                appVersion: '0.1.0+test',
+                environment: 'test',
+                endpoint: ENDPOINT,
+            },
+            {
+                timeOrigin: 1_000_000,
+                randomUUID,
+                sessionStorage: {
+                    getItem: vi.fn(() => SESSION_ID),
+                    setItem: vi.fn(),
+                },
+                createObserver,
+                sendBeacon,
+            },
+        )
+
+        monitor.start()
+
+        const callback = observerCallback
+
+        if (callback === undefined) {
+            throw new Error(
+                'Observer callback was not registered',
+            )
+        }
+        callback({
+            getEntries: () => [
+                {
+                    name: 'first-contentful-paint',
+                    startTime: 260.4,
+                },
+            ],
+        })
+        await vi.waitFor(() => {
+            expect(sendBeacon).toHaveBeenCalledTimes(1)
+        })
+        
+        const call = sendBeacon.mock.calls[0]
+        if (call === undefined) {
+            throw new Error(
+                'Expected sendBeacon to be called',
+            )
+        }
+        const [, body] = call
+        const request = JSON.parse(body)
+        
+        expect(
+            request.events.map(
+                (event: {
+                    type: string
+                }) => event.type,
+            ),
+        ).toEqual([
+            'web.paint.fcp',
+        ])
+    })
+
 })

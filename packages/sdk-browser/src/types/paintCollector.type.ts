@@ -41,6 +41,7 @@ export interface PaintCollectorOptions {
     timeOrigin: number // 告诉采集器 “页面从什么时候开始”
     createObserver?: CreatePaintObserver // 告诉采集器“怎样监听浏览器 PaintEntry”
     onSample(sample: PaintSample): void // 告诉采集器“采集到结果后交给谁”
+    onEntriesComplete?(): void // 可选回调，当前 entryList 已经全部处理完时触发
 }
 
 export interface PaintCollector {

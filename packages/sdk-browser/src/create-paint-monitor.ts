@@ -154,6 +154,9 @@ export function createPaintMonitorWithDependencies(
 
             reporter.enqueue(event)
         },
+        onEntriesComplete: () => {
+            void reporter.flush()
+        }
     })
 
     const handleVisibilityChange = (): void => {
