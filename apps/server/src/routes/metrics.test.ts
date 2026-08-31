@@ -7,7 +7,7 @@ import {
 } from 'vitest'
 
 import type {
-    PaintMetricsResponse,
+    PaintMetricsData,
 } from '@performance-platform/protocol'
 
 import type {
@@ -39,8 +39,7 @@ const EMPTY_STATS = {
     p90: null,
 }
 
-const METRICS_RESPONSE:
-    PaintMetricsResponse = {
+const METRICS_RESPONSE: PaintMetricsData = {
         range: {
             from:
                 FROM.toISOString(),
@@ -114,9 +113,10 @@ const METRICS_RESPONSE:
 
             expect(response.statusCode).toBe(200)
 
-            expect(response.json()).toEqual(
-                METRICS_RESPONSE,
-            )
+            expect(response.json()).toEqual({
+                ...METRICS_RESPONSE,
+                score: null,
+            })
 
             expect(
                 queryPaintMetrics,
@@ -135,7 +135,7 @@ const METRICS_RESPONSE:
         it('uses an explicit range and interval', async () => {
             const from = '2026-08-29T00:00:00.000Z'
             const to = '2026-08-30T00:00:00.000Z'
-            const metricsResponse: PaintMetricsResponse = {
+            const metricsResponse: PaintMetricsData = {
                 ...METRICS_RESPONSE,
                 range: {
                     from,
@@ -165,9 +165,10 @@ const METRICS_RESPONSE:
 
             expect(response.statusCode).toBe(200)
         
-            expect(response.json()).toEqual(
-                metricsResponse,
-            )
+            expect(response.json()).toEqual({
+                ...metricsResponse,
+                score: null
+            })
         
             expect(
                 queryPaintMetrics,
@@ -384,5 +385,53 @@ const METRICS_RESPONSE:
             expect(response.body).not.toContain(
                 'ECONNREFUSED',
             )
+        })
+        it('includes a calculated paint score', async () => {
+            const {
+                app,
+                queryPaintMetrics,
+            } = createTestApp()
+        
+            queryPaintMetrics.mockResolvedValue({
+                ...METRICS_RESPONSE,
+        
+                summary: {
+                    fp: {
+                        count: 100,
+                        average: 800,
+                        p50: 700,
+                        p75: 1_000,
+                        p90: 1_200,
+                    },
+        
+                    fcp: {
+                        count: 100,
+                        average: 1_500,
+                        p50: 1_400,
+                        p75: 1_800,
+                        p90: 2_100,
+                    },
+                },
+            })
+        
+            const response = await app.inject({
+                method: 'GET',
+                url: '/api/v1/metrics/paint',
+            })
+        
+            expect(response.statusCode).toBe(200)
+        
+            expect(response.json()).toMatchObject({
+                score: {
+                    value: 90,
+                    status: 'good',
+                    version: 'paint-v1',
+        
+                    components: {
+                        fp: 90,
+                        fcp: 90,
+                    },
+                },
+            })
         })
     })

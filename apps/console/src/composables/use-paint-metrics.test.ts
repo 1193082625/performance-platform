@@ -45,6 +45,8 @@ const METRICS_RESPONSE: PaintMetricsResponse = {
     },
 
     series: [],
+
+    score: null
 }
 
 function createDeferred<T>() {

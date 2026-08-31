@@ -164,7 +164,7 @@ export interface PaintSeriesPoint {
 }
 
 // 指标查询接口的完整成功响应
-export interface PaintMetricsResponse {
+export interface PaintMetricsData {
     // 服务端最终采用的标准化查询范围 [from, to)
     range: {
         from: string
@@ -180,4 +180,23 @@ export interface PaintMetricsResponse {
 
     // 按 interval 分桶后的趋势数据
     series: PaintSeriesPoint[]
+}
+
+export type PaintScoreStatus = 
+    | 'good'
+    | 'needs-improvement'
+    | 'poor'
+
+export interface PaintScore {
+    value: number
+    status: PaintScoreStatus
+    version: 'paint-v1',
+    components: {
+        fp: number
+        fcp: number
+    }
+}
+
+export interface PaintMetricsResponse extends PaintMetricsData {
+    score: PaintScore | null
 }

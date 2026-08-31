@@ -1,5 +1,6 @@
-import type { PaintMetricsResponse } from "@performance-platform/protocol"
+import type { PaintMetricsData, PaintMetricsResponse } from "@performance-platform/protocol"
 import type { EventRepository } from "../repositories/event-repository.js"
+import { calculatePaintScore } from './paint-score.js'
 
 const DEFAULT_RANGE_MS = 24 * 60 * 60 * 1_000
 
@@ -120,7 +121,7 @@ export function createPaintMetricsService(
                     ? params.interval
                     : 'hour'
 
-            let value: PaintMetricsResponse
+            let value: PaintMetricsData
 
             try {
                 value = await options.repository.queryPaintMetrics({
@@ -137,9 +138,13 @@ export function createPaintMetricsService(
                 }
             }
 
+            const response: PaintMetricsResponse = {
+                ...value,
+                score: calculatePaintScore(value.summary)
+            }
             return {
                 ok: true,
-                value,
+                value: response,
             }
         }
     }

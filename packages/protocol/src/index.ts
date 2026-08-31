@@ -17,6 +17,9 @@ export type {
     PaintStats,
     ValidatedPaintBatch,
     ValidationResult,
+    PaintMetricsData,
+    PaintScore,
+    PaintScoreStatus,
 } from './types.js'
 
 export {

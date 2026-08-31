@@ -33,6 +33,8 @@ const METRICS_RESPONSE = {
     },
 
     series: [],
+    
+    score: null,
 } satisfies PaintMetricsResponse
 
 describe('createPaintMetricsApi', () => {
