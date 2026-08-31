@@ -26,6 +26,12 @@ The center instrument and both side panels were checked separately in the browse
 3. Earlier finding: sample rows were clipped by the angled side-panel masks.
    Fix: tightened statistic spacing and separated accessible Chinese sample text from the visible numeric row.
    Post-fix evidence: both Samples rows are fully visible and remain covered by tests.
+4. Refinement finding: metric rows lacked the reference icons and trend labels used absolute timestamps.
+   Fix: added offline Tabler/Iconify metric icons, four center-ring callouts, relative `H AGO / NOW` labels, and simplified vertical chart ticks.
+   Post-fix evidence: ten metric icons render locally, both charts expose `NOW`, and the browser console remains clean.
+5. Refinement finding: the full-screen frame, title guide rails, callout connectors, panel inner strokes, and chart grid details were weaker than the source.
+   Fix: added two full-screen frame layers, horizontal header rails, luminous callout lines and endpoints, inset panel strokes, a center trend divider, framed metric icons, chart grid/area styling, and a reinforced bottom selector console.
+   Post-fix evidence: all frame layers remain inside 1280 × 720, the 24h control is usable, and no decoration obscures live values.
 
 ## Required fidelity surfaces
 
@@ -38,7 +44,6 @@ The center instrument and both side panels were checked separately in the browse
 ## Follow-up polish
 
 - P3: a dedicated condensed sci-fi display font would bring headings closer to the source.
-- P3: small metric-row icons and decorative connector callouts are omitted.
 - P3: trend shapes depend on live seeded data, so their slopes do not exactly match the static reference values.
 
 ## Verification
@@ -46,7 +51,7 @@ The center instrument and both side panels were checked separately in the browse
 - Primary range control remains interactive.
 - API-backed FP/FCP values and trend series render.
 - Browser console: no warnings or errors.
-- Vitest: 8 files, 33 tests passed.
+- Vitest: 8 files, 34 tests passed.
 - Production build: passed; existing ECharts chunk-size warning remains.
 
 final result: passed

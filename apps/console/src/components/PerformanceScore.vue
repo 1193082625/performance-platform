@@ -7,6 +7,19 @@
             REAL-TIME PAINT · 综合性能评分
         </p>
 
+        <span class="performance-score__callout performance-score__callout--start">
+            VISUAL<br>START
+        </span>
+        <span class="performance-score__callout performance-score__callout--render">
+            CONTENTFUL<br>RENDER
+        </span>
+        <span class="performance-score__callout performance-score__callout--speed">
+            PERCEIVED<br>SPEED
+        </span>
+        <span class="performance-score__callout performance-score__callout--experience">
+            USER<br>EXPERIENCE
+        </span>
+
         <div class="performance-score__metrics">
             <div>
                 <span>FP</span>

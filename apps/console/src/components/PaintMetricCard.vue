@@ -3,7 +3,10 @@
         <h2>{{ metric }}</h2>
 
         <div class="paint-metric-card__average">
-            <span>Average</span>
+            <span class="paint-metric-card__label">
+                <Icon :icon="activityIcon" aria-hidden="true" />
+                Average
+            </span>
             <strong data-testid="metric-average">
                 {{ formatMilliseconds(stats.average) }}
             </strong>
@@ -16,19 +19,29 @@
         </p>
         <dl class="paint-metric-card__stats">
             <div>
-                <dt>P50{{ ' ' }}</dt>
+                <dt>
+                    <Icon :icon="chartLineIcon" aria-hidden="true" />
+                    P50{{ ' ' }}
+                </dt>
                 <dd>{{ formatMilliseconds(stats.p50) }}</dd>
             </div>
             <div>
-                <dt>P75{{ ' ' }}</dt>
+                <dt>
+                    <Icon :icon="chartDotsIcon" aria-hidden="true" />
+                    P75{{ ' ' }}
+                </dt>
                 <dd>{{ formatMilliseconds(stats.p75) }}</dd>
             </div>
             <div>
-                <dt>P90{{ ' ' }}</dt>
+                <dt>
+                    <Icon :icon="histogramIcon" aria-hidden="true" />
+                    P90{{ ' ' }}
+                </dt>
                 <dd>{{ formatMilliseconds(stats.p90) }}</dd>
             </div>
             <div>
                 <dt>
+                    <Icon :icon="databaseIcon" aria-hidden="true" />
                     Samples
                     <span class="sr-only">样本数{{ ' ' }}</span>
                 </dt>
@@ -40,6 +53,12 @@
 
 <script setup lang="ts">
 import type { PaintStats } from '@performance-platform/protocol';
+import { Icon } from '@iconify/vue'
+import activityIcon from '@iconify-icons/tabler/activity'
+import chartDotsIcon from '@iconify-icons/tabler/chart-dots-2'
+import chartLineIcon from '@iconify-icons/tabler/chart-line'
+import databaseIcon from '@iconify-icons/tabler/database'
+import histogramIcon from '@iconify-icons/tabler/chart-histogram'
 
 defineProps<{
     metric: 'FP' | 'FCP'

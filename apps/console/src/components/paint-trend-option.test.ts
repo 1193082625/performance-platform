@@ -8,6 +8,7 @@ import {
 import {
     buildPaintTrendOption,
     formatPaintTrendTime,
+    formatRelativePaintTrendTime,
 } from './paint-trend-option.js'
 
 const SERIES: PaintSeriesPoint[] = [
@@ -65,7 +66,7 @@ describe('buildPaintTrendOption', () => {
                 ],
             
                 axisLabel: {
-                    formatter: formatPaintTrendTime,
+                    formatter: expect.any(Function),
                     color: '#8da4c8',
                 },
                 
@@ -182,5 +183,23 @@ describe('buildPaintTrendOption', () => {
                 '2026-08-31T10:00:00.000Z',
             ),
         ).toBe('08-31 18:00')
+    })
+
+    it('formats trend timestamps relative to the latest point', () => {
+        const endTime = '2026-08-31T10:00:00.000Z'
+
+        expect(
+            formatRelativePaintTrendTime(
+                '2026-08-30T10:00:00.000Z',
+                endTime,
+            ),
+        ).toBe('1D AGO')
+
+        expect(
+            formatRelativePaintTrendTime(
+                endTime,
+                endTime,
+            ),
+        ).toBe('NOW')
     })
 })
