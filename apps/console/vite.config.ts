@@ -17,6 +17,12 @@ export default defineConfig({
   server: {
     port: 5173,
     strictPort: true, // 表示端口被占用时直接失败
+    proxy: {
+      '/api': {
+        target: "http://localhost:5001",
+        changeOrigin: true,
+      }
+    }
   },
   preview: {
     port: 4173,
