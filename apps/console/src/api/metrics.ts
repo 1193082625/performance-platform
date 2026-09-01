@@ -24,21 +24,21 @@ export function createPaintMetricsApi(
                 options.baseUrl,
             )
 
-            if(params.from !== undefined) {
+            if (params.from !== undefined) {
                 url.searchParams.set(
                     'from',
                     params.from
                 )
             }
 
-            if(params.to !== undefined) {
+            if (params.to !== undefined) {
                 url.searchParams.set(
                     'to',
                     params.to
                 )
             }
 
-            if(params.interval !== undefined) {
+            if (params.interval !== undefined) {
                 url.searchParams.set(
                     'interval',
                     params.interval

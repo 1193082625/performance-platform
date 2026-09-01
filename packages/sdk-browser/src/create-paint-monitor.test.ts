@@ -355,7 +355,7 @@ describe('createPaintMonitor', () => {
             )
 
             const callback = observerCallback
-            if(callback === undefined) {
+            if (callback === undefined) {
                 throw new Error(
                     'Observer callback was not registered'
                 )
@@ -471,7 +471,6 @@ describe('createPaintMonitor', () => {
                 sendBeacon,
             },
         )
-
         monitor.start()
 
         const callback = observerCallback
@@ -492,7 +491,6 @@ describe('createPaintMonitor', () => {
         await vi.waitFor(() => {
             expect(sendBeacon).toHaveBeenCalledTimes(1)
         })
-        
         const call = sendBeacon.mock.calls[0]
         if (call === undefined) {
             throw new Error(
@@ -501,7 +499,6 @@ describe('createPaintMonitor', () => {
         }
         const [, body] = call
         const request = JSON.parse(body)
-        
         expect(
             request.events.map(
                 (event: {

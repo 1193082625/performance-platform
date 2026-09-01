@@ -3,6 +3,23 @@ import typescriptLogo from './assets/typescript.svg'
 import viteLogo from './assets/vite.svg'
 import heroImg from './assets/hero.png'
 import { setupCounter } from './counter.ts'
+import { createPaintMonitor } from '@performance-platform/browser'
+import { resolveMonitorConfig } from './monitor-config.ts'
+
+
+const paintMonitor = createPaintMonitor(
+  resolveMonitorConfig({
+      VITE_MONITOR_ENDPOINT:
+          import.meta.env.VITE_MONITOR_ENDPOINT,
+      VITE_APP_ID:
+          import.meta.env.VITE_APP_ID,
+      VITE_APP_VERSION:
+          import.meta.env.VITE_APP_VERSION,
+      VITE_APP_ENVIRONMENT:
+          import.meta.env.VITE_APP_ENVIRONMENT,
+  }),
+)
+paintMonitor.start()
 
 document.querySelector<HTMLDivElement>('#app')!.innerHTML = `
 <section id="center">

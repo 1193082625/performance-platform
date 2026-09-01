@@ -25,7 +25,7 @@ export async function registerMetricsRoutes(
         '/api/v1/metrics/paint',
         async (request, reply) => {
             const result = await options.metricsService.query(request.query)
-            if(!result.ok) {
+            if (!result.ok) {
                 if ('cause' in result) {
                     request.log.error(
                         {

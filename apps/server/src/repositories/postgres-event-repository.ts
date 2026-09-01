@@ -226,7 +226,7 @@ export function createPostgresEventRepository(pool: Pool): EventRepository {
             
             const row = result.rows[0]
 
-            if(row === undefined) {
+            if (row === undefined) {
                 throw new Error(
                     'Statistics query returned no row',
                 )

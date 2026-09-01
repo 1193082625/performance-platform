@@ -15,10 +15,12 @@
     "build": "pnpm -r build",
     "typecheck": "pnpm -r typecheck",
     "test": "vitest run --passWithNoTests",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "test:e2e": "playwright test"
   },
   "author": "echo",
   "devDependencies": {
+    "@playwright/test": "^1.62.1",
     "vitest": "^4.1.11"
   }
 }

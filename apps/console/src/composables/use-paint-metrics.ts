@@ -81,7 +81,7 @@ export function usePaintMetrics(
             }
             data.value = response
         } catch(cause) {
-            if(requestId !== latestRequestId) return
+            if (requestId !== latestRequestId) return
 
             error.value = 'Unable to load performance metrics'
         } finally {

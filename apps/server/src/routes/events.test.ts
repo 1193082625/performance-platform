@@ -457,4 +457,65 @@ describe('POST /api/v1/events/batch', () => {
         ])
     })
 
+    it('accepts a Beacon JSON batch sent as text/plain', async () => {
+        const {
+            app,
+            insertBatch,
+        } = createTestApp()
+
+        const response = await app.inject({
+            method: 'POST',
+            url: '/api/v1/events/batch',
+
+            headers: {
+                'content-type':
+                    'text/plain;charset=UTF-8',
+            },
+
+            payload: JSON.stringify({
+                events: [
+                    EVENT,
+                ],
+            }),
+        })
+
+        expect(response.statusCode).toBe(200)
+
+        expect(response.json()).toEqual({
+            accepted: 1,
+            discarded: 0,
+            reasons: {},
+        })
+
+        expect(insertBatch).toHaveBeenCalledOnce()
+        expect(insertBatch).toHaveBeenCalledWith([
+            EVENT,
+        ])
+    })
+
+    it('rejects malformed Beacon JSON with a stable error response', async () => {
+        const {
+            app,
+            insertBatch,
+        } = createTestApp()
+        const response = await app.inject({
+            method: 'POST',
+            url: '/api/v1/events/batch',
+            headers: {
+                'content-type':
+                    'text/plain;charset=UTF-8',
+            },
+            payload: '{"events":',
+        })
+        expect(response.statusCode).toBe(400)
+        expect(response.json()).toEqual({
+            error: {
+                code: 'INVALID_JSON',
+                message:
+                    'request body must contain valid JSON',
+                requestId: expect.any(String),
+            },
+        })
+        expect(insertBatch).not.toHaveBeenCalled()
+    })
 })

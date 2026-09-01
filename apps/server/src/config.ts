@@ -30,7 +30,7 @@ export function loadConfig(
 
     const port = Number(env.PORT ?? '5000')
     // TCP/UDP 端口是 16 位无符号数，合法范围是 0–65535；其中 0 通常表示让操作系统随机分配端口，不适合作为这里的明确服务配置，所以要求 1–65535
-    if(
+    if (
         !Number.isInteger(port)
         || port < 1
         || port > 65_535
@@ -41,12 +41,12 @@ export function loadConfig(
     }
 
     const databaseUrl = env.DATABASE_URL?.trim() ?? ''
-    if(databaseUrl.length === 0) {
+    if (databaseUrl.length === 0) {
         throw new Error('DATABASE_URL is required')
     }
 
     const appId = env.APP_ID?.trim() ?? ''
-    if(appId.length === 0) {
+    if (appId.length === 0) {
         throw new Error('APP_ID is required')
     }
 

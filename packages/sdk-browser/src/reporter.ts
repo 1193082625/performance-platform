@@ -65,7 +65,7 @@ export function createReporter(
     }
 
     const flushFetch = async (batchQueue: PaintEventV1[]): Promise<boolean> => {
-        if(!options.fetch) return false
+        if (!options.fetch) return false
 
         try {
             const fetchResult = await options.fetch(
@@ -100,7 +100,7 @@ export function createReporter(
             events: batch
         })
 
-        if(options.sendBeacon) {
+        if (options.sendBeacon) {
             try {
                 const accepted = options.sendBeacon(
                     endpoint,
@@ -126,7 +126,7 @@ export function createReporter(
     }
 
     const flush = (): Promise<void> => {
-        if(activeFlush !== undefined) return activeFlush
+        if (activeFlush !== undefined) return activeFlush
         if (!eventQueue.length) return Promise.resolve()
 
         activeFlush = performFlush().finally(() => {

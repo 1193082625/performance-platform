@@ -30,7 +30,7 @@ export function createPaintCollector(
         entryList: PaintEntryListLike,
     ): void => {
         // 如果采集器已经销毁，则立即返回，不处理 entries
-        if(destroyed) return
+        if (destroyed) return
 
         // 实现 FP/FCP 条目转换
         let entries: readonly PaintEntryLike[]
@@ -42,7 +42,7 @@ export function createPaintCollector(
         
         for (const entry of entries) {
             // 先检查 startTime
-            if(!Number.isFinite(entry.startTime) || entry.startTime < 0) {
+            if (!Number.isFinite(entry.startTime) || entry.startTime < 0) {
                 continue
             }
 

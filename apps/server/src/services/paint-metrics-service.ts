@@ -88,7 +88,7 @@ export function createPaintMetricsService(
                 }
             }
 
-            if(from.getTime() >= to.getTime()) {
+            if (from.getTime() >= to.getTime()) {
                 return {
                     ok: false,
                     code: 'INVALID_TIME_RANGE'

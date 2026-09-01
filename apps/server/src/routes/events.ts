@@ -20,6 +20,37 @@ function batchErrorMessage(
     }
 }
 
+type ParseEventBatchBodyResult =
+    | {
+        ok: true
+        value: unknown
+    }
+    | {
+        ok: false
+    }
+
+function parseEventBatchBody(
+    input: unknown,
+): ParseEventBatchBodyResult {
+    if (typeof input !== 'string') {
+        return {
+            ok: true,
+            value: input,
+        }
+    }
+
+    try {
+        return {
+            ok: true,
+            value: JSON.parse(input)
+        }
+    } catch {
+        return {
+            ok: false
+        }
+    }
+}
+
 export async function registerEventRoutes(
     app: FastifyInstance,
     options: EventRoutesOptions,
@@ -27,9 +58,26 @@ export async function registerEventRoutes(
     app.post(
         '/api/v1/events/batch',
         async (request, reply) => {
-            const result = await options.ingestionService.ingest(request.body)
+            const parsedBody = parseEventBatchBody(
+                request.body
+            )
 
-            if(!result.ok) {
+            if (!parsedBody.ok) {
+                return reply.status(400).send(
+                    createApiErrorResponse(
+                        'INVALID_JSON',
+                        'request body must contain valid JSON',
+                        request.id,
+                    ),
+                )
+            }
+
+            const result =
+                await options.ingestionService.ingest(
+                    parsedBody.value,
+                )
+
+            if (!result.ok) {
                 // 'cause' in result 是一个类型守卫
                 if ('cause' in result) {
                     request.log.error(

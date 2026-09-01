@@ -171,7 +171,7 @@ export function createPaintMonitorWithDependencies(
     }
 
     const start = (): void => {
-        if(destroyed) return
+        if (destroyed) return
 
         collector.start()
 
@@ -188,13 +188,13 @@ export function createPaintMonitorWithDependencies(
     }
 
     const destroy = (): void => {
-        if(destroyed) return
+        if (destroyed) return
 
         destroyed = true
 
         collector.destroy()
 
-        if(visibilityListenerInstalled && dependencies.pageLifecycle !== undefined) {
+        if (visibilityListenerInstalled && dependencies.pageLifecycle !== undefined) {
             visibilityListenerInstalled = false
             
             try {

@@ -67,7 +67,7 @@ export function validatePaintEvent(
         return invalid('unsupported_schema_version')
     }
 
-    if(input.schemaVersion !== '1.0') {
+    if (input.schemaVersion !== '1.0') {
         return invalid('unsupported_schema_version')
     }
 
@@ -79,7 +79,7 @@ export function validatePaintEvent(
         return invalid('unsupported_event_type')
     }
 
-    if(
+    if (
         typeof input.timestamp !== 'number'
         || !Number.isFinite(input.timestamp) // .isFinite 排除 NaN、Infinity、-Infinity
         || !Number.isInteger(input.timestamp)
@@ -89,11 +89,11 @@ export function validatePaintEvent(
         return invalid('invalid_timestamp')
     }
 
-    if(!isRecord(input.application)) {
+    if (!isRecord(input.application)) {
         return invalid('invalid_app_id')
     }
 
-    if(
+    if (
         !isBoundedString(input.application.id, 64)
         || input.application.id !== context.expectedAppId
     ) {

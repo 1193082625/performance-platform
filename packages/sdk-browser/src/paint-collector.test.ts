@@ -136,7 +136,7 @@ describe('createPaintCollector', () => {
 
         collector.start()
 
-        if(observerCallback === undefined) {
+        if (observerCallback === undefined) {
             throw new Error('Observer callback was not registered')
         }
 
@@ -350,7 +350,7 @@ describe('createPaintCollector', () => {
         collector.start()
         collector.destroy()
 
-        if(observerCallback === undefined) {
+        if (observerCallback === undefined) {
             throw new Error('Observer callback was not registered')
         }
 
@@ -400,7 +400,7 @@ describe('createPaintCollector', () => {
 
         const callback = observerCallback
 
-        if(callback === undefined) {
+        if (callback === undefined) {
             throw new Error('Observer callback was not registered')
         }
 
@@ -579,7 +579,7 @@ describe('createPaintCollector', () => {
         collector.start()
 
         const callback = observerCallback
-        if(callback === undefined) {
+        if (callback === undefined) {
             throw new Error('Observer callback was not registered')
         }
 
@@ -596,7 +596,6 @@ describe('createPaintCollector', () => {
                 },
             ],
         })
-        
         expect(callOrder).toEqual([
             'web.paint.fp',
             'web.paint.fcp',

@@ -96,7 +96,7 @@ export type BatchErrorCode =
 // 所有API错误的稳定、机器可读标识
 export type ApiErrorCode = 
     | BatchErrorCode
-    | 'INVALID_JSON' 
+    | 'INVALID_JSON'
     | 'PAYLOAD_TOO_LARGE'
     | 'UNSUPPORTED_MEDIA_TYPE'
     | 'INVALID_DATE' // 日期无法解析
