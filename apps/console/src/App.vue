@@ -4,13 +4,13 @@
       <h1>PAINT PERFORMANCE</h1>
 
       <div class="dashboard-status">
-          <span class="dashboard-status__live">
+          <h3 class="dashboard-status__live">
               LIVE
-          </span>
+          </h3>
 
-          <span>
+          <h3>
               {{ selectedWindow }}
-          </span>
+          </h3>
 
           <span class="dashboard-status__samples">
               <small>TOTAL SAMPLES</small>
@@ -23,8 +23,8 @@
   </header>
 
     <MetricsRangeSelector :range="selectedRange" @select="handleSelectedRange" />
-    <div v-if="loading">正在加载性能数据</div>
-    <div v-else-if="error">性能数据加载失败</div>
+    <div v-if="loading" class="dashboard-state">正在加载性能数据</div>
+    <div v-else-if="error" class="dashboard-state">性能数据加载失败</div>
     <template v-else>
         <PerformanceScore
             :score="data?.score ?? null"

@@ -5,6 +5,7 @@
             v-for="btn in buttons"
             :key="btn"
             type="button"
+            :class="`btn-group__button--${btn}`"
             :aria-pressed="btn === props.range"
             @click="emit('select', btn)"
         >{{btn}}</button>

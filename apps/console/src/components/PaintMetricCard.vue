@@ -1,5 +1,6 @@
 <template>
     <article class="paint-metric-card">
+        <div class="paint-metric-card__content">
         <h2>{{ metric }}</h2>
 
         <div class="paint-metric-card__average">
@@ -48,6 +49,7 @@
                 <dd>{{ stats.count.toLocaleString() }}</dd>
             </div>
         </dl>
+        </div>
     </article>
 </template>
 
@@ -68,6 +70,6 @@ defineProps<{
 function formatMilliseconds(value: number | null): string {
     if (value === null) return '—'
 
-    return `${Math.round(value)} ms`
+    return `${Math.round(value).toLocaleString()} ms`
 }
 </script>
