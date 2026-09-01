@@ -11,6 +11,7 @@
 
         <VChart
             v-else
+            data-testid="paint-trend-chart"
             class="paint-trend-chart__canvas"
             :option="option"
             autoresize

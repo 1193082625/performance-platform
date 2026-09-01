@@ -45,6 +45,11 @@ test(
         page,
         request
     }) => {
+        const pageErrors: string[] = []
+        page.on('pageerror', (error) => {
+            pageErrors.push(error.message)
+        })
+
         const before = await queryPaintCounts(request)
         // 意思是告诉 Playwright 从现在开始监听页面网络请求。如果发现目标 POST 请求，就记录下来
         const beaconResponsePromise = page.waitForResponse((response) => {
@@ -116,5 +121,20 @@ test(
         await expect(
             page.getByText('性能数据加载失败'),
         ).toHaveCount(0)
+
+        const trendCharts =
+            page.getByTestId('paint-trend-chart')
+
+        await expect(trendCharts).toHaveCount(2)
+
+        await expect(
+            trendCharts.nth(0).locator('svg'),
+        ).toBeVisible()
+
+        await expect(
+            trendCharts.nth(1).locator('svg'),
+        ).toBeVisible()
+
+        expect(pageErrors).toEqual([])
     }
 )

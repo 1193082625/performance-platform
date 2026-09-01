@@ -119,6 +119,7 @@ v0.1 已实现：
 - [总体架构](docs/总体架构.md)
 - [性能指标与数据口径](docs/性能指标与数据口径.md)
 - [FP/FCP MVP 0.1 技术方案](docs/FP-FCP%20MVP%200.1%20技术方案.md)
+- [Browser SDK 接入指南](docs/getting-started/mvp-sdk-integration.md)
 - [本地部署与运行](docs/operations/mvp-deployment.md)
 
 ## License
