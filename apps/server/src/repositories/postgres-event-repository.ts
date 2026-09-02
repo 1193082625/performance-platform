@@ -80,11 +80,22 @@ export function createPostgresEventRepository(pool: Pool): EventRepository {
                 await client.query('BEGIN')
                 
                 for(const event of events) {
+
+                    const sampleRate =
+                        event.schemaVersion === '2.0'
+                        ? event.sampleRate
+                        : 1
+
+                    const metricVersion =
+                        event.schemaVersion === '2.0'
+                        ? event.metricVersion
+                        : 'paint-v1'
+
                     // 使用占位符存储，这样可以防止 SQL 注入
                     // ON CONFLICT (event_id) DO NOTHING 表示 重复 event_id 不报错、不插入第二行，实现幂等性
                     await client.query(
                         `
-                            INSERT INTO paint_events (
+                            INSERT INTO metric_events (
                                 event_id,
                                 schema_version,
                                 app_id,
@@ -97,7 +108,10 @@ export function createPostgresEventRepository(pool: Pool): EventRepository {
                                 view_id,
                                 sdk_name,
                                 sdk_version,
-                                value_ms
+                                metric_value,
+                                metric_unit,
+                                sample_rate,
+                                metric_version
                             )
                             VALUES (
                                 $1,
@@ -112,7 +126,10 @@ export function createPostgresEventRepository(pool: Pool): EventRepository {
                                 $10,
                                 $11,
                                 $12,
-                                $13
+                                $13,
+                                $14,
+                                $15,
+                                $16
                             )
                             ON CONFLICT (event_id)
                             DO NOTHING
@@ -131,6 +148,9 @@ export function createPostgresEventRepository(pool: Pool): EventRepository {
                             event.runtime.sdk.name,
                             event.runtime.sdk.version,
                             event.payload.value,
+                            event.payload.unit,
+                            sampleRate,
+                            metricVersion,
                         ],
                     )
                 }
@@ -166,24 +186,24 @@ export function createPostgresEventRepository(pool: Pool): EventRepository {
                         WHERE event_type = 'web.paint.fp'
                     ) AS fp_count,
 
-                    avg(value_ms) FILTER (
+                    avg(metric_value) FILTER (
                         WHERE event_type = 'web.paint.fp'
                     ) AS fp_average,
 
                     percentile_cont(0.50)
-                        WITHIN GROUP (ORDER BY value_ms)
+                        WITHIN GROUP (ORDER BY metric_value)
                         FILTER (
                             WHERE event_type = 'web.paint.fp'
                         ) AS fp_p50,
                     
                     percentile_cont(0.75)
-                        WITHIN GROUP (ORDER BY value_ms)
+                        WITHIN GROUP (ORDER BY metric_value)
                         FILTER (
                             WHERE event_type = 'web.paint.fp'
                         ) AS fp_p75,
                     
                     percentile_cont(0.90)
-                        WITHIN GROUP (ORDER BY value_ms)
+                        WITHIN GROUP (ORDER BY metric_value)
                         FILTER (
                             WHERE event_type = 'web.paint.fp'
                         ) AS fp_p90,
@@ -192,28 +212,28 @@ export function createPostgresEventRepository(pool: Pool): EventRepository {
                         WHERE event_type = 'web.paint.fcp'
                     ) AS fcp_count,
 
-                    avg(value_ms) FILTER (
+                    avg(metric_value) FILTER (
                         WHERE event_type = 'web.paint.fcp'
                     ) AS fcp_average,
 
                     percentile_cont(0.50)
-                        WITHIN GROUP (ORDER BY value_ms)
+                        WITHIN GROUP (ORDER BY metric_value)
                         FILTER (
                             WHERE event_type = 'web.paint.fcp'
                         ) AS fcp_p50,
 
                     percentile_cont(0.75)
-                        WITHIN GROUP (ORDER BY value_ms)
+                        WITHIN GROUP (ORDER BY metric_value)
                         FILTER (
                             WHERE event_type = 'web.paint.fcp'
                         ) AS fcp_p75,
 
                     percentile_cont(0.90)
-                        WITHIN GROUP (ORDER BY value_ms)
+                        WITHIN GROUP (ORDER BY metric_value)
                         FILTER (
                             WHERE event_type = 'web.paint.fcp'
                         ) AS fcp_p90
-                FROM paint_events
+                FROM metric_events
                 WHERE app_id = $1
                     AND event_time >= $2
                     AND event_time < $3`,
@@ -264,24 +284,24 @@ export function createPostgresEventRepository(pool: Pool): EventRepository {
                         WHERE event_type = 'web.paint.fp'
                     ) AS fp_count,
 
-                    avg(value_ms) FILTER (
+                    avg(metric_value) FILTER (
                         WHERE event_type = 'web.paint.fp'
                     ) AS fp_average,
 
                     percentile_cont(0.50)
-                        WITHIN GROUP (ORDER BY value_ms)
+                        WITHIN GROUP (ORDER BY metric_value)
                         FILTER (
                             WHERE event_type = 'web.paint.fp'
                         ) AS fp_p50,
 
                     percentile_cont(0.75)
-                        WITHIN GROUP (ORDER BY value_ms)
+                        WITHIN GROUP (ORDER BY metric_value)
                         FILTER (
                             WHERE event_type = 'web.paint.fp'
                         ) AS fp_p75,
 
                     percentile_cont(0.90)
-                        WITHIN GROUP (ORDER BY value_ms)
+                        WITHIN GROUP (ORDER BY metric_value)
                         FILTER (
                             WHERE event_type = 'web.paint.fp'
                         ) AS fp_p90,
@@ -290,29 +310,29 @@ export function createPostgresEventRepository(pool: Pool): EventRepository {
                         WHERE event_type = 'web.paint.fcp'
                     ) AS fcp_count,
 
-                    avg(value_ms) FILTER (
+                    avg(metric_value) FILTER (
                         WHERE event_type = 'web.paint.fcp'
                     ) AS fcp_average,
 
                     percentile_cont(0.50)
-                        WITHIN GROUP (ORDER BY value_ms)
+                        WITHIN GROUP (ORDER BY metric_value)
                         FILTER (
                             WHERE event_type = 'web.paint.fcp'
                         ) AS fcp_p50,
 
                     percentile_cont(0.75)
-                        WITHIN GROUP (ORDER BY value_ms)
+                        WITHIN GROUP (ORDER BY metric_value)
                         FILTER (
                             WHERE event_type = 'web.paint.fcp'
                         ) AS fcp_p75,
 
                     percentile_cont(0.90)
-                        WITHIN GROUP (ORDER BY value_ms)
+                        WITHIN GROUP (ORDER BY metric_value)
                         FILTER (
                             WHERE event_type = 'web.paint.fcp'
                         ) AS fcp_p90
 
-                FROM paint_events
+                FROM metric_events
 
                 WHERE app_id = $1
                     AND event_time >= $2

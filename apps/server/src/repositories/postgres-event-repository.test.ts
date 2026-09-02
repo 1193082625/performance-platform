@@ -7,7 +7,8 @@ import {
 } from 'vitest'
 
 import type {
-    PaintEventV1
+    PaintEventV1,
+    MetricEventV2,
 } from '@performance-platform/protocol'
 
 import {
@@ -79,7 +80,7 @@ describe('PostgresEventRepository', () => {
         // TRUNCATE 会在每个测试前清空表，确保测试互不影响
         // RESTART IDENTITY 会把自增id重置
         await pool.query(
-            'TRUNCATE TABLE paint_events RESTART IDENTITY',
+            'TRUNCATE TABLE metric_events RESTART IDENTITY',
         )
     })
 
@@ -98,7 +99,10 @@ describe('PostgresEventRepository', () => {
             app_id: string
             event_type: string
             event_time: Date
-            value_ms: number
+            metric_value: number
+            metric_unit: string
+            sample_rate: number
+            metric_version: string
         }>(`
             SELECT
                 event_id,
@@ -106,8 +110,11 @@ describe('PostgresEventRepository', () => {
                 app_id,
                 event_type,
                 event_time,
-                value_ms
-            FROM paint_events
+                metric_value,
+                metric_unit,
+                sample_rate,
+                metric_version
+            FROM metric_events
         `)
 
         expect(result.rows).toEqual([
@@ -120,7 +127,10 @@ describe('PostgresEventRepository', () => {
                 event_time: new Date(
                     EVENT.timestamp,
                 ),
-                value_ms: EVENT.payload.value,
+                metric_value: EVENT.payload.value,
+                metric_unit: EVENT.payload.unit,
+                sample_rate: 1,
+                metric_version: 'paint-v1',
             }
         ])
     })
@@ -136,7 +146,7 @@ describe('PostgresEventRepository', () => {
             count: string
         }>(`
             SELECT count(*) AS count
-            FROM paint_events
+            FROM metric_events
             WHERE event_id = $1
         `, [
             EVENT.eventId
@@ -174,21 +184,21 @@ describe('PostgresEventRepository', () => {
         ])
         const result = await pool.query<{
             event_type: string
-            value_ms: number
+            metric_value: number
         }>(`
-            SELECT event_type, value_ms
-            FROM paint_events
+            SELECT event_type, metric_value
+            FROM metric_events
             ORDER BY event_type    
         `)
 
         expect(result.rows).toEqual([
             {
                 event_type: 'web.paint.fcp',
-                value_ms: 260.4,
+                metric_value: 260.4,
             },
             {
                 event_type: 'web.paint.fp',
-                value_ms: 120.5,
+                metric_value: 120.5,
             },
         ])
     })
@@ -257,7 +267,7 @@ describe('PostgresEventRepository', () => {
             count: string
         }>(`
             SELECT count(*) AS count
-            FROM paint_events
+            FROM metric_events
         `)
     
         expect(result.rows).toEqual([
@@ -369,5 +379,79 @@ describe('PostgresEventRepository', () => {
             p75: 325,
             p90: 370,
         })
+    })
+
+    it('stores V2 sampling and metric version', async () => {
+        const event: MetricEventV2 = {
+            schemaVersion: '2.0',
+
+            eventId:
+                '20000000-0000-4000-8000-000000000001',
+
+            type: 'web.vital.lcp',
+            timestamp: EVENT_TIMESTAMP,
+
+            sampleRate: 0.25,
+            metricVersion: 'lcp-v1',
+
+            application: {
+                ...EVENT.application,
+                version: '0.2.0',
+            },
+
+            runtime: {
+                ...EVENT.runtime,
+                sdk: {
+                    ...EVENT.runtime.sdk,
+                    version: '0.2.0',
+                },
+            },
+
+            session: {
+                ...EVENT.session,
+                viewId: 'view-v2-1',
+            },
+
+            payload: {
+                value: 2300,
+                unit: 'ms',
+            },
+        }
+
+        await repository.insertBatch([
+            event,
+        ])
+
+        const result = await pool.query<{
+            schema_version: string
+            event_type: string
+            metric_value: number
+            metric_unit: string
+            sample_rate: number
+            metric_version: string
+        }>(`
+            SELECT
+                schema_version,
+                event_type,
+                metric_value,
+                metric_unit,
+                sample_rate,
+                metric_version
+            FROM metric_events
+            WHERE event_id = $1
+        `, [
+            event.eventId,
+        ])
+
+        expect(result.rows).toEqual([
+            {
+                schema_version: '2.0',
+                event_type: 'web.vital.lcp',
+                metric_value: 2300,
+                metric_unit: 'ms',
+                sample_rate: 0.25,
+                metric_version: 'lcp-v1',
+            },
+        ])
     })
 })

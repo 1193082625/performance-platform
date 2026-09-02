@@ -8,6 +8,7 @@ import {
 
 import type {
     PaintEventV1,
+    MetricEventV2,
 } from '@performance-platform/protocol'
 
 import type {
@@ -52,7 +53,44 @@ const EVENT: PaintEventV1 = {
     },
 }
 
-describe('POST /api/v1/events/batch', () => {
+const V2_EVENT: MetricEventV2 = {
+    schemaVersion: '2.0',
+
+    eventId:
+        '30000000-0000-4000-8000-000000000010',
+
+    type: 'web.vital.lcp',
+    timestamp: NOW,
+
+    sampleRate: 0.5,
+    metricVersion: 'lcp-v1',
+
+    application: {
+        id: 'demo-web',
+        version: '0.2.0',
+        environment: 'test',
+    },
+
+    runtime: {
+        platform: 'web',
+        sdk: {
+            name: '@performance-platform/browser',
+            version: '0.2.0',
+        },
+    },
+
+    session: {
+        sessionId: 'session-v2-1',
+        viewId: 'view-v2-1',
+    },
+
+    payload: {
+        value: 2300,
+        unit: 'ms',
+    },
+}
+
+describe('event batch routes', () => {
     const apps: Array<{
         close(): Promise<void>
     }> = []
@@ -517,5 +555,97 @@ describe('POST /api/v1/events/batch', () => {
             },
         })
         expect(insertBatch).not.toHaveBeenCalled()
+    })
+
+    it('accepts a valid V2 metric batch', async () => {
+        const {
+            app,
+            insertBatch,
+        } = createTestApp()
+
+        const response = await app.inject({
+            method: 'POST',
+            url: '/api/v2/events/batch',
+
+            payload: {
+                events: [
+                    V2_EVENT,
+                ],
+            },
+        })
+
+        expect(response.statusCode).toBe(200)
+
+        expect(response.json()).toEqual({
+            accepted: 1,
+            discarded: 0,
+            reasons: {},
+        })
+
+        expect(insertBatch).toHaveBeenCalledOnce()
+
+        expect(insertBatch).toHaveBeenCalledWith([
+            V2_EVENT,
+        ])
+    })
+
+    it('does not accept V1 events through the V2 endpoint', async () => {
+        const {
+            app,
+            insertBatch,
+        } = createTestApp()
+
+        const response = await app.inject({
+            method: 'POST',
+            url: '/api/v2/events/batch',
+
+            payload: {
+                events: [
+                    EVENT,
+                ],
+            },
+        })
+
+        expect(response.statusCode).toBe(200)
+
+        expect(response.json()).toEqual({
+            accepted: 0,
+            discarded: 1,
+            reasons: {
+                unsupported_schema_version: 1,
+            },
+        })
+
+        expect(insertBatch).toHaveBeenCalledWith([])
+    })
+
+    it('does not accept V2 events through the V1 endpoint', async () => {
+        const {
+            app,
+            insertBatch,
+        } = createTestApp()
+
+        const response = await app.inject({
+            method: 'POST',
+            url: '/api/v1/events/batch',
+
+            payload: {
+                events: [
+                    V2_EVENT,
+                ],
+            },
+        })
+
+        expect(response.statusCode).toBe(200)
+
+        expect(response.json()).toEqual({
+            accepted: 0,
+            discarded: 1,
+            reasons: {
+                unsupported_schema_version: 1,
+            },
+        })
+
+        expect(insertBatch).toHaveBeenCalledWith([])
     })
 })

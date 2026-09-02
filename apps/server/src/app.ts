@@ -12,6 +12,9 @@ import { createPaintMetricsService } from './services/paint-metrics-service.js'
 import { registerMetricsRoutes } from './routes/metrics.js'
 import { registerHealthRoutes } from './routes/health.js'
 import cors from '@fastify/cors'
+import {
+    createMetricEventIngestionService,
+} from './services/metric-event-ingestion-service.js'
 
 interface BuildAppOptions {
     eventRepository: EventRepository
@@ -71,6 +74,12 @@ export function buildApp(
         now: options.now,
     })
 
+    const metricIngestionService = createMetricEventIngestionService({
+        repository: options.eventRepository,
+        appId: options.appId,
+        now: options.now,
+    })
+
     const metricsService = createPaintMetricsService({
         repository: options.eventRepository,
         appId: options.appId,
@@ -90,6 +99,7 @@ export function buildApp(
         registerEventRoutes,
         {
             ingestionService,
+            metricIngestionService,
         }
     )
 
