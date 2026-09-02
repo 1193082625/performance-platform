@@ -20,9 +20,16 @@ export type {
     PaintMetricsData,
     PaintScore,
     PaintScoreStatus,
+    MetricEventV2,
+    MetricEventValidationContext,
+    BatchRequestV2,
+    MetricBatchValidationResult,
+    ValidatedMetricBatch,
 } from './types.js'
 
 export {
     validatePaintBatch,
     validatePaintEvent,
+    validateMetricEvent,
+    validateMetricBatch,
 } from './validate.js'

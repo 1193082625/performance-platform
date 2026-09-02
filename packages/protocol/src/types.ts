@@ -10,6 +10,64 @@ export type PaintMetric =
     | 'web.paint.fp'
     | 'web.paint.fcp'
 
+type MetricMeasurement =
+    | {
+        type:
+          | 'web.paint.fp'
+          | 'web.paint.fcp'
+          | 'web.vital.lcp'
+          | 'web.vital.inp'
+        payload: {
+          value: number
+          unit: 'ms'
+        }
+      }
+    | {
+        type: 'web.vital.cls'
+        payload: {
+          value: number
+          unit: 'score'
+        }
+      }
+    | {
+        type:
+          | 'web.memory.used_heap'
+          | 'web.memory.total_heap'
+          | 'web.memory.heap_limit'
+        payload: {
+          value: number
+          unit: 'byte'
+        }
+    }
+
+interface MetricEventBaseV2 {
+      schemaVersion: '2.0' // 事件协议版本
+      eventId: string   // 上报事件ID，用于幂等；必须是标准 UUID
+      timestamp: number // 决定当前指标最终值的原始观测发生时间，而不是 HTTP 上报时间
+      sampleRate: number // 事件产生时采用的会话采样率，范围 (0, 1]
+      metricVersion: string // 生成该指标值所采用的计算规则版本（指浏览器原始数据如何变成最终指标值）
+
+      application: {
+          id: string // 被监控应用稳定标识，1–64 字符
+          version: string // 业务发布版本，由构建/发布系统注入
+          environment: Environment // 开发、测试、预发或生产环境
+      }
+
+      runtime: {
+          platform: 'web'
+          sdk: {
+              name: string
+              version: string
+          }
+      }
+
+      session: {
+          sessionId: string // 标签页会话标识，1–128 字符
+          viewId: string // 本次页面加载标识，1–128 字符
+      }
+}
+export type MetricEventV2 = MetricEventBaseV2 & MetricMeasurement
+
 // 上报内容
 export interface PaintEventV1 {
     schemaVersion: '1.0' // 事件协议版本
@@ -58,6 +116,8 @@ export type DiscardReason =
     | 'invalid_sdk'
     | 'invalid_value'
     | 'invalid_unit'
+    | 'invalid_sample_rate'
+    | 'invalid_metric_version'
 
 // 上报内容校验结果
 export type ValidationResult<T> = 
@@ -76,10 +136,36 @@ export interface PaintEventValidationContext {
     now: number
 }
 
+// 定义 V2 校验上下文
+export interface MetricEventValidationContext {
+    expectedAppId: string
+    now: number
+}
+
 // 批量提交
 export interface BatchRequestV1 {
     events: PaintEventV1[]
 }
+
+export interface BatchRequestV2 {
+    events: MetricEventV2[]
+}
+
+export interface ValidatedMetricBatch {
+    acceptedEvents: MetricEventV2[]
+    discarded: number
+    reasons: Partial<Record<DiscardReason, number>>
+}
+
+export type MetricBatchValidationResult =
+    | {
+        ok: true
+        value: ValidatedMetricBatch
+    }
+    | {
+        ok: false
+        code: BatchErrorCode
+    }
 
 // 批量提交结果
 export interface BatchResponse {
