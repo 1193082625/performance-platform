@@ -88,17 +88,85 @@ describe('resolveMonitorConfig', () => {
         expect(
             resolveMonitorConfig({
                 VITE_MONITOR_ENDPOINT:
-                    '  http://localhost:5000/api/v1/events/batch  ',
-                VITE_APP_ID: '  demo-web  ',
-                VITE_APP_VERSION: '  0.1.0+test  ',
-                VITE_APP_ENVIRONMENT: '  production  ',
+                    '  http://localhost:5000/api/v2/events/batch  ',
+
+                VITE_APP_ID:
+                    '  demo-web  ',
+
+                VITE_APP_VERSION:
+                    '  0.2.0+test  ',
+
+                VITE_APP_ENVIRONMENT:
+                    '  production  ',
+
+                VITE_MONITOR_SAMPLE_RATE:
+                    '  0.25  ',
             }),
         ).toEqual({
             endpoint:
-                'http://localhost:5000/api/v1/events/batch',
-            appId: 'demo-web',
-            appVersion: '0.1.0+test',
-            environment: 'production',
+                'http://localhost:5000/api/v2/events/batch',
+
+            appId:
+                'demo-web',
+
+            appVersion:
+                '0.2.0+test',
+
+            environment:
+                'production',
+
+            sampleRate:
+                0.25,
         })
+    })
+
+    it.each([
+        '0',
+        '-0.1',
+        '1.1',
+        'not-a-number',
+        'Infinity',
+    ])(
+        'rejects invalid monitor sample rate %s',
+        (sampleRate) => {
+            expect(() => {
+                resolveMonitorConfig({
+                    VITE_MONITOR_ENDPOINT:
+                        'http://localhost:5000/api/v2/events/batch',
+
+                    VITE_APP_ID:
+                        'demo-web',
+
+                    VITE_APP_VERSION:
+                        '0.2.0+test',
+
+                    VITE_APP_ENVIRONMENT:
+                        'test',
+
+                    VITE_MONITOR_SAMPLE_RATE:
+                        sampleRate,
+                })
+            }).toThrowError(
+                `Invalid monitor sample rate: ${sampleRate}`,
+            )
+        },
+    )
+
+    it('defaults the monitor sample rate to 1', () => {
+        const config = resolveMonitorConfig({
+            VITE_MONITOR_ENDPOINT:
+                'http://localhost:5000/api/v2/events/batch',
+
+            VITE_APP_ID:
+                'demo-web',
+
+            VITE_APP_VERSION:
+                '0.2.0+test',
+
+            VITE_APP_ENVIRONMENT:
+                'test',
+        })
+
+        expect(config.sampleRate).toBe(1)
     })
 })

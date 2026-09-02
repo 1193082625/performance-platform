@@ -1,9 +1,13 @@
-import type { PaintEventV1 } from "@performance-platform/protocol"
+import type { PaintEventV1, MetricEventV2 } from "@performance-platform/protocol"
 
 export type SendBeacon = (
     endpoint: string, // 要上报的api地址
     body: string
 ) => boolean
+
+export type ReportableEvent =
+    | PaintEventV1
+    | MetricEventV2
 
 export interface FetchResponseLike {
     ok: boolean
@@ -35,7 +39,7 @@ export interface ReporterOptions {
 // 公开接口描述“使用者可以做什么”
 export interface Reporter {
     // 将一条完整事件加入待发送队列
-    enqueue(event: PaintEventV1): void
+    enqueue(event: ReportableEvent): void
     // 尝试发送队列中的事件
     flush(): Promise<void>
 }

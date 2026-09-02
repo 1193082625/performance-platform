@@ -29,7 +29,7 @@ corepack pnpm \
   add '@performance-platform/browser@workspace:*'
 ```
 
-当前 v0.1 的 Browser SDK 尚未发布到公共 npm 仓库。
+当前 Browser SDK 尚未发布到公共 npm 仓库。
 
 ## 初始化
 
@@ -42,10 +42,11 @@ import {
 
 const paintMonitor = createPaintMonitor({
     endpoint:
-        'http://localhost:3000/api/v1/events/batch',
+        'http://localhost:3000/api/v2/events/batch',
     appId: 'demo-web',
-    appVersion: '0.1.0',
+    appVersion: '0.2.0',
     environment: 'development',
+    sampleRate: 1,
     debug: (message, error) => {
         console.debug(
             `[performance-platform] ${message}`,
@@ -67,17 +68,21 @@ Monitor 应尽早启动，以便通过 `PerformanceObserver` 的 buffered 模式
 | `appId` | `string` | 应用标识，必须与 Server 的 `APP_ID` 一致 |
 | `appVersion` | `string` | 当前应用版本 |
 | `environment` | `string` | `development`、`test`、`staging` 或 `production` |
+| `sampleRate` | `number` | 可选，会话采样率，范围为 `(0, 1]`，默认值为 `1` |
 | `debug` | `function` | 可选的 SDK 诊断回调 |
+
+SDK 根据 `sessionId` 进行确定性会话采样。同一个会话在采样率不变时会始终得到相同结果；命中的会话上报全部已启用指标，未命中的会话不启动采集器。
 
 ## 使用环境变量
 
 Vite 应用可以通过环境变量提供配置：
 
 ```env
-VITE_MONITOR_ENDPOINT=http://localhost:3000/api/v1/events/batch
+VITE_MONITOR_ENDPOINT=http://localhost:3000/api/v2/events/batch
 VITE_APP_ID=demo-web
-VITE_APP_VERSION=0.1.0
+VITE_APP_VERSION=0.2.0
 VITE_APP_ENVIRONMENT=development
+VITE_MONITOR_SAMPLE_RATE=1
 ```
 
 初始化代码：
@@ -92,6 +97,9 @@ const paintMonitor = createPaintMonitor({
     appId: import.meta.env.VITE_APP_ID,
     appVersion: import.meta.env.VITE_APP_VERSION,
     environment: import.meta.env.VITE_APP_ENVIRONMENT,
+    sampleRate: Number(
+        import.meta.env.VITE_MONITOR_SAMPLE_RATE,
+    ),
 })
 
 paintMonitor.start()
@@ -135,10 +143,12 @@ SDK 会：
 
 1. 使用 `PerformanceObserver` 读取 `first-paint` 和 `first-contentful-paint`；
 2. 将它们映射为 `web.paint.fp` 和 `web.paint.fcp`；
-3. 为事件生成 `eventId`、`sessionId` 和 `viewId`；
-4. 优先通过 `navigator.sendBeacon()` 上报；
-5. Beacon 不可用或拒绝请求时，回退到带 `keepalive` 的 `fetch()`；
-6. 在网络失败时保留当前批次，不影响业务页面运行。
+3. 根据 `sessionId` 和 `sampleRate` 决定整个会话是否采集；
+4. 为命中会话的事件生成 `eventId`、`sessionId` 和 `viewId`；
+5. 生成 `schemaVersion: '2.0'` 事件，并携带 `sampleRate` 和 `metricVersion: 'paint-v1'`；
+6. 优先通过 `navigator.sendBeacon()` 上报；
+7. Beacon 不可用或拒绝请求时，回退到带 `keepalive` 的 `fetch()`；
+8. 在网络失败时保留当前批次，不影响业务页面运行。
 
 每个批次最多包含 20 个事件。
 
@@ -164,28 +174,32 @@ http://localhost:4173
 
 依次检查：
 
-1. 浏览器 Network 面板中是否出现 `POST /api/v1/events/batch`；
+1. 浏览器 Network 面板中是否出现 `POST /api/v2/events/batch`；
 2. 上报接口是否返回 HTTP 200；
-3. SDK 的 `appId` 是否与 Server 的 `APP_ID` 一致；
-4. Demo 地址是否包含在 `CORS_ORIGINS` 中；
-5. 查询时间范围是否覆盖事件产生时间；
-6. 浏览器和 Docker 容器的系统时间是否正确。
+3. 响应中的 `accepted` 是否大于 `0`，以及 `reasons` 是否包含丢弃原因；
+4. SDK 的 `appId` 是否与 Server 的 `APP_ID` 一致；
+5. Demo 地址是否包含在 `CORS_ORIGINS` 中；
+6. 当 `sampleRate < 1` 时，当前会话是否未命中采样；
+7. 查询时间范围是否覆盖事件产生时间；
+8. 浏览器和 Docker 容器的系统时间是否正确。
 
 ### 请求返回 `INVALID_BATCH`
 
-确认请求体结构为：
+确认请求体包含一个非空 `events` 数组，且事件数不超过 20：
 
 ```json
 {
   "events": [
     {
-      "schemaVersion": "1.0"
+      "schemaVersion": "2.0",
+      "sampleRate": 1,
+      "metricVersion": "paint-v1"
     }
   ]
 }
 ```
 
-Browser SDK 会自动生成完整事件。手动调用接口时必须提供符合协议的完整字段。
+上面只展示了 V2 版本相关字段，不是可直接提交的完整事件。Browser SDK 会自动生成完整事件；手动调用接口时必须提供符合协议的全部字段。如果批次结构有效但单条事件无效，Server 会返回 HTTP 200，并通过 `discarded` 和 `reasons` 说明丢弃结果。
 
 ### 页面关闭时请求使用 `text/plain`
 

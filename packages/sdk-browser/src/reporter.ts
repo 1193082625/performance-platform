@@ -35,8 +35,7 @@
  * 普通 fetch() 在页面即将关闭时可能来不及完成，sendBeacon() 专门用于页面卸载、隐藏等场景的小型数据上报
  */
 
-import type { PaintEventV1 } from "@performance-platform/protocol";
-import type { ReporterOptions, Reporter } from "./types/reporter.type";
+import type { ReportableEvent, ReporterOptions, Reporter } from "./types/reporter.type";
 
 
 const MAX_BATCH_SIZE = 20
@@ -45,11 +44,11 @@ export function createReporter(
     options: ReporterOptions
 ): Reporter {
     const endpoint = options.endpoint
-    let eventQueue: PaintEventV1[] = []
+    let eventQueue: ReportableEvent[] = []
     // 如果当前有正在发送的批次，则后面的请求共用同一批次
     let activeFlush: Promise<void> | undefined
 
-    const enqueue = (event: PaintEventV1) => {
+    const enqueue = (event: ReportableEvent): void => {
         eventQueue.push(event)
     }
 
@@ -64,7 +63,7 @@ export function createReporter(
         }
     }
 
-    const flushFetch = async (batchQueue: PaintEventV1[]): Promise<boolean> => {
+    const flushFetch = async (batchQueue: ReportableEvent[]): Promise<boolean> => {
         if (!options.fetch) return false
 
         try {

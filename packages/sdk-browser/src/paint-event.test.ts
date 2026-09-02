@@ -20,6 +20,7 @@ const context: PaintEventContext = {
     environment: 'test',
     sessionId: 'session-test-1',
     viewId: 'view-test-1',
+    sampleRate: 0.5,
 }
 
 
@@ -30,10 +31,12 @@ describe('createPaintEvent', () => {
             context
         )
         expect(event).toEqual({
-            schemaVersion: '1.0',
+            schemaVersion: '2.0',
             eventId: context.eventId,
             type: 'web.paint.fcp',
             timestamp: 1_000_260,
+            sampleRate: 0.5,
+            metricVersion: 'paint-v1',
         
             application: {
                 id: 'demo-web',

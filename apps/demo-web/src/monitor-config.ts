@@ -10,6 +10,7 @@ interface ResolveMonitorConfigOptions {
     VITE_APP_ID?: string,
     VITE_APP_VERSION?: string
     VITE_APP_ENVIRONMENT?: string
+    VITE_MONITOR_SAMPLE_RATE?: string
 }
 
 const requireEnvironmentVariable = (name: string, value: string | undefined) => {
@@ -44,6 +45,35 @@ function resolveApplicationEnvironment(
     }
 }
 
+function resolveMonitorSampleRate(
+    value: string | undefined,
+): number {
+    const normalizedValue =
+        value?.trim()
+
+    if (
+        normalizedValue === undefined
+        || normalizedValue === ''
+    ) {
+        return 1
+    }
+
+    const sampleRate =
+        Number(normalizedValue)
+
+    if (
+        !Number.isFinite(sampleRate)
+        || sampleRate <= 0
+        || sampleRate > 1
+    ) {
+        throw new Error(
+            `Invalid monitor sample rate: ${normalizedValue}`,
+        )
+    }
+
+    return sampleRate
+}
+
 export function resolveMonitorConfig(
  options: ResolveMonitorConfigOptions,
 ): PaintMonitorConfig {
@@ -61,10 +91,15 @@ export function resolveMonitorConfig(
     )
     const environment = resolveApplicationEnvironment(options.VITE_APP_ENVIRONMENT)
 
+    const sampleRate = resolveMonitorSampleRate(
+        options.VITE_MONITOR_SAMPLE_RATE
+    )
+
     return {
         endpoint,
         appId,
         appVersion,
-        environment
+        environment,
+        sampleRate,
     }
 }

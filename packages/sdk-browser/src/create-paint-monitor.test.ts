@@ -17,14 +17,14 @@ const SESSION_ID = 'session-test-1'
 const VIEW_ID = '04f080c8-0625-4b76-a53e-d67f99a03380'
 const EVENT_ID = '7ae498ca-1dc3-4cf7-be84-67e3c8cd2e1a'
 
-const ENDPOINT = '/api/v1/events/batch'
+const ENDPOINT = '/api/v2/events/batch'
 
 describe('createPaintMonitor', () => {
     it('collects a paint sample and reports a complete event', async () => {
         const randomUUID = vi.fn()
             .mockReturnValueOnce(VIEW_ID)
             .mockReturnValueOnce(EVENT_ID)
-        
+
         const sessionStorage = {
             getItem: vi.fn(() => SESSION_ID),
             setItem: vi.fn(),
@@ -34,7 +34,7 @@ describe('createPaintMonitor', () => {
         let observerCallback:
             | ((entryList: PaintEntryListLike) => void)
             | undefined
-        
+
         const createObserver = vi.fn((callback) => {
             observerCallback = callback
 
@@ -84,17 +84,19 @@ describe('createPaintMonitor', () => {
             JSON.stringify({
                 events: [
                     {
-                        schemaVersion: '1.0',
+                        schemaVersion: '2.0',
                         eventId: EVENT_ID,
                         type: 'web.paint.fcp',
                         timestamp: 1_000_260,
-        
+                        sampleRate: 1,
+                        metricVersion: 'paint-v1',
+
                         application: {
                             id: 'demo-web',
                             version: '0.1.0+test',
                             environment: 'test',
                         },
-        
+
                         runtime: {
                             platform: 'web',
                             sdk: {
@@ -102,12 +104,12 @@ describe('createPaintMonitor', () => {
                                 version: '0.1.0',
                             },
                         },
-        
+
                         session: {
                             sessionId: SESSION_ID,
                             viewId: VIEW_ID,
                         },
-        
+
                         payload: {
                             value: 260.4,
                             unit: 'ms',
@@ -129,7 +131,7 @@ describe('createPaintMonitor', () => {
         const randomUUID = vi.fn()
             .mockReturnValueOnce(VIEW_ID)
             .mockReturnValueOnce(EVENT_ID)
-        
+
         const sessionStorage = {
             getItem: vi.fn(() => SESSION_ID),
             setItem: vi.fn(),
@@ -139,7 +141,7 @@ describe('createPaintMonitor', () => {
         let observerCallback:
             | ((entryList: PaintEntryListLike) => void)
             | undefined
-        
+
         const disconnect = vi.fn()
 
         const createObserver = vi.fn((callback) => {
@@ -272,7 +274,7 @@ describe('createPaintMonitor', () => {
         let observerCallback:
             | ((entryList: PaintEntryListLike) => void)
             | undefined
-        
+
         // 伪造浏览器的 PerformanceObserver 构造函数
         // 模拟一个可以被 new 调用的构造函数，const observer = new PerformanceObserverMock()，执行new时，js 会自动创建一个新对象，并让函数内部的this指向这个对象
         const PerformanceObserverMock = vi.fn(function(
@@ -434,7 +436,7 @@ describe('createPaintMonitor', () => {
         const randomUUID = vi.fn()
             .mockReturnValueOnce(VIEW_ID)
             .mockReturnValueOnce(EVENT_ID)
-        
+
         let observerCallback:
             | ((entryList: PaintEntryListLike) => void)
             | undefined
@@ -510,4 +512,142 @@ describe('createPaintMonitor', () => {
         ])
     })
 
+    it('does not start collection for an unsampled session', () => {
+        const createObserver = vi.fn()
+
+        const monitor =
+            createPaintMonitorWithDependencies(
+                {
+                    appId: 'demo-web',
+                    appVersion: '0.2.0',
+                    environment: 'test',
+                    endpoint: ENDPOINT,
+                    sampleRate: 0.5,
+                },
+                {
+                    timeOrigin: 1_000_000,
+
+                    randomUUID:
+                        vi.fn(() => VIEW_ID),
+
+                    // session-a 的固定哈希采样值约为 0.638，大于 0.5，所以不应启动采集器
+                    sessionStorage: {
+                        getItem:
+                            vi.fn(() => 'session-a'),
+
+                        setItem:
+                            vi.fn(),
+                    },
+
+                    createObserver,
+                },
+            )
+
+        monitor.start()
+
+        expect(
+            createObserver,
+        ).not.toHaveBeenCalled()
+    })
+
+    it('rejects an invalid sample rate', () => {
+        expect(() => {
+            createPaintMonitorWithDependencies(
+                {
+                    appId: 'demo-web',
+                    appVersion: '0.2.0',
+                    environment: 'test',
+                    endpoint: ENDPOINT,
+                    sampleRate: 0,
+                },
+                {
+                    timeOrigin: 1_000_000,
+                    randomUUID:
+                        vi.fn(() => VIEW_ID),
+                },
+            )
+        }).toThrow(RangeError)
+    })
+
+    it('reports the configured sample rate for a sampled session', async () => {
+        const randomUUID = vi.fn()
+            .mockReturnValueOnce(VIEW_ID)
+            .mockReturnValueOnce(EVENT_ID)
+
+        let observerCallback:
+            | ((entryList: PaintEntryListLike) => void)
+            | undefined
+
+        const createObserver = vi.fn(
+            (callback) => {
+                observerCallback = callback
+
+                return {
+                    observe: vi.fn(),
+                    disconnect: vi.fn(),
+                }
+            },
+        )
+
+        const sendBeacon =
+            vi.fn(() => true)
+
+        const monitor =
+            createPaintMonitorWithDependencies(
+                {
+                    appId: 'demo-web',
+                    appVersion: '0.2.0',
+                    environment: 'test',
+                    endpoint: ENDPOINT,
+                    sampleRate: 0.5,
+                },
+                {
+                    timeOrigin: 1_000_000,
+                    randomUUID,
+
+                    sessionStorage: {
+                        getItem:
+                            vi.fn(() => 'session-0'),
+
+                        setItem:
+                            vi.fn(),
+                    },
+
+                    createObserver,
+                    sendBeacon,
+                },
+            )
+
+        monitor.start()
+
+        const callback = observerCallback
+
+        if (callback === undefined) {
+            throw new Error(
+                'Observer callback was not registered',
+            )
+        }
+
+        callback({
+            getEntries: () => [
+                {
+                    name:
+                        'first-contentful-paint',
+
+                    startTime:
+                        260.4,
+                },
+            ],
+        })
+
+        await monitor.flush()
+
+        expect(sendBeacon).toHaveBeenCalledWith(
+            ENDPOINT,
+
+            expect.stringContaining(
+                '"sampleRate":0.5',
+            ),
+        )
+    })
 })

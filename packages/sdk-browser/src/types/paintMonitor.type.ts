@@ -11,6 +11,7 @@ export interface PaintMonitorConfig {
     appVersion: string // 上报应用的版本
     environment: Environment // 上报时 环境
     endpoint: string // 上报地址
+    sampleRate?: number
     debug?: ( // SDK 内部诊断出口
         message: string,
         error?: unknown,
@@ -35,6 +36,7 @@ export interface PaintEventContext {
     environment: Environment
     sessionId: string
     viewId: string
+    sampleRate: number
 }
 
 // 定义页面生命周期的最小接口

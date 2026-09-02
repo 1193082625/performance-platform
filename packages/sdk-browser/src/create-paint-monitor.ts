@@ -27,6 +27,8 @@ import { createPaintCollector } from "./paint-collector";
 import { createPaintEvent } from "./paint-event";
 import { createReporter } from "./reporter";
 import type { PaintMonitor, PaintMonitorConfig, PaintMonitorDependencies } from "./types/paintMonitor.type";
+import { shouldSampleSession } from './sampling'
+
 
 function getBrowserSessionStorage(): PaintMonitorDependencies['sessionStorage'] {
     try {
@@ -94,6 +96,8 @@ export function createPaintMonitorWithDependencies(
     // 整个 Monitor 是否已经永久销毁
     let destroyed = false
 
+    const sampleRate = config.sampleRate ?? 1
+
     const ids = createMonitorIds({
         randomUUID: dependencies.randomUUID,
 
@@ -106,6 +110,11 @@ export function createPaintMonitorWithDependencies(
             }
         )
     })
+
+    const sampled = shouldSampleSession(
+        ids.getSessionId(),
+        sampleRate,
+    )
 
     const reporter = createReporter({
         endpoint: config.endpoint,
@@ -149,6 +158,7 @@ export function createPaintMonitorWithDependencies(
                     environment: config.environment,
                     sessionId: ids.getSessionId(),
                     viewId: ids.getViewId(),
+                    sampleRate,
                 },
             )
 
@@ -171,7 +181,7 @@ export function createPaintMonitorWithDependencies(
     }
 
     const start = (): void => {
-        if (destroyed) return
+        if (destroyed || !sampled) return
 
         collector.start()
 
