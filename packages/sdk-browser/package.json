@@ -19,7 +19,8 @@
     "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.node.json --noEmit"
   },
   "dependencies": {
-    "@performance-platform/protocol": "workspace:*"
+    "@performance-platform/protocol": "workspace:*",
+    "web-vitals": "^6.2.1"
   },
   "devDependencies": {
     "@types/node": "^24.13.3",

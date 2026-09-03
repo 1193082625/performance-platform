@@ -1,13 +1,13 @@
 /**
  * Monitor 本身不重新实现采集、ID或上报，而是把已有模块连接起来
- * 
+ *
  * createMonitorIds()
         ↓
     提供三个 ID
 
     createPaintCollector()
             ↓ onSample
-    createPaintEvent()
+    createMetricEvent()
             ↓
     reporter.enqueue()
 
@@ -24,10 +24,13 @@ document                    →    pageLifecycle
  */
 import { createMonitorIds } from "./ids";
 import { createPaintCollector } from "./paint-collector";
-import { createPaintEvent } from "./paint-event";
+import { createMetricEvent } from './metric-event'
 import { createReporter } from "./reporter";
 import type { PaintMonitor, PaintMonitorConfig, PaintMonitorDependencies } from "./types/paintMonitor.type";
 import { shouldSampleSession } from './sampling'
+import type { MetricSample } from "./types/metricSample.type";
+import { createLcpCollector } from "./lcp-collector";
+import { observeLcpWithWebVitals } from "./web-vitals-adapter";
 
 
 function getBrowserSessionStorage(): PaintMonitorDependencies['sessionStorage'] {
@@ -58,6 +61,7 @@ export function createPaintMonitor(config: PaintMonitorConfig): PaintMonitor {
         {
             timeOrigin: performance.timeOrigin,
             randomUUID: () => crypto.randomUUID(),
+            observeLcp: observeLcpWithWebVitals,
             ...(browserSessionStorage === undefined
                 ? {}
                 : {
@@ -124,19 +128,38 @@ export function createPaintMonitorWithDependencies(
             : {
                 sendBeacon: dependencies.sendBeacon,
             }),
-    
+
         ...(dependencies.fetch === undefined
             ? {}
             : {
                 fetch: dependencies.fetch,
             }),
-    
+
         ...(config.debug === undefined
             ? {}
             : {
                 debug: config.debug,
             }),
     })
+
+    const enqueueMetricSample = (
+        sample: MetricSample
+    ): void => {
+        const event = createMetricEvent(
+            sample,
+            {
+                eventId: ids.createEventId(),
+                appId: config.appId,
+                appVersion: config.appVersion,
+                environment: config.environment,
+                sessionId: ids.getSessionId(),
+                viewId: ids.getViewId(),
+                sampleRate,
+            },
+        )
+
+        reporter.enqueue(event)
+    }
 
     const collector = createPaintCollector({
         timeOrigin: dependencies.timeOrigin,
@@ -149,24 +172,34 @@ export function createPaintMonitorWithDependencies(
             }),
 
         onSample: (sample) => {
-            const event = createPaintEvent(
-                sample,
-                {
-                    eventId: ids.createEventId(),
-                    appId: config.appId,
-                    appVersion: config.appVersion,
-                    environment: config.environment,
-                    sessionId: ids.getSessionId(),
-                    viewId: ids.getViewId(),
-                    sampleRate,
+            enqueueMetricSample({
+                type: sample.type,
+                occurredAt: sample.occurredAt,
+                metricVersion: 'paint-v1',
+                payload: {
+                    value: sample.valueMs,
+                    unit: 'ms',
                 },
-            )
-
-            reporter.enqueue(event)
+            })
         },
         onEntriesComplete: () => {
             void reporter.flush()
         }
+    })
+
+    const lcpCollector = createLcpCollector({
+        timeOrigin: dependencies.timeOrigin,
+
+        ...(dependencies.observeLcp === undefined
+            ? {}
+            : {
+                observeLcp: dependencies.observeLcp,
+            }),
+
+        onSample: (sample) => {
+            enqueueMetricSample(sample)
+            void reporter.flush()
+        },
     })
 
     const handleVisibilityChange = (): void => {
@@ -184,6 +217,7 @@ export function createPaintMonitorWithDependencies(
         if (destroyed || !sampled) return
 
         collector.start()
+        lcpCollector.start()
 
         if (visibilityListenerInstalled || dependencies.pageLifecycle === undefined) {
             return
@@ -203,10 +237,11 @@ export function createPaintMonitorWithDependencies(
         destroyed = true
 
         collector.destroy()
+        lcpCollector.destroy()
 
         if (visibilityListenerInstalled && dependencies.pageLifecycle !== undefined) {
             visibilityListenerInstalled = false
-            
+
             try {
                 dependencies.pageLifecycle.removeEventListener(
                     'visibilitychange',

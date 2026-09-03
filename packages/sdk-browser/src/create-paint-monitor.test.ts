@@ -44,7 +44,12 @@ describe('createPaintMonitor', () => {
             }
         })
 
-        const sendBeacon = vi.fn(() => true)
+        const sendBeacon = vi.fn(
+            (
+                _endpoint: string,
+                _body: string,
+            ): boolean => true,
+        )
 
         const monitor = createPaintMonitorWithDependencies({
             appId: 'demo-web',
@@ -79,45 +84,63 @@ describe('createPaintMonitor', () => {
 
         await monitor.flush()
 
-        expect(sendBeacon).toHaveBeenCalledWith(
+        expect(sendBeacon).toHaveBeenCalledTimes(1)
+
+        const call = sendBeacon.mock.calls[0]
+
+        if (call === undefined) {
+            throw new Error(
+                'Beacon was not called',
+            )
+        }
+
+        const [
+            endpoint,
+            body,
+        ] = call
+
+        expect(endpoint).toBe(
             ENDPOINT,
-            JSON.stringify({
-                events: [
-                    {
-                        schemaVersion: '2.0',
-                        eventId: EVENT_ID,
-                        type: 'web.paint.fcp',
-                        timestamp: 1_000_260,
-                        sampleRate: 1,
-                        metricVersion: 'paint-v1',
-
-                        application: {
-                            id: 'demo-web',
-                            version: '0.1.0+test',
-                            environment: 'test',
-                        },
-
-                        runtime: {
-                            platform: 'web',
-                            sdk: {
-                                name: '@performance-platform/browser',
-                                version: '0.1.0',
-                            },
-                        },
-
-                        session: {
-                            sessionId: SESSION_ID,
-                            viewId: VIEW_ID,
-                        },
-
-                        payload: {
-                            value: 260.4,
-                            unit: 'ms',
-                        },
-                    }
-                ]
-            })
         )
+
+        expect(
+            JSON.parse(body),
+        ).toEqual({
+            events: [
+                {
+                    schemaVersion: '2.0',
+                    eventId: EVENT_ID,
+                    type: 'web.paint.fcp',
+                    timestamp: 1_000_260,
+                    sampleRate: 1,
+                    metricVersion: 'paint-v1',
+
+                    application: {
+                        id: 'demo-web',
+                        version: '0.1.0+test',
+                        environment: 'test',
+                    },
+
+                    runtime: {
+                        platform: 'web',
+                        sdk: {
+                            name: '@performance-platform/browser',
+                            version: '0.1.0',
+                        },
+                    },
+
+                    session: {
+                        sessionId: SESSION_ID,
+                        viewId: VIEW_ID,
+                    },
+
+                    payload: {
+                        value: 260.4,
+                        unit: 'ms',
+                    },
+                }
+            ]
+        })
     })
 
     // 浏览器切换标签页、最小化或准备离开时，会触发 visibilitychange，然后触发 Reporter 的 flush()
@@ -514,6 +537,7 @@ describe('createPaintMonitor', () => {
 
     it('does not start collection for an unsampled session', () => {
         const createObserver = vi.fn()
+        const observeLcp = vi.fn()
 
         const monitor =
             createPaintMonitorWithDependencies(
@@ -540,6 +564,7 @@ describe('createPaintMonitor', () => {
                     },
 
                     createObserver,
+                    observeLcp,
                 },
             )
 
@@ -548,6 +573,7 @@ describe('createPaintMonitor', () => {
         expect(
             createObserver,
         ).not.toHaveBeenCalled()
+        expect(observeLcp).not.toHaveBeenCalled()
     })
 
     it('rejects an invalid sample rate', () => {
@@ -649,5 +675,113 @@ describe('createPaintMonitor', () => {
                 '"sampleRate":0.5',
             ),
         )
+    })
+
+    it('reports the final LCP metric as a V2 event', async () => {
+        const randomUUID = vi.fn()
+            .mockReturnValueOnce(VIEW_ID)
+            .mockReturnValueOnce(EVENT_ID)
+
+        let lcpCallback:
+            | ((metric: { value: number }) => void)
+            | undefined
+
+        const observeLcp = vi.fn((callback) => {
+            lcpCallback = callback
+        })
+
+        const sendBeacon = vi.fn(
+
+            (
+                _endpoint: string,
+                _body: string,
+            ): boolean => true,
+        )
+
+        const monitor = createPaintMonitorWithDependencies(
+            {
+                appId: 'demo-web',
+                appVersion: '0.2.0',
+                environment: 'test',
+                endpoint: ENDPOINT,
+            },
+            {
+                timeOrigin: 1_000_000,
+                randomUUID,
+                sessionStorage: {
+                    getItem: vi.fn(() => SESSION_ID),
+                    setItem: vi.fn(),
+                },
+                observeLcp,
+                sendBeacon,
+            },
+        )
+
+        monitor.start()
+
+        expect(observeLcp).toHaveBeenCalledTimes(1)
+
+        const callback = lcpCallback
+
+        if (callback === undefined) {
+            throw new Error(
+                'LCP callback was not registered',
+            )
+        }
+
+        callback({
+            value: 2_500.4,
+        })
+
+        await monitor.flush()
+
+        const call = sendBeacon.mock.calls[0]
+
+        if (call === undefined) {
+            throw new Error(
+                'Expected sendBeacon to be called',
+            )
+        }
+
+        const [endpoint, body] = call
+
+        expect(endpoint).toBe(ENDPOINT)
+
+        expect(JSON.parse(body)).toEqual({
+            events: [
+                {
+                    schemaVersion: '2.0',
+                    eventId: EVENT_ID,
+                    type: 'web.vital.lcp',
+                    timestamp: 1_002_500,
+                    sampleRate: 1,
+                    metricVersion: 'lcp-v1',
+
+                    application: {
+                        id: 'demo-web',
+                        version: '0.2.0',
+                        environment: 'test',
+                    },
+
+                    runtime: {
+                        platform: 'web',
+                        sdk: {
+                            name: '@performance-platform/browser',
+                            version: '0.1.0',
+                        },
+                    },
+
+                    session: {
+                        sessionId: SESSION_ID,
+                        viewId: VIEW_ID,
+                    },
+
+                    payload: {
+                        value: 2_500.4,
+                        unit: 'ms',
+                    },
+                },
+            ],
+        })
     })
 })
