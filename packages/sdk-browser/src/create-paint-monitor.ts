@@ -30,9 +30,13 @@ import type { PaintMonitor, PaintMonitorConfig, PaintMonitorDependencies } from 
 import { shouldSampleSession } from './sampling'
 import type { MetricSample } from "./types/metricSample.type";
 import { createLcpCollector } from "./lcp-collector";
-import { observeLcpWithWebVitals } from "./web-vitals-adapter";
 import { createClsCollector } from './cls-collector.js'
-import { observeClsWithWebVitals } from './web-vitals-adapter.js'
+import { createInpCollector } from './inp-collector.js'
+import {
+    observeClsWithWebVitals,
+    observeInpWithWebVitals,
+    observeLcpWithWebVitals,
+} from './web-vitals-adapter.js'
 
 
 function getBrowserSessionStorage(): PaintMonitorDependencies['sessionStorage'] {
@@ -65,6 +69,7 @@ export function createPaintMonitor(config: PaintMonitorConfig): PaintMonitor {
             randomUUID: () => crypto.randomUUID(),
             observeLcp: observeLcpWithWebVitals,
             observeCls: observeClsWithWebVitals,
+            observeInp: observeInpWithWebVitals,
             ...(browserSessionStorage === undefined
                 ? {}
                 : {
@@ -220,6 +225,21 @@ export function createPaintMonitorWithDependencies(
         },
     })
 
+    const inpCollector = createInpCollector({
+        timeOrigin: dependencies.timeOrigin,
+
+        ...(dependencies.observeInp === undefined
+            ? {}
+            : {
+                observeInp: dependencies.observeInp,
+            }),
+
+        onSample: (sample) => {
+            enqueueMetricSample(sample)
+            void reporter.flush()
+        },
+    })
+
     const handleVisibilityChange = (): void => {
         if (
             dependencies.pageLifecycle?.visibilityState === 'hidden'
@@ -237,6 +257,7 @@ export function createPaintMonitorWithDependencies(
         collector.start()
         lcpCollector.start()
         clsCollector.start()
+        inpCollector.start()
 
         if (visibilityListenerInstalled || dependencies.pageLifecycle === undefined) {
             return
@@ -258,6 +279,7 @@ export function createPaintMonitorWithDependencies(
         collector.destroy()
         lcpCollector.destroy()
         clsCollector.destroy()
+        inpCollector.destroy()
 
         if (visibilityListenerInstalled && dependencies.pageLifecycle !== undefined) {
             visibilityListenerInstalled = false

@@ -539,6 +539,7 @@ describe('createPaintMonitor', () => {
         const createObserver = vi.fn()
         const observeLcp = vi.fn()
         const observeCls = vi.fn()
+        const observeInp = vi.fn()
 
         const monitor =
             createPaintMonitorWithDependencies(
@@ -567,6 +568,7 @@ describe('createPaintMonitor', () => {
                     createObserver,
                     observeLcp,
                     observeCls,
+                    observeInp,
                 },
             )
 
@@ -577,6 +579,7 @@ describe('createPaintMonitor', () => {
         ).not.toHaveBeenCalled()
         expect(observeLcp).not.toHaveBeenCalled()
         expect(observeCls).not.toHaveBeenCalled()
+        expect(observeInp).not.toHaveBeenCalled()
     })
 
     it('rejects an invalid sample rate', () => {
@@ -881,6 +884,103 @@ describe('createPaintMonitor', () => {
                     payload: {
                         value: 0.084,
                         unit: 'score',
+                    },
+                },
+            ],
+        })
+    })
+
+    it('reports the final INP metric as a V2 event', async () => {
+        const randomUUID = vi.fn()
+            .mockReturnValueOnce(VIEW_ID)
+            .mockReturnValueOnce(EVENT_ID)
+
+        let inpCallback:
+            | ((metric: {
+                value: number
+                interactionStartTime: number
+            }) => void)
+            | undefined
+        const observeInp = vi.fn((callback) => {
+            inpCallback = callback
+        })
+        const sendBeacon = vi.fn(
+            (
+                _endpoint: string,
+                _body: string,
+            ): boolean => true,
+        )
+        const monitor = createPaintMonitorWithDependencies(
+            {
+                appId: 'demo-web',
+                appVersion: '0.2.0',
+                environment: 'test',
+                endpoint: ENDPOINT,
+            },
+            {
+                timeOrigin: 1_000_000,
+                randomUUID,
+                sessionStorage: {
+                    getItem: vi.fn(() => SESSION_ID),
+                    setItem: vi.fn(),
+                },
+                observeInp,
+                sendBeacon,
+            },
+        )
+
+        monitor.start()
+
+        expect(observeInp).toHaveBeenCalledTimes(1)
+
+        if (inpCallback === undefined) {
+            throw new Error('INP callback was not registered')
+        }
+
+        inpCallback({
+            value: 248.4,
+            interactionStartTime: 2_300.4,
+        })
+
+        await monitor.flush()
+
+        const call = sendBeacon.mock.calls[0]
+
+        if (call === undefined) {
+            throw new Error('Expected sendBeacon to be called')
+        }
+
+        const [endpoint, body] = call
+
+        expect(endpoint).toBe(ENDPOINT)
+        expect(JSON.parse(body)).toEqual({
+            events: [
+                {
+                    schemaVersion: '2.0',
+                    eventId: EVENT_ID,
+                    type: 'web.vital.inp',
+                    timestamp: 1_002_300,
+                    sampleRate: 1,
+                    metricVersion: 'inp-v1',
+                    application: {
+                        id: 'demo-web',
+                        version: '0.2.0',
+                        environment: 'test',
+                    },
+                    runtime: {
+                        platform: 'web',
+                        sdk: {
+                            name: '@performance-platform/browser',
+                            version: '0.1.0',
+                        },
+                    },
+                    session: {
+                        sessionId: SESSION_ID,
+                        viewId: VIEW_ID,
+                    },
+                    payload: {
+                        value: 248.4,
+                        unit: 'ms',
                     },
                 },
             ],

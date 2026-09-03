@@ -131,6 +131,43 @@ describe('MetricQueryService', () => {
         })
     })
 
+    it('resolves the INP millisecond definition', async () => {
+        const inpResponse = {
+            ...RESPONSE,
+            metric: {
+                type: 'web.vital.inp',
+                unit: 'ms',
+                metricVersion: 'inp-v1',
+            },
+        } satisfies MetricQueryResponse
+        const queryMetric = vi.fn<
+            MetricQueryRepository['queryMetric']
+        >().mockResolvedValue(inpResponse)
+        const service = createMetricQueryService({
+            repository: { queryMetric },
+            appId: 'demo-web',
+            now: () => NOW,
+        })
+
+        const result = await service.query({
+            type: 'web.vital.inp',
+        })
+
+        expect(queryMetric).toHaveBeenCalledWith(
+            expect.objectContaining({
+                metric: {
+                    type: 'web.vital.inp',
+                    unit: 'ms',
+                    metricVersion: 'inp-v1',
+                },
+            }),
+        )
+        expect(result).toEqual({
+            ok: true,
+            value: inpResponse,
+        })
+    })
+
     it('uses an explicit range and interval', async () => {
         const queryMetric =
             vi.fn<

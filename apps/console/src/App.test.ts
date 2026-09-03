@@ -213,11 +213,11 @@ describe('App', () => {
         await sevenDayButton!.trigger('click')
         await flushPromises()
     
-        expect(fetchMock).toHaveBeenCalledTimes(6)
+        expect(fetchMock).toHaveBeenCalledTimes(8)
     
         const requestUrl = new URL(
             String(
-                fetchMock.mock.calls[3]?.[0],
+                fetchMock.mock.calls[4]?.[0],
             ),
         )
     
@@ -500,5 +500,70 @@ describe('App', () => {
                 ?.get('[data-testid="metric-summary-average"]')
                 .text(),
         ).toBe('0.072')
+    })
+
+    it('loads and shows the INP summary', async () => {
+        const inpResponse = {
+            metric: {
+                type: 'web.vital.inp',
+                unit: 'ms',
+                metricVersion: 'inp-v1',
+            },
+            range: METRICS_RESPONSE.range,
+            summary: {
+                count: 2,
+                average: 248,
+                p50: 220,
+                p75: 280,
+                p90: 320,
+            },
+            series: [],
+        }
+        const fetchMock = vi.fn(
+            async (input: RequestInfo | URL) => {
+                const url = new URL(String(input))
+
+                if (
+                    url.searchParams.get('type')
+                    === 'web.vital.inp'
+                ) {
+                    return {
+                        ok: true,
+                        json: async () => inpResponse,
+                    }
+                }
+
+                return {
+                    ok: true,
+                    json: async () => METRICS_RESPONSE,
+                }
+            },
+        )
+
+        vi.stubGlobal('fetch', fetchMock)
+
+        const wrapper = mount(App)
+
+        await flushPromises()
+
+        const cards = wrapper.findAllComponents(
+            MetricSummaryCard,
+        )
+        const inpCard = cards.find(
+            card => card.props('label') === 'INP',
+        )
+
+        expect(inpCard).toBeDefined()
+        expect(inpCard?.props()).toMatchObject({
+            label: 'INP',
+            unit: 'ms',
+            metricVersion: 'inp-v1',
+            stats: inpResponse.summary,
+        })
+        expect(
+            inpCard
+                ?.get('[data-testid="metric-summary-average"]')
+                .text(),
+        ).toBe('248 ms')
     })
 })

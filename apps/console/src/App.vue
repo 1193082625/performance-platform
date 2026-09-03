@@ -72,6 +72,30 @@
                 :metric-version="clsData.metric.metricVersion"
             />
         </div>
+
+        <div class="vital-metric-panel">
+            <p
+                v-if="inpLoading"
+                class="vital-metric-slot__state"
+            >
+                正在加载 INP
+            </p>
+
+            <p
+                v-else-if="inpError"
+                class="vital-metric-slot__state vital-metric-slot__state--error"
+            >
+                INP 数据加载失败
+            </p>
+
+            <MetricSummaryCard
+                v-else-if="inpData?.metric?.type === 'web.vital.inp'"
+                label="INP"
+                :stats="inpData.summary"
+                :unit="inpData.metric.unit"
+                :metric-version="inpData.metric.metricVersion"
+            />
+        </div>
     </section>
 
     <div v-if="loading" class="dashboard-state">正在加载性能数据</div>
@@ -172,6 +196,16 @@ const {
   type: 'web.vital.cls',
   query: metricQueryApi.query,
 })
+
+const {
+  data: inpData,
+  loading: inpLoading,
+  error: inpError,
+  loadRange: loadInpRange,
+} = useMetricQuery({
+  type: 'web.vital.inp',
+  query: metricQueryApi.query,
+})
 const selectedRange = ref<MetricsRange>('24h')
 const selectedWindow = computed(
     () => `${selectedRange.value.toUpperCase()} WINDOW`,
@@ -191,12 +225,17 @@ const totalSamples = computed(
             clsData.value?.metric?.type === 'web.vital.cls'
                 ? clsData.value.summary.count
                 : 0
+        const inpSamples =
+            inpData.value?.metric?.type === 'web.vital.inp'
+                ? inpData.value.summary.count
+                : 0
 
         return (
             data.value.summary.fp.count
             + data.value.summary.fcp.count
             + lcpSamples
             + clsSamples
+            + inpSamples
         )
     },
 )
@@ -208,6 +247,7 @@ function handleSelectedRange(
   void loadRange(range)
   void loadLcpRange(range)
   void loadClsRange(range)
+  void loadInpRange(range)
 }
 
 onMounted(() => {
@@ -220,6 +260,10 @@ onMounted(() => {
   )
 
   void loadClsRange(
+    selectedRange.value
+  )
+
+  void loadInpRange(
     selectedRange.value
   )
 })

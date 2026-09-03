@@ -38,6 +38,9 @@ document.querySelector<HTMLDivElement>('#app')!.innerHTML = `
     <p>Edit <code>src/main.ts</code> and save to test <code>HMR</code></p>
   </div>
   <button id="counter" type="button" class="counter"></button>
+  <button id="inp-demo" type="button" class="inp-demo">
+    Simulate slow interaction
+  </button>
 </section>
 
 <div class="ticks"></div>
@@ -80,6 +83,19 @@ document.querySelector<HTMLDivElement>('#app')!.innerHTML = `
 `
 
 setupCounter(document.querySelector<HTMLButtonElement>('#counter')!)
+
+document
+  .querySelector<HTMLButtonElement>('#inp-demo')!
+  .addEventListener('click', (event) => {
+    const endTime = performance.now() + 180
+
+    while (performance.now() < endTime) {
+      // Intentionally block the demo page's main thread.
+    }
+
+    const button = event.currentTarget as HTMLButtonElement
+    button.textContent = 'Slow interaction completed'
+  })
 
 window.setTimeout(() => {
   document

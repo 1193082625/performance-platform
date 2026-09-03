@@ -603,6 +603,66 @@ describe('PostgresEventRepository', () => {
         ])
     })
 
+    it('aggregates INP without mixing other millisecond metrics', async () => {
+        const inpEvent: MetricEventV2 = {
+            schemaVersion: '2.0',
+            eventId: '30000000-0000-4000-8000-000000000003',
+            type: 'web.vital.inp',
+            timestamp: QUERY_FROM.getTime() + 3_000,
+            sampleRate: 1,
+            metricVersion: 'inp-v1',
+            application: {
+                ...EVENT.application,
+                version: '0.3.0',
+            },
+            runtime: EVENT.runtime,
+            session: {
+                ...EVENT.session,
+                viewId: 'view-inp-query-1',
+            },
+            payload: {
+                value: 248,
+                unit: 'ms',
+            },
+        }
+
+        await repository.insertBatch([
+            EVENT,
+            inpEvent,
+        ])
+
+        const result = await repository.queryMetric({
+            appId: 'demo-web',
+            metric: {
+                type: 'web.vital.inp',
+                unit: 'ms',
+                metricVersion: 'inp-v1',
+            },
+            from: QUERY_FROM,
+            to: QUERY_TO,
+            interval: 'hour',
+        })
+
+        expect(result.metric).toEqual({
+            type: 'web.vital.inp',
+            unit: 'ms',
+            metricVersion: 'inp-v1',
+        })
+        expect(result.summary).toEqual({
+            count: 1,
+            average: 248,
+            p50: 248,
+            p75: 248,
+            p90: 248,
+        })
+        expect(result.series).toEqual([
+            {
+                time: QUERY_FROM.toISOString(),
+                stats: result.summary,
+            },
+        ])
+    })
+
     it('returns empty generic metric statistics and fills time buckets', async () => {
         const result =
             await repository.queryMetric({

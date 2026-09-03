@@ -91,6 +91,26 @@ code,
   color: var(--text-h);
 }
 
+.inp-demo {
+  min-width: 260px;
+  padding: 10px 18px;
+  color: var(--bg);
+  background: var(--accent);
+  border: 1px solid var(--accent-border);
+  border-radius: 6px;
+  font: 600 15px/1.4 var(--mono);
+  cursor: pointer;
+}
+
+.inp-demo:hover {
+  box-shadow: var(--shadow);
+}
+
+.inp-demo:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+}
+
 code {
   font-size: 15px;
   line-height: 135%;
