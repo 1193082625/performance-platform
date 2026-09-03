@@ -15,7 +15,7 @@
 <script setup lang="ts">
 import type {
     MetricsRange,
-} from '../composables/use-paint-metrics.js'
+} from '../composables/metrics-range.js'
 
 const props = defineProps<{
     range: '1h' | '24h' | '7d' | '30d'

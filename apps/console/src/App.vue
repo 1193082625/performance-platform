@@ -1,7 +1,7 @@
 <template>
   <main class="dashboard-shell">
     <header class="dashboard-header">
-      <h1>PAINT PERFORMANCE</h1>
+      <h1>WEB PERFORMANCE</h1>
 
       <div class="dashboard-status">
           <h3 class="dashboard-status__live">
@@ -23,6 +23,34 @@
   </header>
 
     <MetricsRangeSelector :range="selectedRange" @select="handleSelectedRange" />
+
+    <section
+        class="vital-metric-slot"
+        aria-live="polite"
+    >
+        <p
+            v-if="lcpLoading"
+            class="vital-metric-slot__state"
+        >
+            正在加载 LCP
+        </p>
+
+        <p
+            v-else-if="lcpError"
+            class="vital-metric-slot__state vital-metric-slot__state--error"
+        >
+            LCP 数据加载失败
+        </p>
+
+        <MetricSummaryCard
+            v-else-if="lcpData?.metric?.type === 'web.vital.lcp'"
+            label="LCP"
+            :stats="lcpData.summary"
+            :unit="lcpData.metric.unit"
+            :metric-version="lcpData.metric.metricVersion"
+        />
+    </section>
+
     <div v-if="loading" class="dashboard-state">正在加载性能数据</div>
     <div v-else-if="error" class="dashboard-state">性能数据加载失败</div>
     <template v-else>
@@ -72,15 +100,23 @@ import {
     ref,
 } from 'vue'
 import { createPaintMetricsApi } from './api/metrics.js'
+import { createMetricQueryApi } from './api/metric-query.js'
 
 import { usePaintMetrics } from './composables/use-paint-metrics.js'
+import { useMetricQuery } from './composables/use-metric-query.js'
 import PerformanceScore from './components/PerformanceScore.vue'
 import MetricsRangeSelector from './components/MetricsRangeSelector.vue'
-import type { MetricsRange } from './composables/use-paint-metrics.js'
+import type { MetricsRange } from './composables/metrics-range.js'
 import PaintMetricCard from './components/PaintMetricCard.vue'
 import PaintTrendChart from './components/PaintTrendChart.vue'
+import MetricSummaryCard from './components/MetricSummaryCard.vue'
 
 const metricsApi = createPaintMetricsApi({
+  baseUrl: window.location.origin,
+  fetch: window.fetch.bind(window)
+})
+
+const metricQueryApi = createMetricQueryApi({
   baseUrl: window.location.origin,
   fetch: window.fetch.bind(window)
 })
@@ -93,6 +129,16 @@ const {
 } = usePaintMetrics({
   query: metricsApi.query
 })
+
+const {
+  data: lcpData,
+  loading: lcpLoading,
+  error: lcpError,
+  loadRange: loadLcpRange,
+} = useMetricQuery({
+  type: 'web.vital.lcp',
+  query: metricQueryApi.query,
+})
 const selectedRange = ref<MetricsRange>('24h')
 const selectedWindow = computed(
     () => `${selectedRange.value.toUpperCase()} WINDOW`,
@@ -104,9 +150,15 @@ const totalSamples = computed(
             return 0
         }
 
+        const lcpSamples =
+            lcpData.value?.metric?.type === 'web.vital.lcp'
+                ? lcpData.value.summary.count
+                : 0
+
         return (
             data.value.summary.fp.count
             + data.value.summary.fcp.count
+            + lcpSamples
         )
     },
 )
@@ -116,10 +168,15 @@ function handleSelectedRange(
 ): void {
   selectedRange.value = range
   void loadRange(range)
+  void loadLcpRange(range)
 }
 
 onMounted(() => {
   void loadRange(
+    selectedRange.value
+  )
+
+  void loadLcpRange(
     selectedRange.value
   )
 })

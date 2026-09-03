@@ -29,6 +29,7 @@ import App from './App.vue'
 import type { PaintMetricsResponse } from '@performance-platform/protocol'
 import PaintMetricCard from './components/PaintMetricCard.vue'
 import PaintTrendChart from './components/PaintTrendChart.vue'
+import MetricSummaryCard from './components/MetricSummaryCard.vue'
 
 const EMPTY_STATS = {
     count: 0,
@@ -212,11 +213,11 @@ describe('App', () => {
         await sevenDayButton!.trigger('click')
         await flushPromises()
     
-        expect(fetchMock).toHaveBeenCalledTimes(2)
+        expect(fetchMock).toHaveBeenCalledTimes(4)
     
         const requestUrl = new URL(
             String(
-                fetchMock.mock.calls[1]?.[0],
+                fetchMock.mock.calls[2]?.[0],
             ),
         )
     
@@ -356,7 +357,7 @@ describe('App', () => {
         await flushPromises()
     
         expect(wrapper.text()).toContain(
-            'PAINT PERFORMANCE',
+            'WEB PERFORMANCE',
         )
     
         expect(wrapper.text()).toContain(
@@ -368,5 +369,71 @@ describe('App', () => {
         )
     
         expect(wrapper.text()).toContain('240')
+    })
+
+    it('loads and shows the LCP summary', async () => {
+        const lcpResponse = {
+            metric: {
+                type: 'web.vital.lcp',
+                unit: 'ms',
+                metricVersion: 'lcp-v1',
+            },
+            range: METRICS_RESPONSE.range,
+            summary: {
+                count: 2,
+                average: 156,
+                p50: 128,
+                p75: 184,
+                p90: 184,
+            },
+            series: [],
+        }
+
+        const fetchMock = vi.fn(
+            async (input: RequestInfo | URL) => {
+                const url = new URL(String(input))
+
+                return {
+                    ok: true,
+                    json: async () =>
+                        url.pathname === '/api/v2/metrics'
+                            ? lcpResponse
+                            : METRICS_RESPONSE,
+                }
+            },
+        )
+
+        vi.stubGlobal('fetch', fetchMock)
+
+        const wrapper = mount(App)
+
+        await flushPromises()
+
+        expect(wrapper.text()).toContain('LCP')
+        expect(wrapper.text()).toContain('lcp-v1')
+        const lcpCard = wrapper.getComponent(
+            MetricSummaryCard,
+        )
+
+        expect(lcpCard.props()).toMatchObject({
+            label: 'LCP',
+            unit: 'ms',
+            metricVersion: 'lcp-v1',
+            stats: lcpResponse.summary,
+        })
+
+        const lcpRequest = fetchMock.mock.calls.find(
+            ([input]) =>
+                new URL(String(input)).pathname
+                === '/api/v2/metrics',
+        )
+
+        expect(lcpRequest).toBeDefined()
+
+        const url = new URL(String(lcpRequest?.[0]))
+
+        expect(url.searchParams.get('type')).toBe(
+            'web.vital.lcp',
+        )
     })
 })

@@ -1,9 +1,11 @@
-import { ref } from 'vue'
-
 import type {
-    PaintMetricsQueryParams,
-    PaintMetricsResponse
+    MetricQueryParams,
+    MetricQueryResponse,
+    WebMetric,
 } from '@performance-platform/protocol'
+import {
+    ref,
+} from 'vue'
 import {
     resolveMetricsRange,
 } from './metrics-range.js'
@@ -11,28 +13,29 @@ import type {
     MetricsRange,
 } from './metrics-range.js'
 
-export type {
-    MetricsRange,
-} from './metrics-range.js'
+type MetricQueryOverrides =
+    Omit<MetricQueryParams, 'type'>
 
-interface UsePaintMetricsOptions {
+interface UseMetricQueryOptions {
+    type: WebMetric
+
     query(
-        params: PaintMetricsQueryParams,
-    ): Promise<PaintMetricsResponse>
+        params: MetricQueryParams,
+    ): Promise<MetricQueryResponse>
 
     now?: () => number
 }
 
-export function usePaintMetrics(
-    options: UsePaintMetricsOptions,
+export function useMetricQuery(
+    options: UseMetricQueryOptions,
 ) {
     const loading = ref(false)
-    const data = ref<PaintMetricsResponse | null>(null)
+    const data = ref<MetricQueryResponse | null>(null)
     const error = ref<string | null>(null)
-    let latestRequestId = 0 
+    let latestRequestId = 0
 
     async function load(
-        params: PaintMetricsQueryParams
+        params: MetricQueryOverrides = {},
     ): Promise<void> {
         const requestId = ++latestRequestId
 
@@ -40,15 +43,21 @@ export function usePaintMetrics(
         error.value = null
 
         try {
-            const response = await options.query(params)
+            const response = await options.query({
+                ...params,
+                type: options.type
+            })
             if (requestId !== latestRequestId) {
                 return
             }
-            data.value = response
-        } catch(cause) {
-            if (requestId !== latestRequestId) return
 
-            error.value = 'Unable to load performance metrics'
+            data.value = response
+        } catch {
+            if (requestId !== latestRequestId) {
+                return
+            }
+
+            error.value = 'Unable to load metric'
         } finally {
             if (requestId === latestRequestId) {
                 loading.value = false
@@ -57,7 +66,7 @@ export function usePaintMetrics(
     }
 
     async function loadRange(
-        range: MetricsRange = '24h'
+        range: MetricsRange = '24h',
     ): Promise<void> {
         const now = (options.now ?? Date.now)()
 
@@ -69,6 +78,6 @@ export function usePaintMetrics(
         data,
         error,
         load,
-        loadRange
+        loadRange,
     }
 }

@@ -109,6 +109,125 @@ button { font: inherit; }
   box-shadow: 0 0 24px rgb(40 175 255 / 20%);
 }
 
+.vital-metric-slot {
+  position: absolute;
+  z-index: 5;
+  top: 18.2%;
+  left: 38.7%;
+  width: 22.6%;
+  height: 16.6%;
+}
+
+.vital-metric-slot__state {
+  height: 100%;
+  margin: 0;
+  display: grid;
+  place-items: center;
+  color: var(--cyan-soft);
+  font-size: clamp(8px, 0.72vw, 12px);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.vital-metric-slot__state--error {
+  color: var(--warning);
+}
+
+.metric-summary-card {
+  height: 100%;
+  padding: 4.5% 7%;
+  color: var(--text);
+  background:
+    linear-gradient(135deg, rgb(8 35 65 / 82%), rgb(6 13 35 / 42%));
+  border: 1px solid rgb(86 228 255 / 42%);
+  clip-path: polygon(7% 0, 93% 0, 100% 18%, 100% 82%, 93% 100%, 7% 100%, 0 82%, 0 18%);
+  box-shadow: inset 0 0 22px rgb(58 203 255 / 12%);
+}
+
+.metric-summary-card__header,
+.metric-summary-card__body,
+.metric-summary-card dl,
+.metric-summary-card dl > div {
+  display: flex;
+  align-items: center;
+}
+
+.metric-summary-card__header {
+  justify-content: space-between;
+  gap: 1em;
+}
+
+.metric-summary-card__eyebrow {
+  display: block;
+  color: #8ea9c7;
+  font-size: clamp(5px, 0.43vw, 8px);
+  letter-spacing: 0.12em;
+}
+
+.metric-summary-card h2 {
+  margin: 0.05em 0 0;
+  color: var(--cyan);
+  font-size: clamp(17px, 1.65vw, 28px);
+  line-height: 1;
+  text-shadow: 0 0 10px rgb(86 228 255 / 60%);
+}
+
+.metric-summary-card__version {
+  color: #8fb2ce;
+  font-size: clamp(6px, 0.48vw, 9px);
+  letter-spacing: 0.08em;
+}
+
+.metric-summary-card__body {
+  justify-content: space-between;
+  gap: 6%;
+  margin-top: 4%;
+}
+
+.metric-summary-card__primary span,
+.metric-summary-card dt {
+  color: #91a7c4;
+  font-size: clamp(5px, 0.43vw, 8px);
+  letter-spacing: 0.08em;
+}
+
+.metric-summary-card__primary strong {
+  display: block;
+  color: #f1fbff;
+  font-size: clamp(13px, 1.25vw, 21px);
+  line-height: 1.1;
+  white-space: nowrap;
+}
+
+.metric-summary-card dl {
+  flex: 1;
+  justify-content: flex-end;
+  gap: 10%;
+  margin: 0;
+}
+
+.metric-summary-card dl > div {
+  flex-direction: column;
+  align-items: flex-start;
+}
+
+.metric-summary-card dd {
+  margin: 0.12em 0 0;
+  color: var(--cyan-soft);
+  font-size: clamp(8px, 0.72vw, 12px);
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.metric-summary-card__empty {
+  position: absolute;
+  right: 7%;
+  bottom: 4%;
+  margin: 0;
+  color: var(--muted);
+  font-size: clamp(5px, 0.42vw, 8px);
+}
+
 .paint-metrics-summary { display: contents; }
 
 .paint-metric-card {
@@ -335,6 +454,11 @@ button { font: inherit; }
 .performance-score__callout--speed { bottom: -47%; left: -34%; text-align: right; }
 .performance-score__callout--experience { right: -34%; bottom: -47%; text-align: left; }
 
+.performance-score__callout--start,
+.performance-score__callout--render {
+  display: none;
+}
+
 .paint-trends {
   position: absolute;
   z-index: 3;
@@ -456,6 +580,7 @@ button { font: inherit; }
   .dashboard-header { display: grid; gap: 12px; }
   .dashboard-header h1,
   .dashboard-status,
+  .vital-metric-slot,
   .paint-metric-card,
   .performance-score,
   .paint-trends,
@@ -471,8 +596,10 @@ button { font: inherit; }
   .dashboard-status { min-height: 56px; background: rgb(4 18 42 / 86%); border: 1px solid rgb(47 159 219 / 50%); }
   .btn-group { order: 1; min-height: 52px; }
   .performance-score { order: 2; min-height: 360px; padding: 90px 15%; background: rgb(4 18 42 / 72%); border: 1px solid rgb(55 166 223 / 45%); }
+  .vital-metric-slot { order: 3; min-height: 180px; }
+  .metric-summary-card { min-height: 180px; padding: 28px; }
   .performance-score__callout { display: none; }
-  .paint-metrics-summary { order: 3; display: grid; grid-template-columns: 1fr; gap: 16px; }
+  .paint-metrics-summary { order: 4; display: grid; grid-template-columns: 1fr; gap: 16px; }
   .paint-metric-card { min-height: 360px; padding: 28px; background: rgb(4 18 42 / 90%); border: 1px solid rgb(47 159 219 / 55%); }
   .paint-metric-card__content {
     transform: none !important;
@@ -494,7 +621,7 @@ button { font: inherit; }
   .paint-metric-card .paint-metric-card__stats > div::before {
     transform: none;
   }
-  .paint-trends { order: 4; grid-template-columns: 1fr; gap: 16px; }
+  .paint-trends { order: 5; grid-template-columns: 1fr; gap: 16px; }
   .paint-trend-chart {
     min-height: 280px;
     padding: 24px;
