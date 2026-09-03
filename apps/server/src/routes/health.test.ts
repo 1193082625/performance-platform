@@ -38,9 +38,14 @@ describe('GET /health', () => {
         }
         let app
 
+        const metricQueryRepository = {
+            queryMetric: vi.fn(),
+        }
+
         if (corsOrigins) {
             app = buildApp({
                 eventRepository: repository,
+                metricQueryRepository,
                 appId: 'demo-web',
                 now: () => Date.now(),
                 corsOrigins 
@@ -48,6 +53,7 @@ describe('GET /health', () => {
         } else {
             app = buildApp({
                 eventRepository: repository,
+                metricQueryRepository,
                 appId: 'demo-web',
                 now: () => Date.now(),
             })

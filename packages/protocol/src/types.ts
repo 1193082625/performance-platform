@@ -191,6 +191,7 @@ export type ApiErrorCode =
     | 'TIME_RANGE_TOO_LARGE'
     | 'INTERNAL_ERROR'
     | 'STORAGE_UNAVAILABLE' // PostgreSQL 不可用
+    | 'UNSUPPORTED_METRIC'
 
 // 统一的非成功响应
 export interface ApiErrorResponse {
@@ -285,4 +286,78 @@ export interface PaintScore {
 
 export interface PaintMetricsResponse extends PaintMetricsData {
     score: PaintScore | null
+}
+
+export interface MetricQueryParams {
+    type: WebMetric
+    from?: string
+    to?: string
+    interval?: MetricsInterval
+}
+
+export interface MetricStats {
+    count: number
+    average: number | null
+    p50: number | null
+    p75: number | null
+    p90: number | null
+}
+
+export interface MetricSeriesPoint {
+    time: string
+    stats: MetricStats
+}
+
+export type MetricDefinition =
+    | {
+        type:
+            | 'web.paint.fp'
+            | 'web.paint.fcp'
+        unit: 'ms'
+        metricVersion: 'paint-v1'
+    }
+    | {
+        type: 'web.vital.lcp'
+        unit: 'ms'
+        metricVersion: 'lcp-v1'
+    }
+    | {
+        type: 'web.vital.cls'
+        unit: 'score'
+        metricVersion: 'cls-v1'
+    }
+    | {
+        type: 'web.vital.inp'
+        unit: 'ms'
+        metricVersion: 'inp-v1'
+    }
+    | {
+        type:
+            | 'web.memory.used_heap'
+            | 'web.memory.total_heap'
+            | 'web.memory.heap_limit'
+        unit: 'byte'
+        metricVersion: 'memory-v1'
+    }
+
+export type WebMetric =
+    MetricDefinition['type']
+
+export type MetricUnit =
+    MetricDefinition['unit']
+
+export type MetricVersion =
+    MetricDefinition['metricVersion']
+
+export interface MetricQueryResponse {
+    metric: MetricDefinition
+
+    range: {
+        from: string
+        to: string
+        interval: MetricsInterval
+    }
+
+    summary: MetricStats
+    series: MetricSeriesPoint[]
 }

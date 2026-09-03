@@ -4,9 +4,7 @@
 import Fastify, { type FastifyInstance, type FastifyError } from 'fastify'
 import { createEventIngestionService } from './services/event-ingestion-service.js'
 import { createApiErrorResponse } from './http/api-error.js'
-import type {
-    EventRepository
-} from './repositories/event-repository.js'
+
 import { registerEventRoutes } from './routes/events.js'
 import { createPaintMetricsService } from './services/paint-metrics-service.js'
 import { registerMetricsRoutes } from './routes/metrics.js'
@@ -15,9 +13,22 @@ import cors from '@fastify/cors'
 import {
     createMetricEventIngestionService,
 } from './services/metric-event-ingestion-service.js'
+import type {
+    EventRepository,
+    MetricQueryRepository,
+} from './repositories/event-repository.js'
+
+import {
+    createMetricQueryService,
+} from './services/metric-query-service.js'
+
+import {
+    registerMetricQueryRoutes,
+} from './routes/metric-query.js'
 
 interface BuildAppOptions {
     eventRepository: EventRepository
+    metricQueryRepository: MetricQueryRepository
     appId: string
     now: () => number
     corsOrigins?: string[]
@@ -86,6 +97,12 @@ export function buildApp(
         now: options.now,
     })
 
+    const metricQueryService = createMetricQueryService({
+        repository: options.metricQueryRepository,
+        appId: options.appId,
+        now: options.now,
+    })
+
     app.register(registerHealthRoutes)
 
     app.register(
@@ -108,6 +125,13 @@ export function buildApp(
         {
             metricsService,
         },
+    )
+
+    app.register(
+        registerMetricQueryRoutes,
+        {
+            metricQueryService,
+        }
     )
 
     return app

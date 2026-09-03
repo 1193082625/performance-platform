@@ -1,7 +1,11 @@
 import type { Pool } from 'pg'
 
-import type { EventRepository } from './event-repository.js'
-import type { MetricsInterval, PaintStats } from '@performance-platform/protocol'
+import type { EventRepository, MetricQueryRepository } from './event-repository.js'
+import type {
+    MetricSeriesPoint,
+    MetricStats,
+    MetricsInterval,
+} from '@performance-platform/protocol'
 
 interface SummaryRow {
     fp_count: string
@@ -18,6 +22,19 @@ interface SummaryRow {
 }
 
 interface SeriesRow extends SummaryRow {
+    bucket_time: Date
+}
+
+interface MetricSummaryRow {
+    count: string
+    average: number | null
+    p50: number | null
+    p75: number | null
+    p90: number | null
+}
+
+interface MetricSeriesRow
+    extends MetricSummaryRow {
     bucket_time: Date
 }
 
@@ -51,7 +68,7 @@ function getIntervalSql (
             return "INTERVAL '1 hour'"
         case 'day':
             return "INTERVAL '1 day'"
-        
+
         default:
             throw new Error (
                 `Unsupported metrics interval: ${String(interval)}`
@@ -59,7 +76,7 @@ function getIntervalSql (
     }
 }
 
-function emptyStats(): PaintStats {
+function emptyStats(): MetricStats {
     return {
         count: 0,
         average: null,
@@ -69,7 +86,7 @@ function emptyStats(): PaintStats {
     }
 }
 
-export function createPostgresEventRepository(pool: Pool): EventRepository {
+export function createPostgresEventRepository(pool: Pool): EventRepository & MetricQueryRepository {
     return {
         async insertBatch(events) {
             if (events.length === 0) return
@@ -78,7 +95,7 @@ export function createPostgresEventRepository(pool: Pool): EventRepository {
 
             try {
                 await client.query('BEGIN')
-                
+
                 for(const event of events) {
 
                     const sampleRate =
@@ -171,9 +188,9 @@ export function createPostgresEventRepository(pool: Pool): EventRepository {
          * queryPaintMetrics 做两件事：
          * 查询整个时间范围的统计 --> summary
          * 按小时分别统计 --> series
-         * 
+         *
          * SQL 计算有数据的桶，JS补齐没有数据的桶
-         * 
+         *
          * 输出：
          *  range 回显标准化查询条件
          *  summary 整个范围的总体统计
@@ -195,13 +212,13 @@ export function createPostgresEventRepository(pool: Pool): EventRepository {
                         FILTER (
                             WHERE event_type = 'web.paint.fp'
                         ) AS fp_p50,
-                    
+
                     percentile_cont(0.75)
                         WITHIN GROUP (ORDER BY metric_value)
                         FILTER (
                             WHERE event_type = 'web.paint.fp'
                         ) AS fp_p75,
-                    
+
                     percentile_cont(0.90)
                         WITHIN GROUP (ORDER BY metric_value)
                         FILTER (
@@ -242,8 +259,8 @@ export function createPostgresEventRepository(pool: Pool): EventRepository {
                     query.from,
                     query.to,
                 ],
-            )  
-            
+            )
+
             const row = result.rows[0]
 
             if (row === undefined) {
@@ -279,7 +296,7 @@ export function createPostgresEventRepository(pool: Pool): EventRepository {
                         event_time,
                         $2::timestamptz
                     ) AS bucket_time,
-                    
+
                     count(*) FILTER (
                         WHERE event_type = 'web.paint.fp'
                     ) AS fp_count,
@@ -378,7 +395,7 @@ export function createPostgresEventRepository(pool: Pool): EventRepository {
                             p75: bucketRow.fp_p75,
                             p90: bucketRow.fp_p90,
                         },
-                
+
                     fcp: bucketRow === undefined
                         ? emptyStats()
                         : {
@@ -400,6 +417,157 @@ export function createPostgresEventRepository(pool: Pool): EventRepository {
                 summary,
                 series,
             }
-        }
+        },
+        async queryMetric(query) {
+            const values = [
+                query.appId,
+                query.from,
+                query.to,
+                query.metric.type,
+                query.metric.unit,
+                query.metric.metricVersion,
+            ]
+
+            const summaryResult =
+                await pool.query<MetricSummaryRow>(
+                    `SELECT
+                        count(*) AS count,
+                        avg(metric_value) AS average,
+
+                        percentile_cont(0.50)
+                            WITHIN GROUP (
+                                ORDER BY metric_value
+                            ) AS p50,
+
+                        percentile_cont(0.75)
+                            WITHIN GROUP (
+                                ORDER BY metric_value
+                            ) AS p75,
+
+                        percentile_cont(0.90)
+                            WITHIN GROUP (
+                                ORDER BY metric_value
+                            ) AS p90
+                    FROM metric_events
+                    WHERE app_id = $1
+                        AND event_time >= $2
+                        AND event_time < $3
+                        AND event_type = $4
+                        AND metric_unit = $5
+                        AND metric_version = $6`,
+                    values,
+                )
+
+            const summaryRow =
+                summaryResult.rows[0]
+
+            if (summaryRow === undefined) {
+                throw new Error(
+                    'Metric statistics query returned no row',
+                )
+            }
+
+            const summary: MetricStats = {
+                count: Number(summaryRow.count),
+                average: summaryRow.average,
+                p50: summaryRow.p50,
+                p75: summaryRow.p75,
+                p90: summaryRow.p90,
+            }
+
+            const intervalSql =
+                getIntervalSql(query.interval)
+
+            const seriesResult =
+                await pool.query<MetricSeriesRow>(
+                    `SELECT
+                        date_bin(
+                            ${intervalSql},
+                            event_time,
+                            $2::timestamptz
+                        ) AS bucket_time,
+
+                        count(*) AS count,
+                        avg(metric_value) AS average,
+
+                        percentile_cont(0.50)
+                            WITHIN GROUP (
+                                ORDER BY metric_value
+                            ) AS p50,
+
+                        percentile_cont(0.75)
+                            WITHIN GROUP (
+                                ORDER BY metric_value
+                            ) AS p75,
+
+                        percentile_cont(0.90)
+                            WITHIN GROUP (
+                                ORDER BY metric_value
+                            ) AS p90
+
+                    FROM metric_events
+                    WHERE app_id = $1
+                        AND event_time >= $2
+                        AND event_time < $3
+                        AND event_type = $4
+                        AND metric_unit = $5
+                        AND metric_version = $6
+
+                    GROUP BY bucket_time
+                    ORDER BY bucket_time`,
+                    values,
+                )
+
+            const rowsByTime = new Map(
+                seriesResult.rows.map((row) => [
+                    row.bucket_time.toISOString(),
+                    row,
+                ]),
+            )
+
+            const intervalDuration =
+                getIntervalDuration(query.interval)
+
+            const series: MetricSeriesPoint[] = []
+
+            for (
+                let time = query.from.getTime();
+                time < query.to.getTime();
+                time += intervalDuration
+            ) {
+                const bucketTime =
+                    new Date(time).toISOString()
+
+                const row =
+                    rowsByTime.get(bucketTime)
+
+                series.push({
+                    time: bucketTime,
+
+                    stats: row === undefined
+                        ? emptyStats()
+                        : {
+                            count: Number(row.count),
+                            average: row.average,
+                            p50: row.p50,
+                            p75: row.p75,
+                            p90: row.p90,
+                        },
+                })
+            }
+
+            return {
+                metric: query.metric,
+
+                range: {
+                    from: query.from.toISOString(),
+                    to: query.to.toISOString(),
+                    interval: query.interval,
+                },
+
+                summary,
+                series,
+            }
+        },
     }
 }

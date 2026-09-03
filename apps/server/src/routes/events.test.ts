@@ -115,8 +115,13 @@ describe('event batch routes', () => {
                 >(),
         }
 
+        const metricQueryRepository = {
+            queryMetric: vi.fn(),
+        }
+
         const app = buildApp({
             eventRepository: repository,
+            metricQueryRepository,
             appId: 'demo-web',
             now: () => NOW,
         })

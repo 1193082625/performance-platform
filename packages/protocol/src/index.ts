@@ -25,6 +25,15 @@ export type {
     BatchRequestV2,
     MetricBatchValidationResult,
     ValidatedMetricBatch,
+
+    MetricDefinition,
+    MetricQueryParams,
+    MetricQueryResponse,
+    MetricSeriesPoint,
+    MetricStats,
+    MetricUnit,
+    MetricVersion,
+    WebMetric,
 } from './types.js'
 
 export {

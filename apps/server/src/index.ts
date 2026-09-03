@@ -12,6 +12,7 @@ const repository = createPostgresEventRepository(pool)
 
 const app = buildApp({
     eventRepository: repository,
+    metricQueryRepository: repository,
     appId: config.appId,
     now: Date.now,
     corsOrigins: config.corsOrigins,

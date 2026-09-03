@@ -84,8 +84,13 @@ const METRICS_RESPONSE: PaintMetricsData = {
                 queryPaintMetrics,
             }
 
+            const metricQueryRepository = {
+                queryMetric: vi.fn(),
+            }
+
             const app = buildApp({
                 eventRepository: repository,
+                metricQueryRepository,
                 appId: 'demo-web',
                 now: () => NOW,
             })
@@ -103,7 +108,7 @@ const METRICS_RESPONSE: PaintMetricsData = {
                 app,
                 queryPaintMetrics,
             } = createTestApp()
-            
+
             queryPaintMetrics.mockResolvedValue(METRICS_RESPONSE)
 
             const response = await app.inject({
@@ -148,14 +153,14 @@ const METRICS_RESPONSE: PaintMetricsData = {
                 app,
                 queryPaintMetrics,
             } = createTestApp()
-            
+
             queryPaintMetrics.mockResolvedValue(
                 metricsResponse,
             )
 
             const response = await app.inject({
                 method: 'GET',
-        
+
                 url:
                     '/api/v1/metrics/paint'
                     + `?from=${encodeURIComponent(from)}`
@@ -164,12 +169,12 @@ const METRICS_RESPONSE: PaintMetricsData = {
             })
 
             expect(response.statusCode).toBe(200)
-        
+
             expect(response.json()).toEqual({
                 ...metricsResponse,
                 score: null
             })
-        
+
             expect(
                 queryPaintMetrics,
             ).toHaveBeenCalledWith({
@@ -188,7 +193,7 @@ const METRICS_RESPONSE: PaintMetricsData = {
 
             const response = await app.inject({
                 method: 'GET',
-                url: 
+                url:
                     '/api/v1/metrics/paint'
                     + '?from=not-a-date',
             })
@@ -241,30 +246,30 @@ const METRICS_RESPONSE: PaintMetricsData = {
                 app,
                 queryPaintMetrics,
             } = createTestApp()
-        
+
             const response = await app.inject({
                 method: 'GET',
-        
+
                 url:
                     '/api/v1/metrics/paint'
                     + '?interval=week',
             })
-        
+
             expect(response.statusCode).toBe(400)
-        
+
             expect(response.json()).toEqual({
                 error: {
                     code:
                         'INVALID_INTERVAL',
-        
+
                     message:
                         'interval must be one of minute, hour, or day',
-        
+
                     requestId:
                         expect.any(String),
                 },
             })
-        
+
             expect(
                 queryPaintMetrics,
             ).not.toHaveBeenCalled()
@@ -277,33 +282,33 @@ const METRICS_RESPONSE: PaintMetricsData = {
             } = createTestApp()
 
             const from = '2026-08-30T08:00:00.000Z'
-    
+
             const to = '2026-08-30T08:00:00.000Z'
-        
+
             const response = await app.inject({
                 method: 'GET',
-        
+
                 url:
                     '/api/v1/metrics/paint'
                     + `?from=${encodeURIComponent(from)}`
                     + `&to=${encodeURIComponent(to)}`,
             })
-    
+
             expect(response.statusCode).toBe(400)
 
             expect(response.json()).toEqual({
                 error: {
                     code:
                         'INVALID_TIME_RANGE',
-        
+
                     message:
                         'from must be earlier than to',
-        
+
                     requestId:
                         expect.any(String),
                 },
             })
-        
+
             expect(
                 queryPaintMetrics,
             ).not.toHaveBeenCalled()
@@ -314,37 +319,37 @@ const METRICS_RESPONSE: PaintMetricsData = {
                 app,
                 queryPaintMetrics,
             } = createTestApp()
-        
+
             const from =
                 '2026-07-30T00:00:00.000Z'
-        
+
             const to =
                 '2026-08-30T00:00:00.000Z'
-        
+
             const response = await app.inject({
                 method: 'GET',
-        
+
                 url:
                     '/api/v1/metrics/paint'
                     + `?from=${encodeURIComponent(from)}`
                     + `&to=${encodeURIComponent(to)}`,
             })
-        
+
             expect(response.statusCode).toBe(400)
-        
+
             expect(response.json()).toEqual({
                 error: {
                     code:
                         'TIME_RANGE_TOO_LARGE',
-        
+
                     message:
                         'time range must not exceed 30 days',
-        
+
                     requestId:
                         expect.any(String),
                 },
             })
-        
+
             expect(
                 queryPaintMetrics,
             ).not.toHaveBeenCalled()
@@ -355,33 +360,33 @@ const METRICS_RESPONSE: PaintMetricsData = {
                 app,
                 queryPaintMetrics,
             } = createTestApp()
-            
+
             queryPaintMetrics.mockRejectedValue(
                 new Error(
                     'connect ECONNREFUSED localhost:5432',
                 ),
             )
-        
+
             const response = await app.inject({
                 method: 'GET',
                 url: '/api/v1/metrics/paint',
             })
-        
+
             expect(response.statusCode).toBe(503)
-        
+
             expect(response.json()).toEqual({
                 error: {
                     code:
                         'STORAGE_UNAVAILABLE',
-        
+
                     message:
                         'metrics storage is temporarily unavailable',
-        
+
                     requestId:
                         expect.any(String),
                 },
             })
-        
+
             expect(response.body).not.toContain(
                 'ECONNREFUSED',
             )
@@ -391,10 +396,10 @@ const METRICS_RESPONSE: PaintMetricsData = {
                 app,
                 queryPaintMetrics,
             } = createTestApp()
-        
+
             queryPaintMetrics.mockResolvedValue({
                 ...METRICS_RESPONSE,
-        
+
                 summary: {
                     fp: {
                         count: 100,
@@ -403,7 +408,7 @@ const METRICS_RESPONSE: PaintMetricsData = {
                         p75: 1_000,
                         p90: 1_200,
                     },
-        
+
                     fcp: {
                         count: 100,
                         average: 1_500,
@@ -413,20 +418,20 @@ const METRICS_RESPONSE: PaintMetricsData = {
                     },
                 },
             })
-        
+
             const response = await app.inject({
                 method: 'GET',
                 url: '/api/v1/metrics/paint',
             })
-        
+
             expect(response.statusCode).toBe(200)
-        
+
             expect(response.json()).toMatchObject({
                 score: {
                     value: 90,
                     status: 'good',
                     version: 'paint-v1',
-        
+
                     components: {
                         fp: 90,
                         fcp: 90,
