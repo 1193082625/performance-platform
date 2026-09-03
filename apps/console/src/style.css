@@ -113,9 +113,17 @@ button { font: inherit; }
   position: absolute;
   z-index: 5;
   top: 18.2%;
-  left: 38.7%;
-  width: 22.6%;
+  left: 32.5%;
+  width: 35%;
   height: 16.6%;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 2.5%;
+}
+
+.vital-metric-panel {
+  min-width: 0;
+  min-height: 0;
 }
 
 .vital-metric-slot__state {
@@ -597,6 +605,8 @@ button { font: inherit; }
   .btn-group { order: 1; min-height: 52px; }
   .performance-score { order: 2; min-height: 360px; padding: 90px 15%; background: rgb(4 18 42 / 72%); border: 1px solid rgb(55 166 223 / 45%); }
   .vital-metric-slot { order: 3; min-height: 180px; }
+  .vital-metric-slot { grid-template-columns: 1fr; gap: 16px; }
+  .vital-metric-panel { min-height: 180px; }
   .metric-summary-card { min-height: 180px; padding: 28px; }
   .performance-score__callout { display: none; }
   .paint-metrics-summary { order: 4; display: grid; grid-template-columns: 1fr; gap: 16px; }

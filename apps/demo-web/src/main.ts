@@ -25,6 +25,9 @@ paintMonitor.start()
 
 document.querySelector<HTMLDivElement>('#app')!.innerHTML = `
 <section id="center">
+  <aside id="layout-shift-demo" aria-label="CLS monitoring demonstration">
+    Delayed content injected to exercise CLS monitoring
+  </aside>
   <div class="hero">
     <img src="${heroImg}" class="base" width="170" height="179">
     <img src="${typescriptLogo}" class="framework" alt="TypeScript logo"/>
@@ -77,3 +80,9 @@ document.querySelector<HTMLDivElement>('#app')!.innerHTML = `
 `
 
 setupCounter(document.querySelector<HTMLButtonElement>('#counter')!)
+
+window.setTimeout(() => {
+  document
+    .querySelector('#layout-shift-demo')
+    ?.classList.add('layout-shift-demo--visible')
+}, 1_200)

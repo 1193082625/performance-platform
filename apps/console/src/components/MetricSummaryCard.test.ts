@@ -59,4 +59,28 @@ describe('MetricSummaryCard', () => {
             wrapper.get('[data-testid="metric-summary-average"]').text(),
         ).toBe('—')
     })
+
+    it('formats a CLS score without a unit suffix', () => {
+        const wrapper = mount(MetricSummaryCard, {
+            props: {
+                label: 'CLS',
+                metricVersion: 'cls-v1',
+                unit: 'score',
+                stats: {
+                    count: 3,
+                    average: 0.0724,
+                    p50: 0.05,
+                    p75: 0.0944,
+                    p90: 0.12,
+                },
+            },
+        })
+
+        expect(
+            wrapper.get('[data-testid="metric-summary-average"]').text(),
+        ).toBe('0.072')
+        expect(
+            wrapper.get('[data-testid="metric-summary-p75"]').text(),
+        ).toBe('0.094')
+    })
 })

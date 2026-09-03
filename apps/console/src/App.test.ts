@@ -213,11 +213,11 @@ describe('App', () => {
         await sevenDayButton!.trigger('click')
         await flushPromises()
     
-        expect(fetchMock).toHaveBeenCalledTimes(4)
+        expect(fetchMock).toHaveBeenCalledTimes(6)
     
         const requestUrl = new URL(
             String(
-                fetchMock.mock.calls[2]?.[0],
+                fetchMock.mock.calls[3]?.[0],
             ),
         )
     
@@ -435,5 +435,70 @@ describe('App', () => {
         expect(url.searchParams.get('type')).toBe(
             'web.vital.lcp',
         )
+    })
+
+    it('loads and shows the CLS summary', async () => {
+        const clsResponse = {
+            metric: {
+                type: 'web.vital.cls',
+                unit: 'score',
+                metricVersion: 'cls-v1',
+            },
+            range: METRICS_RESPONSE.range,
+            summary: {
+                count: 3,
+                average: 0.072,
+                p50: 0.05,
+                p75: 0.094,
+                p90: 0.12,
+            },
+            series: [],
+        }
+        const fetchMock = vi.fn(
+            async (input: RequestInfo | URL) => {
+                const url = new URL(String(input))
+
+                if (
+                    url.searchParams.get('type')
+                    === 'web.vital.cls'
+                ) {
+                    return {
+                        ok: true,
+                        json: async () => clsResponse,
+                    }
+                }
+
+                return {
+                    ok: true,
+                    json: async () => METRICS_RESPONSE,
+                }
+            },
+        )
+
+        vi.stubGlobal('fetch', fetchMock)
+
+        const wrapper = mount(App)
+
+        await flushPromises()
+
+        const cards = wrapper.findAllComponents(
+            MetricSummaryCard,
+        )
+        const clsCard = cards.find(
+            card => card.props('label') === 'CLS',
+        )
+
+        expect(clsCard).toBeDefined()
+        expect(clsCard?.props()).toMatchObject({
+            label: 'CLS',
+            unit: 'score',
+            metricVersion: 'cls-v1',
+            stats: clsResponse.summary,
+        })
+        expect(
+            clsCard
+                ?.get('[data-testid="metric-summary-average"]')
+                .text(),
+        ).toBe('0.072')
     })
 })

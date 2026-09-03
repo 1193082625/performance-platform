@@ -5,6 +5,7 @@ import type { SessionStorageLike } from './ids.type'
 import type { CreatePaintObserver } from './paintCollector.type'
 import type { FetchTransport, SendBeacon } from './reporter.type'
 import type { ObserveLcp } from './lcpCollector.type'
+import type { ObserveCls } from './clsCollector.type.js'
 
 // SDK使用者关心的业务配置：监控哪个应用？什么版本？什么环境？上报到哪里？
 export interface PaintMonitorConfig {
@@ -63,6 +64,7 @@ export interface PaintMonitorDependencies {
     sessionStorage?: SessionStorageLike
     createObserver?: CreatePaintObserver
     observeLcp?: ObserveLcp
+    observeCls?: ObserveCls
     sendBeacon?: SendBeacon
     fetch?: FetchTransport
     pageLifecycle?: PageLifecycleLike

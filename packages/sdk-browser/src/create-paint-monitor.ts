@@ -31,6 +31,8 @@ import { shouldSampleSession } from './sampling'
 import type { MetricSample } from "./types/metricSample.type";
 import { createLcpCollector } from "./lcp-collector";
 import { observeLcpWithWebVitals } from "./web-vitals-adapter";
+import { createClsCollector } from './cls-collector.js'
+import { observeClsWithWebVitals } from './web-vitals-adapter.js'
 
 
 function getBrowserSessionStorage(): PaintMonitorDependencies['sessionStorage'] {
@@ -62,6 +64,7 @@ export function createPaintMonitor(config: PaintMonitorConfig): PaintMonitor {
             timeOrigin: performance.timeOrigin,
             randomUUID: () => crypto.randomUUID(),
             observeLcp: observeLcpWithWebVitals,
+            observeCls: observeClsWithWebVitals,
             ...(browserSessionStorage === undefined
                 ? {}
                 : {
@@ -202,6 +205,21 @@ export function createPaintMonitorWithDependencies(
         },
     })
 
+    const clsCollector = createClsCollector({
+        timeOrigin: dependencies.timeOrigin,
+
+        ...(dependencies.observeCls === undefined
+            ? {}
+            : {
+                observeCls: dependencies.observeCls,
+            }),
+
+        onSample: (sample) => {
+            enqueueMetricSample(sample)
+            void reporter.flush()
+        },
+    })
+
     const handleVisibilityChange = (): void => {
         if (
             dependencies.pageLifecycle?.visibilityState === 'hidden'
@@ -218,6 +236,7 @@ export function createPaintMonitorWithDependencies(
 
         collector.start()
         lcpCollector.start()
+        clsCollector.start()
 
         if (visibilityListenerInstalled || dependencies.pageLifecycle === undefined) {
             return
@@ -238,6 +257,7 @@ export function createPaintMonitorWithDependencies(
 
         collector.destroy()
         lcpCollector.destroy()
+        clsCollector.destroy()
 
         if (visibilityListenerInstalled && dependencies.pageLifecycle !== undefined) {
             visibilityListenerInstalled = false

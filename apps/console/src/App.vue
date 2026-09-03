@@ -24,31 +24,54 @@
 
     <MetricsRangeSelector :range="selectedRange" @select="handleSelectedRange" />
 
-    <section
-        class="vital-metric-slot"
-        aria-live="polite"
-    >
-        <p
-            v-if="lcpLoading"
-            class="vital-metric-slot__state"
-        >
-            正在加载 LCP
-        </p>
+    <section class="vital-metric-slot" aria-live="polite">
+        <div class="vital-metric-panel">
+            <p
+                v-if="lcpLoading"
+                class="vital-metric-slot__state"
+            >
+                正在加载 LCP
+            </p>
 
-        <p
-            v-else-if="lcpError"
-            class="vital-metric-slot__state vital-metric-slot__state--error"
-        >
-            LCP 数据加载失败
-        </p>
+            <p
+                v-else-if="lcpError"
+                class="vital-metric-slot__state vital-metric-slot__state--error"
+            >
+                LCP 数据加载失败
+            </p>
 
-        <MetricSummaryCard
-            v-else-if="lcpData?.metric?.type === 'web.vital.lcp'"
-            label="LCP"
-            :stats="lcpData.summary"
-            :unit="lcpData.metric.unit"
-            :metric-version="lcpData.metric.metricVersion"
-        />
+            <MetricSummaryCard
+                v-else-if="lcpData?.metric?.type === 'web.vital.lcp'"
+                label="LCP"
+                :stats="lcpData.summary"
+                :unit="lcpData.metric.unit"
+                :metric-version="lcpData.metric.metricVersion"
+            />
+        </div>
+
+        <div class="vital-metric-panel">
+            <p
+                v-if="clsLoading"
+                class="vital-metric-slot__state"
+            >
+                正在加载 CLS
+            </p>
+
+            <p
+                v-else-if="clsError"
+                class="vital-metric-slot__state vital-metric-slot__state--error"
+            >
+                CLS 数据加载失败
+            </p>
+
+            <MetricSummaryCard
+                v-else-if="clsData?.metric?.type === 'web.vital.cls'"
+                label="CLS"
+                :stats="clsData.summary"
+                :unit="clsData.metric.unit"
+                :metric-version="clsData.metric.metricVersion"
+            />
+        </div>
     </section>
 
     <div v-if="loading" class="dashboard-state">正在加载性能数据</div>
@@ -139,6 +162,16 @@ const {
   type: 'web.vital.lcp',
   query: metricQueryApi.query,
 })
+
+const {
+  data: clsData,
+  loading: clsLoading,
+  error: clsError,
+  loadRange: loadClsRange,
+} = useMetricQuery({
+  type: 'web.vital.cls',
+  query: metricQueryApi.query,
+})
 const selectedRange = ref<MetricsRange>('24h')
 const selectedWindow = computed(
     () => `${selectedRange.value.toUpperCase()} WINDOW`,
@@ -154,11 +187,16 @@ const totalSamples = computed(
             lcpData.value?.metric?.type === 'web.vital.lcp'
                 ? lcpData.value.summary.count
                 : 0
+        const clsSamples =
+            clsData.value?.metric?.type === 'web.vital.cls'
+                ? clsData.value.summary.count
+                : 0
 
         return (
             data.value.summary.fp.count
             + data.value.summary.fcp.count
             + lcpSamples
+            + clsSamples
         )
     },
 )
@@ -169,6 +207,7 @@ function handleSelectedRange(
   selectedRange.value = range
   void loadRange(range)
   void loadLcpRange(range)
+  void loadClsRange(range)
 }
 
 onMounted(() => {
@@ -177,6 +216,10 @@ onMounted(() => {
   )
 
   void loadLcpRange(
+    selectedRange.value
+  )
+
+  void loadClsRange(
     selectedRange.value
   )
 })

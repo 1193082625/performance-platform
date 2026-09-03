@@ -44,7 +44,7 @@
             v-if="stats.count === 0"
             class="metric-summary-card__empty"
         >
-            暂无 LCP 数据
+            暂无 {{ label }} 数据
         </p>
     </article>
 </template>

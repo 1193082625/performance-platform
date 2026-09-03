@@ -182,6 +182,27 @@ code {
   }
 }
 
+#layout-shift-demo {
+  width: min(520px, calc(100% - 40px));
+  height: 0;
+  padding: 0 20px;
+  overflow: hidden;
+  box-sizing: border-box;
+  display: grid;
+  place-items: center;
+  color: var(--accent);
+  background: var(--accent-bg);
+  border: 0 solid var(--accent-border);
+  border-radius: 8px;
+  opacity: 0;
+}
+
+#layout-shift-demo.layout-shift-demo--visible {
+  height: 64px;
+  border-width: 1px;
+  opacity: 1;
+}
+
 #next-steps {
   display: flex;
   border-top: 1px solid var(--border);

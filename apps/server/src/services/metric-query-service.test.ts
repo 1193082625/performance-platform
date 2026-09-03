@@ -94,6 +94,43 @@ describe('MetricQueryService', () => {
         })
     })
 
+    it('resolves the CLS score definition', async () => {
+        const clsResponse = {
+            ...RESPONSE,
+            metric: {
+                type: 'web.vital.cls',
+                unit: 'score',
+                metricVersion: 'cls-v1',
+            },
+        } satisfies MetricQueryResponse
+        const queryMetric = vi.fn<
+            MetricQueryRepository['queryMetric']
+        >().mockResolvedValue(clsResponse)
+        const service = createMetricQueryService({
+            repository: { queryMetric },
+            appId: 'demo-web',
+            now: () => NOW,
+        })
+
+        const result = await service.query({
+            type: 'web.vital.cls',
+        })
+
+        expect(queryMetric).toHaveBeenCalledWith(
+            expect.objectContaining({
+                metric: {
+                    type: 'web.vital.cls',
+                    unit: 'score',
+                    metricVersion: 'cls-v1',
+                },
+            }),
+        )
+        expect(result).toEqual({
+            ok: true,
+            value: clsResponse,
+        })
+    })
+
     it('uses an explicit range and interval', async () => {
         const queryMetric =
             vi.fn<

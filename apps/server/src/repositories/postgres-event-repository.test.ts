@@ -543,6 +543,66 @@ describe('PostgresEventRepository', () => {
         })
     })
 
+    it('aggregates a CLS score without mixing millisecond metrics', async () => {
+        const clsEvent: MetricEventV2 = {
+            schemaVersion: '2.0',
+            eventId: '30000000-0000-4000-8000-000000000002',
+            type: 'web.vital.cls',
+            timestamp: QUERY_FROM.getTime() + 2_000,
+            sampleRate: 1,
+            metricVersion: 'cls-v1',
+            application: {
+                ...EVENT.application,
+                version: '0.3.0',
+            },
+            runtime: EVENT.runtime,
+            session: {
+                ...EVENT.session,
+                viewId: 'view-cls-query-1',
+            },
+            payload: {
+                value: 0.084,
+                unit: 'score',
+            },
+        }
+
+        await repository.insertBatch([
+            EVENT,
+            clsEvent,
+        ])
+
+        const result = await repository.queryMetric({
+            appId: 'demo-web',
+            metric: {
+                type: 'web.vital.cls',
+                unit: 'score',
+                metricVersion: 'cls-v1',
+            },
+            from: QUERY_FROM,
+            to: QUERY_TO,
+            interval: 'hour',
+        })
+
+        expect(result.metric).toEqual({
+            type: 'web.vital.cls',
+            unit: 'score',
+            metricVersion: 'cls-v1',
+        })
+        expect(result.summary).toEqual({
+            count: 1,
+            average: 0.084,
+            p50: 0.084,
+            p75: 0.084,
+            p90: 0.084,
+        })
+        expect(result.series).toEqual([
+            {
+                time: QUERY_FROM.toISOString(),
+                stats: result.summary,
+            },
+        ])
+    })
+
     it('returns empty generic metric statistics and fills time buckets', async () => {
         const result =
             await repository.queryMetric({
