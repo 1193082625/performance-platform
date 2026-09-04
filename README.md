@@ -1,39 +1,48 @@
 # Performance Platform
 
-一个可自托管的 Web 性能监控平台。当前 v0.1 支持采集、存储、聚合和展示 FP/FCP 指标。
+一个可自托管的 Web 真实用户性能监控平台。v0.2 支持采集、存储、聚合和展示 FP、FCP、LCP、CLS、INP 与 Chromium JS 堆内存指标。
 
 ## 完整链路
 
 ```text
-浏览器产生 FP/FCP
+浏览器 Performance API / web-vitals / performance.memory
         ↓
-PerformanceObserver
+Browser SDK（会话级确定性采样）
         ↓
-Browser SDK
+构造并校验 MetricEventV2
         ↓
-构造并校验 PaintEventV1
+Reporter 批量上报 / Beacon 与 fetch 降级
         ↓
-Reporter 批量上报
+Server → PostgreSQL metric_events
         ↓
-Server
+Paint 查询 / 通用指标查询 / 内存健康评估
         ↓
-PostgreSQL
-        ↓
-Metrics API
-        ↓
-Console
+Console 指标卡片、等级、趋势图和内存状态
 ```
+
+## v0.2 能力
+
+- FP、FCP、LCP、CLS、INP 真实浏览器采集
+- Chromium `performance.memory` 实验性 JS 堆快照
+- `(0, 1]` 会话级确定性采样，事件记录实际 `sampleRate`
+- V2 通用指标协议、批量校验和幂等事件写入
+- PostgreSQL 汇总、P50/P75/P90 和时间序列查询
+- Web Vitals 标准等级与通用趋势切换
+- 内存利用率、持续增长和样本充足度健康评估
+- Docker Compose 一键部署及 Playwright 完整链路测试
+
+内存状态用于风险提示，不能单独证明发生了内存泄漏。该能力依赖 Chromium 的非标准 `performance.memory`，不支持时 SDK 会安全跳过。
 
 ## 项目结构
 
 ```text
 apps/
   console/       性能数据控制台
-  demo-web/      Browser SDK 接入示例
-  server/        事件接收和指标查询服务
+  demo-web/      Browser SDK 接入与异常场景示例
+  server/        事件接收、存储和指标查询服务
 
 packages/
-  protocol/      事件协议、类型和校验逻辑
+  protocol/      V1/V2 协议、指标口径、阈值和校验
   sdk-browser/   浏览器性能采集 SDK
 
 deploy/          Docker Compose 部署配置
@@ -71,56 +80,44 @@ docker compose \
 - Console：<http://localhost:4173>
 - Server 健康检查：<http://localhost:3000/health>
 
-详细步骤参见：
-
-- [FP/FCP MVP 本地部署](docs/operations/mvp-deployment.md)
+详细步骤参见[本地部署与验收](docs/operations/mvp-deployment.md)。
 
 ## 开发验证
 
-运行单元测试和接口测试：
-
 ```bash
 corepack pnpm test
-```
-
-运行类型检查：
-
-```bash
 corepack pnpm typecheck
-```
-
-构建所有 workspace：
-
-```bash
 corepack pnpm build
 ```
 
-保持 Docker Compose 服务运行，然后执行端到端测试：
+保持 Docker Compose 服务运行后执行：
 
 ```bash
 corepack pnpm test:e2e
 ```
 
-## 当前能力
+## 主要接口
 
-v0.1 已实现：
-
-- 使用 `PerformanceObserver` 采集真实 FP/FCP
-- Browser SDK 批量上报和 Beacon 自动刷新
-- 事件协议与运行时校验
-- PostgreSQL 事件持久化
-- FP/FCP 汇总、百分位数和时间序列查询
-- Console 指标卡片、趋势图和性能评分
-- Docker Compose 一键部署
-- Playwright 完整链路测试
+| 接口 | 用途 |
+|---|---|
+| `POST /api/v2/events/batch` | 接收 V2 指标事件批次 |
+| `GET /api/v1/metrics/paint` | 查询兼容的 FP/FCP 聚合结果 |
+| `GET /api/v2/metrics?type=...` | 查询单个通用指标的摘要和趋势 |
+| `GET /api/v2/memory-health` | 查询服务端计算的内存健康状态 |
+| `GET /health` | 服务健康检查 |
 
 ## 文档
 
 - [总体架构](docs/总体架构.md)
 - [性能指标与数据口径](docs/性能指标与数据口径.md)
-- [FP/FCP MVP 0.1 技术方案](docs/FP-FCP%20MVP%200.1%20技术方案.md)
 - [Browser SDK 接入指南](docs/getting-started/mvp-sdk-integration.md)
-- [本地部署与运行](docs/operations/mvp-deployment.md)
+- [本地部署与验收](docs/operations/mvp-deployment.md)
+- [INP 采集与上报流程](docs/INP采集与上报流程.md)
+- [V2 指标存储 ADR](docs/ADR-001-v2-metric-storage.md)
+
+## 版本边界
+
+v0.2 仍采用单应用、免登录模式。账号、团队、项目管理、外部告警、版本对比和多租户权限不属于本版本。
 
 ## License
 

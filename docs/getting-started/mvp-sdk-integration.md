@@ -1,6 +1,6 @@
 # Browser SDK 接入指南
 
-本文介绍如何在当前 pnpm workspace 中接入 `@performance-platform/browser`，采集并上报真实的 FP、FCP 和 LCP 指标。
+本文介绍如何在当前 pnpm workspace 中接入 `@performance-platform/browser`，采集并上报真实的 FP、FCP、LCP、CLS、INP 和实验性 JS 堆内存指标。
 
 ## 前置条件
 
@@ -119,7 +119,7 @@ apps/demo-web/src/monitor-config.ts
 paintMonitor.start()
 ```
 
-启动 FP/FCP 和 LCP 采集，并注册页面生命周期监听。重复调用不会重复启动采集器或重复注册监听器。
+启动 FP/FCP、LCP、CLS、INP 和可用时的内存采集，并注册页面生命周期监听。重复调用不会重复启动采集器或重复注册监听器。
 
 ### `flush()`
 
@@ -127,7 +127,7 @@ paintMonitor.start()
 await paintMonitor.flush()
 ```
 
-立即尝试发送当前等待上报的事件。通常不需要手动调用，因为 SDK 会在 Paint 条目处理完成、产生最终 LCP 或页面隐藏时自动刷新。
+立即尝试发送当前等待上报的事件，同时刷新最新的内存快照。通常不需要手动调用，因为 SDK 会在 Paint 条目处理完成、Web Vital 固化、内存上报周期或页面隐藏时自动刷新。
 
 ### `destroy()`
 
@@ -142,18 +142,19 @@ paintMonitor.destroy()
 SDK 会：
 
 1. 使用 `PerformanceObserver` 读取 `first-paint` 和 `first-contentful-paint`；
-2. 使用 `web-vitals` 计算当前 view 的最终 LCP；
-3. 将指标分别映射为 `web.paint.fp`、`web.paint.fcp` 和 `web.vital.lcp`；
-4. 根据 `sessionId` 和 `sampleRate` 决定整个会话是否采集；
-5. 为命中会话的事件生成 `eventId`、`sessionId` 和 `viewId`；
-6. 生成 `schemaVersion: '2.0'` 事件，其中 Paint 使用 `paint-v1`，LCP 使用 `lcp-v1`；
-7. 优先通过 `navigator.sendBeacon()` 上报；
-8. Beacon 不可用或拒绝请求时，回退到带 `keepalive` 的 `fetch()`；
-9. 在网络失败时保留当前批次，不影响业务页面运行。
+2. 使用 `web-vitals` 计算当前 view 的 LCP、CLS 和 INP；
+3. 在 Chromium 支持时每 30 秒读取一次 JS 堆快照，并每 5 分钟或页面隐藏时上报最新值；
+4. 将指标映射为 Paint、Web Vital 或内存类型；
+5. 根据 `sessionId` 和 `sampleRate` 决定整个会话是否采集；
+6. 为命中会话的事件生成 `eventId`、`sessionId` 和 `viewId`；
+7. 生成 `schemaVersion: '2.0'` 事件，指标版本分别为 `paint-v1`、`lcp-v1`、`cls-v1`、`inp-v1` 或 `memory-v1`；
+8. 优先通过 `navigator.sendBeacon()` 上报；
+9. Beacon 不可用或拒绝请求时，回退到带 `keepalive` 的 `fetch()`；
+10. 在网络失败时保留当前批次，不影响业务页面运行。
 
 每个批次最多包含 20 个事件。
 
-如果当前浏览器不支持 LCP 所需的 Performance API，SDK 会跳过 LCP 采集，不影响 FP/FCP 和业务页面运行。
+如果当前浏览器不支持某项 Performance API，SDK 会单独跳过该指标，不影响其他采集器和业务页面运行。INP 只有发生有效交互后才会产生；`performance.memory` 目前主要由 Chromium 提供。
 
 ## 验证上报
 
@@ -171,7 +172,15 @@ curl --noproxy '*' \
 http://localhost:4173
 ```
 
-当前 Paint 查询接口不会返回 LCP。验证 LCP 时，可以在浏览器 Network 面板中检查发送到 `/api/v2/events/batch` 的事件是否包含：
+Paint 查询接口只返回 FP/FCP。验证其他指标时，可以查询通用接口：
+
+```bash
+curl --get --silent \
+  --data-urlencode 'type=web.vital.lcp' \
+  http://localhost:3000/api/v2/metrics
+```
+
+也可以在浏览器 Network 面板中检查发送到 `/api/v2/events/batch` 的事件是否包含：
 
 ```json
 {
@@ -203,7 +212,12 @@ docker compose \
       sample_rate,
       event_time
     FROM metric_events
-    WHERE event_type = 'web.vital.lcp'
+    WHERE event_type IN (
+      'web.vital.lcp',
+      'web.vital.cls',
+      'web.vital.inp',
+      'web.memory.used_heap'
+    )
     ORDER BY received_at DESC
     LIMIT 10;
   "
@@ -250,4 +264,4 @@ docker compose \
 
 ### Server 暂时不可用
 
-SDK 会隔离传输异常，不让监控故障影响业务页面。Server 恢复后刷新页面，可以重新采集并上报 FP、FCP 和 LCP。
+SDK 会隔离传输异常，不让监控故障影响业务页面。Server 恢复后刷新页面，可以重新开始采集和上报。

@@ -1,4 +1,4 @@
-# FP/FCP MVP 本地部署
+# v0.2 本地部署与验收
 
 ## 前置条件
 
@@ -95,7 +95,7 @@ http://localhost:5173
 http://localhost:4173
 ```
 
-Console 应显示 Demo 上报的 FP、FCP 指标。
+在 Demo 页面等待布局偏移内容出现，并点击 `Simulate slow interaction` 触发一次 INP。切换到 Console 后，应看到 FP、FCP、LCP、CLS、INP、三个内存指标及内存健康状态。
 
 也可以直接查询指标接口：
 
@@ -115,11 +115,13 @@ corepack pnpm test:e2e
 
 该测试会验证：
 
-1. Demo 产生真实 FP 和 FCP。
-2. Browser SDK 通过 Beacon 上报事件。
+1. Demo 产生真实 FP、FCP、LCP、CLS、INP 和可用的内存快照。
+2. Browser SDK 通过 V2 批量接口上报事件。
 3. Server 接收并存储事件。
-4. 指标接口返回新增数据。
-5. Console 展示 FP、FCP 和总体评分。
+4. Paint 和通用指标接口返回新增数据。
+5. Console 展示全部指标、趋势切换和内存状态。
+
+内存数据依赖 Chromium。页面切换到 Console 时，SDK 会利用页面隐藏生命周期刷新当前快照，因此无需等待默认的 5 分钟上报周期。
 
 ## 停止服务
 
