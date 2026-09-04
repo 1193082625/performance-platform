@@ -30,6 +30,7 @@ import type { PaintMetricsResponse } from '@performance-platform/protocol'
 import PaintMetricCard from './components/PaintMetricCard.vue'
 import PaintTrendChart from './components/PaintTrendChart.vue'
 import MetricSummaryCard from './components/MetricSummaryCard.vue'
+import MetricTrendChart from './components/MetricTrendChart.vue'
 
 const EMPTY_STATS = {
     count: 0,
@@ -323,6 +324,112 @@ describe('App', () => {
             title: 'P75 TREND',
             statistic: 'p75',
         })
+    })
+
+    it('switches between the Web Vital P75 trends without refetching', async () => {
+        const metricSeries = [
+            {
+                time: '2026-08-31T10:00:00.000Z',
+                stats: {
+                    count: 1,
+                    average: 180,
+                    p50: 170,
+                    p75: 196,
+                    p90: 220,
+                },
+            },
+        ]
+        const definitions = {
+            'web.vital.lcp': {
+                type: 'web.vital.lcp',
+                unit: 'ms',
+                metricVersion: 'lcp-v1',
+            },
+            'web.vital.cls': {
+                type: 'web.vital.cls',
+                unit: 'score',
+                metricVersion: 'cls-v1',
+            },
+            'web.vital.inp': {
+                type: 'web.vital.inp',
+                unit: 'ms',
+                metricVersion: 'inp-v1',
+            },
+        } as const
+        const fetchMock = vi.fn(
+            async (input: RequestInfo | URL) => {
+                const url = new URL(String(input))
+
+                if (url.pathname !== '/api/v2/metrics') {
+                    return {
+                        ok: true,
+                        json: async () => METRICS_RESPONSE,
+                    }
+                }
+
+                const type = url.searchParams.get('type') as
+                    keyof typeof definitions
+
+                return {
+                    ok: true,
+                    json: async () => ({
+                        metric: definitions[type],
+                        range: METRICS_RESPONSE.range,
+                        summary: metricSeries[0]!.stats,
+                        series: metricSeries,
+                    }),
+                }
+            },
+        )
+
+        vi.stubGlobal('fetch', fetchMock)
+
+        const wrapper = mount(App)
+
+        await flushPromises()
+
+        expect(fetchMock).toHaveBeenCalledTimes(4)
+
+        for (const expected of [
+            {
+                button: 'LCP',
+                label: 'LCP',
+                unit: 'ms',
+                color: '#56e4ff',
+            },
+            {
+                button: 'CLS',
+                label: 'CLS',
+                unit: 'score',
+                color: '#a18bff',
+            },
+            {
+                button: 'INP',
+                label: 'INP',
+                unit: 'ms',
+                color: '#ffc857',
+            },
+        ] as const) {
+            const button = wrapper
+                .findAll('.trend-switcher button')
+                .find(item => item.text() === expected.button)
+
+            expect(button).toBeDefined()
+
+            await button!.trigger('click')
+
+            expect(
+                wrapper.getComponent(MetricTrendChart).props(),
+            ).toMatchObject({
+                points: metricSeries,
+                label: expected.label,
+                unit: expected.unit,
+                color: expected.color,
+                statistic: 'p75',
+            })
+        }
+
+        expect(fetchMock).toHaveBeenCalledTimes(4)
     })
     it('shows the dashboard title, selected window, and total samples', async () => {
         const fetchMock = vi.fn()

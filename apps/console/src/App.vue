@@ -132,11 +132,63 @@
                   :points="data.series"
               />
 
-              <PaintTrendChart
-                  title="P75 TREND"
-                  statistic="p75"
-                  :points="data.series"
-              />
+              <div class="trend-explorer">
+                  <nav
+                      class="trend-switcher"
+                      aria-label="P75 趋势指标"
+                  >
+                      <button
+                          v-for="item in trendSelections"
+                          :key="item.value"
+                          type="button"
+                          :aria-pressed="selectedTrend === item.value"
+                          @click="selectedTrend = item.value"
+                      >
+                          {{ item.label }}
+                      </button>
+                  </nav>
+
+                  <PaintTrendChart
+                      v-if="selectedTrend === 'paint'"
+                      title="P75 TREND"
+                      statistic="p75"
+                      :points="data.series"
+                  />
+
+                  <MetricTrendChart
+                      v-else-if="selectedTrend === 'lcp' && lcpData?.metric.type === 'web.vital.lcp'"
+                      title="LCP P75 TREND"
+                      label="LCP"
+                      unit="ms"
+                      color="#56e4ff"
+                      :points="lcpData.series"
+                  />
+
+                  <MetricTrendChart
+                      v-else-if="selectedTrend === 'cls' && clsData?.metric.type === 'web.vital.cls'"
+                      title="CLS P75 TREND"
+                      label="CLS"
+                      unit="score"
+                      color="#a18bff"
+                      :points="clsData.series"
+                  />
+
+                  <MetricTrendChart
+                      v-else-if="selectedTrend === 'inp' && inpData?.metric.type === 'web.vital.inp'"
+                      title="INP P75 TREND"
+                      label="INP"
+                      unit="ms"
+                      color="#ffc857"
+                      :points="inpData.series"
+                  />
+
+                  <p
+                      v-else
+                      class="trend-explorer__state"
+                  >
+                      对应指标数据不可用
+                  </p>
+              </div>
           </section>
         </template>
     </template>
@@ -160,6 +212,23 @@ import type { MetricsRange } from './composables/metrics-range.js'
 import PaintMetricCard from './components/PaintMetricCard.vue'
 import PaintTrendChart from './components/PaintTrendChart.vue'
 import MetricSummaryCard from './components/MetricSummaryCard.vue'
+import MetricTrendChart from './components/MetricTrendChart.vue'
+
+type TrendSelection =
+    | 'paint'
+    | 'lcp'
+    | 'cls'
+    | 'inp'
+
+const trendSelections: ReadonlyArray<{
+    value: TrendSelection
+    label: string
+}> = [
+    { value: 'paint', label: 'PAINT' },
+    { value: 'lcp', label: 'LCP' },
+    { value: 'cls', label: 'CLS' },
+    { value: 'inp', label: 'INP' },
+]
 
 const metricsApi = createPaintMetricsApi({
   baseUrl: window.location.origin,
@@ -210,6 +279,7 @@ const {
   query: metricQueryApi.query,
 })
 const selectedRange = ref<MetricsRange>('24h')
+const selectedTrend = ref<TrendSelection>('paint')
 const selectedWindow = computed(
     () => `${selectedRange.value.toUpperCase()} WINDOW`,
 )
