@@ -121,6 +121,43 @@ button { font: inherit; }
   gap: 1.8%;
 }
 
+.memory-health-card {
+  position: absolute;
+  z-index: 7;
+  top: 10.8%;
+  left: 28%;
+  width: 44%;
+  padding: 0.7% 1.2%;
+  display: grid;
+  grid-template-columns: auto auto 1fr;
+  align-items: center;
+  gap: 16px;
+  color: var(--cyan-soft);
+  background: rgb(4 18 38 / 90%);
+  border: 1px solid rgb(86 228 255 / 42%);
+}
+
+.memory-health-card strong {
+  letter-spacing: 0.08em;
+}
+
+.memory-health-card p {
+  margin: 0;
+  text-align: right;
+}
+
+.memory-health-card[data-status='WARNING'] {
+  color: #ffc857;
+  border-color: #ffc857;
+  box-shadow: 0 0 20px rgb(255 200 87 / 22%);
+}
+
+.memory-health-card[data-status='CRITICAL'] {
+  color: #ff5576;
+  border-color: #ff5576;
+  box-shadow: 0 0 26px rgb(255 85 118 / 34%);
+}
+
 .vital-metric-panel {
   min-width: 0;
   min-height: 0;

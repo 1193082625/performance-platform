@@ -7,6 +7,7 @@ import type { FetchTransport, SendBeacon } from './reporter.type'
 import type { ObserveLcp } from './lcpCollector.type'
 import type { ObserveCls } from './clsCollector.type.js'
 import type { ObserveInp } from './inpCollector.type.js'
+import type { MemoryScheduler, ReadMemory } from './memoryCollector.type.js'
 
 // SDK使用者关心的业务配置：监控哪个应用？什么版本？什么环境？上报到哪里？
 export interface PaintMonitorConfig {
@@ -70,4 +71,9 @@ export interface PaintMonitorDependencies {
     sendBeacon?: SendBeacon
     fetch?: FetchTransport
     pageLifecycle?: PageLifecycleLike
+
+    readMemory?: ReadMemory
+    memoryScheduler?: MemoryScheduler
+    // 这里增加 now，是为了避免 MemoryCollector 内部直接调用 Date.now()，同时方便 Monitor 集成测试固定时间
+    now?(): number
 }

@@ -373,3 +373,40 @@ export interface MetricQueryResponse {
     summary: MetricStats
     series: MetricSeriesPoint[]
 }
+
+export type MemoryHealthStatus =
+    | 'INSUFFICIENT_DATA'
+    | 'NORMAL'
+    | 'WARNING'
+    | 'CRITICAL'
+
+export type MemoryHealthReason =
+    | 'HIGH_HEAP_PRESSURE'
+    | 'SUSTAINED_HEAP_GROWTH'
+    | 'INSUFFICIENT_SAMPLES'
+
+export interface MemoryHealthSnapshot {
+    observedAt: number
+    usedHeap: number
+    heapLimit: number
+}
+
+export interface MemoryHealthAssessment {
+    status: MemoryHealthStatus
+    reasons: MemoryHealthReason[]
+    sampleCount: number
+    window: {
+        from: number | null
+        to: number | null
+    }
+    latest: {
+        usedHeap: number
+        heapLimit: number
+        utilization: number
+    } | null
+    growth: {
+        absolute: number
+        ratio: number
+        increasingTransitionRatio: number
+    } | null
+}

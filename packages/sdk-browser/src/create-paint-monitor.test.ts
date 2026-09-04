@@ -9,7 +9,7 @@ import {
     createPaintMonitor,
     createPaintMonitorWithDependencies
 } from './create-paint-monitor'
-import type { PageLifecycleLike } from './types/paintMonitor.type'
+import type { PageLifecycleLike, PaintMonitorDependencies } from './types/paintMonitor.type'
 import { SESSION_ID_STORAGE_KEY } from './ids'
 import { createPaintCollector } from './paint-collector'
 
@@ -985,5 +985,113 @@ describe('createPaintMonitor', () => {
                 },
             ],
         })
+    })
+
+    it('reports one memory snapshot as three V2 events', async () => {
+        const randomUUID = vi.fn()
+            .mockReturnValueOnce(VIEW_ID)
+            .mockReturnValueOnce(
+                '11111111-1111-4111-8111-111111111111',
+            )
+            .mockReturnValueOnce(
+                '22222222-2222-4222-8222-222222222222',
+            )
+            .mockReturnValueOnce(
+                '33333333-3333-4333-8333-333333333333',
+            )
+
+        const sendBeacon = vi.fn(
+            (
+                _endpoint: string,
+                _body: string,
+            ): boolean => true,
+        )
+
+        const monitor = createPaintMonitorWithDependencies(
+            {
+                appId: 'demo-web',
+                appVersion: '0.2.0',
+                environment: 'test',
+                endpoint: ENDPOINT,
+            },
+            {
+                timeOrigin: 1_000_000,
+                randomUUID,
+
+                sessionStorage: {
+                    getItem: vi.fn(() => SESSION_ID),
+                    setItem: vi.fn(),
+                },
+
+                readMemory: () => ({
+                    usedJSHeapSize: 100,
+                    totalJSHeapSize: 200,
+                    jsHeapSizeLimit: 1000,
+                }),
+
+                now: () => 1_500_000,
+                sendBeacon,
+            },
+        )
+
+        monitor.start()
+        await monitor.flush()
+
+        expect(sendBeacon).toHaveBeenCalledOnce()
+
+        const call = sendBeacon.mock.calls[0]
+
+        if (call === undefined) {
+            throw new Error(
+                'Expected sendBeacon to be called',
+            )
+        }
+
+        const [, body] = call
+        const payload = JSON.parse(body)
+
+        expect(payload.events).toHaveLength(3)
+
+        expect(
+            payload.events.map(
+                (event: { type: string }) => event.type,
+            ),
+        ).toEqual([
+            'web.memory.used_heap',
+            'web.memory.total_heap',
+            'web.memory.heap_limit',
+        ])
+
+        expect(
+            payload.events.map(
+                (event: {
+                    timestamp: number
+                    payload: {
+                        value: number
+                        unit: string
+                    }
+                }) => ({
+                    timestamp: event.timestamp,
+                    value: event.payload.value,
+                    unit: event.payload.unit,
+                }),
+            ),
+        ).toEqual([
+            {
+                timestamp: 1_500_000,
+                value: 100,
+                unit: 'byte',
+            },
+            {
+                timestamp: 1_500_000,
+                value: 200,
+                unit: 'byte',
+            },
+            {
+                timestamp: 1_500_000,
+                value: 1000,
+                unit: 'byte',
+            },
+        ])
     })
 })

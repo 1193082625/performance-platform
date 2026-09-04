@@ -24,6 +24,12 @@
 
     <MetricsRangeSelector :range="selectedRange" @select="handleSelectedRange" />
 
+    <MemoryHealthCard
+        :assessment="memoryHealth"
+        :loading="memoryHealthLoading"
+        :error="memoryHealthError"
+    />
+
     <section class="vital-metric-slot" aria-live="polite">
         <div class="vital-metric-panel">
             <p
@@ -99,6 +105,63 @@
                 :metric-version="inpData.metric.metricVersion"
             />
         </div>
+    </section>
+
+    <section
+        class="vital-metric-slot memory-metric-slot"
+        aria-live="polite"
+    >
+        <p
+            v-if="memoryLoading"
+            class="vital-metric-slot__state"
+        >
+            正在加载内存数据
+        </p>
+
+        <p
+            v-else-if="memoryError"
+            class="vital-metric-slot__state vital-metric-slot__state--error"
+        >
+            内存数据加载失败
+        </p>
+
+        <template v-else>
+            <div class="vital-metric-panel">
+                <MetricSummaryCard
+                    v-if="usedHeapData?.metric?.type === 'web.memory.used_heap'"
+                    eyebrow="MEMORY"
+                    label="USED HEAP"
+                    type="web.memory.used_heap"
+                    :stats="usedHeapData.summary"
+                    :unit="usedHeapData.metric.unit"
+                    :metric-version="usedHeapData.metric.metricVersion"
+                />
+            </div>
+
+            <div class="vital-metric-panel">
+                <MetricSummaryCard
+                    v-if="totalHeapData?.metric?.type === 'web.memory.total_heap'"
+                    eyebrow="MEMORY"
+                    label="TOTAL HEAP"
+                    type="web.memory.total_heap"
+                    :stats="totalHeapData.summary"
+                    :unit="totalHeapData.metric.unit"
+                    :metric-version="totalHeapData.metric.metricVersion"
+                />
+            </div>
+
+            <div class="vital-metric-panel">
+                <MetricSummaryCard
+                    v-if="heapLimitData?.metric?.type === 'web.memory.heap_limit'"
+                    eyebrow="MEMORY"
+                    label="HEAP LIMIT"
+                    type="web.memory.heap_limit"
+                    :stats="heapLimitData.summary"
+                    :unit="heapLimitData.metric.unit"
+                    :metric-version="heapLimitData.metric.metricVersion"
+                />
+            </div>
+        </template>
     </section>
 
     <div v-if="loading" class="dashboard-state">正在加载性能数据</div>
@@ -182,6 +245,15 @@
                       :points="inpData.series"
                   />
 
+                  <MetricTrendChart
+                      v-else-if="selectedTrend === 'memory' && usedHeapData?.metric?.type === 'web.memory.used_heap'"
+                      title="USED HEAP P75 TREND"
+                      label="USED HEAP"
+                      unit="byte"
+                      color="#57e389"
+                      :points="usedHeapData.series"
+                  />
+
                   <p
                       v-else
                       class="trend-explorer__state"
@@ -213,12 +285,16 @@ import PaintMetricCard from './components/PaintMetricCard.vue'
 import PaintTrendChart from './components/PaintTrendChart.vue'
 import MetricSummaryCard from './components/MetricSummaryCard.vue'
 import MetricTrendChart from './components/MetricTrendChart.vue'
+import MemoryHealthCard from './components/MemoryHealthCard.vue'
+import { createMemoryHealthApi } from './api/memory-health.js'
+import type { MemoryHealthAssessment } from '@performance-platform/protocol'
 
 type TrendSelection =
     | 'paint'
     | 'lcp'
     | 'cls'
     | 'inp'
+    | 'memory'
 
 const trendSelections: ReadonlyArray<{
     value: TrendSelection
@@ -228,6 +304,7 @@ const trendSelections: ReadonlyArray<{
     { value: 'lcp', label: 'LCP' },
     { value: 'cls', label: 'CLS' },
     { value: 'inp', label: 'INP' },
+    { value: 'memory', label: 'MEMORY' },
 ]
 
 const metricsApi = createPaintMetricsApi({
@@ -239,6 +316,25 @@ const metricQueryApi = createMetricQueryApi({
   baseUrl: window.location.origin,
   fetch: window.fetch.bind(window)
 })
+const memoryHealthApi = createMemoryHealthApi({
+  baseUrl: window.location.origin,
+  fetch: window.fetch.bind(window)
+})
+const memoryHealth = ref<MemoryHealthAssessment | null>(null)
+const memoryHealthLoading = ref(false)
+const memoryHealthError = ref<string | null>(null)
+
+async function loadMemoryHealth(): Promise<void> {
+    memoryHealthLoading.value = true
+    memoryHealthError.value = null
+    try {
+        memoryHealth.value = await memoryHealthApi.query()
+    } catch {
+        memoryHealthError.value = 'Unable to load memory health'
+    } finally {
+        memoryHealthLoading.value = false
+    }
+}
 
 const {
   data,
@@ -278,6 +374,37 @@ const {
   type: 'web.vital.inp',
   query: metricQueryApi.query,
 })
+
+const {
+    data: usedHeapData,
+    loading: usedHeapLoading,
+    error: usedHeapError,
+    loadRange: loadUsedHeapRange,
+} = useMetricQuery({
+    type: 'web.memory.used_heap',
+    query: metricQueryApi.query,
+})
+
+const {
+    data: totalHeapData,
+    loading: totalHeapLoading,
+    error: totalHeapError,
+    loadRange: loadTotalHeapRange,
+} = useMetricQuery({
+    type: 'web.memory.total_heap',
+    query: metricQueryApi.query,
+})
+
+const {
+    data: heapLimitData,
+    loading: heapLimitLoading,
+    error: heapLimitError,
+    loadRange: loadHeapLimitRange,
+} = useMetricQuery({
+    type: 'web.memory.heap_limit',
+    query: metricQueryApi.query,
+})
+
 const selectedRange = ref<MetricsRange>('24h')
 const selectedTrend = ref<TrendSelection>('paint')
 const selectedWindow = computed(
@@ -313,31 +440,62 @@ const totalSamples = computed(
     },
 )
 
+const memoryLoading = computed(
+    () =>
+        usedHeapLoading.value
+        || totalHeapLoading.value
+        || heapLimitLoading.value,
+)
+
+const memoryError = computed(
+    () =>
+        usedHeapError.value
+        ?? totalHeapError.value
+        ?? heapLimitError.value,
+)
+
 function handleSelectedRange(
   range: MetricsRange
 ): void {
-  selectedRange.value = range
-  void loadRange(range)
-  void loadLcpRange(range)
-  void loadClsRange(range)
-  void loadInpRange(range)
+    selectedRange.value = range
+    void loadRange(range)
+    void loadLcpRange(range)
+    void loadClsRange(range)
+    void loadInpRange(range)
+    void loadUsedHeapRange(range)
+    void loadTotalHeapRange(range)
+    void loadHeapLimitRange(range)
+    void loadMemoryHealth()
 }
 
 onMounted(() => {
-  void loadRange(
-    selectedRange.value
-  )
+    void loadMemoryHealth()
+    void loadRange(
+        selectedRange.value
+    )
 
-  void loadLcpRange(
-    selectedRange.value
-  )
+    void loadLcpRange(
+        selectedRange.value
+    )
 
-  void loadClsRange(
-    selectedRange.value
-  )
+    void loadClsRange(
+        selectedRange.value
+    )
 
-  void loadInpRange(
-    selectedRange.value
-  )
+    void loadInpRange(
+        selectedRange.value
+    )
+
+    void loadUsedHeapRange(
+        selectedRange.value,
+    )
+
+    void loadTotalHeapRange(
+        selectedRange.value,
+    )
+
+    void loadHeapLimitRange(
+        selectedRange.value,
+    )
 })
 </script>

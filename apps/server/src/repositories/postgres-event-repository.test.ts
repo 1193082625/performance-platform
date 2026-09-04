@@ -690,4 +690,63 @@ describe('PostgresEventRepository', () => {
             },
         ])
     })
+
+    it('pairs memory values from the latest view into snapshots', async () => {
+        const timestamps = Array.from(
+            { length: 6 },
+            (_, index) => EVENT_TIMESTAMP + index * 5 * 60_000,
+        )
+        const events: MetricEventV2[] = timestamps.flatMap(
+            (timestamp, index) => {
+                const createEvent = (
+                    type: 'web.memory.used_heap' | 'web.memory.heap_limit',
+                    value: number,
+                    suffix: number,
+                ): MetricEventV2 => ({
+                    schemaVersion: '2.0',
+                    eventId: `10000000-0000-4000-8000-${String(suffix).padStart(12, '0')}`,
+                    type,
+                    timestamp,
+                    sampleRate: 1,
+                    metricVersion: 'memory-v1',
+                    application: EVENT.application,
+                    runtime: EVENT.runtime,
+                    session: {
+                        sessionId: 'memory-session',
+                        viewId: 'memory-view',
+                    },
+                    payload: { value, unit: 'byte' },
+                })
+
+                return [
+                    createEvent(
+                        'web.memory.used_heap',
+                        (100 + index * 10) * 1024 ** 2,
+                        index * 2 + 1,
+                    ),
+                    createEvent(
+                        'web.memory.heap_limit',
+                        1024 * 1024 ** 2,
+                        index * 2 + 2,
+                    ),
+                ]
+            },
+        )
+
+        await repository.insertBatch(events)
+
+        const snapshots = await repository
+            .queryLatestViewMemorySnapshots({
+                appId: 'demo-web',
+                from: new Date(EVENT_TIMESTAMP),
+                to: new Date(timestamps.at(-1)! + 1),
+            })
+
+        expect(snapshots).toHaveLength(6)
+        expect(snapshots.at(-1)).toEqual({
+            observedAt: timestamps.at(-1),
+            usedHeap: 150 * 1024 ** 2,
+            heapLimit: 1024 * 1024 ** 2,
+        })
+    })
 })

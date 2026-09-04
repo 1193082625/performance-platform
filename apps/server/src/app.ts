@@ -16,6 +16,7 @@ import {
 import type {
     EventRepository,
     MetricQueryRepository,
+    MemoryHealthRepository,
 } from './repositories/event-repository.js'
 
 import {
@@ -25,10 +26,13 @@ import {
 import {
     registerMetricQueryRoutes,
 } from './routes/metric-query.js'
+import { createMemoryHealthService } from './services/memory-health-service.js'
+import { registerMemoryHealthRoutes } from './routes/memory-health.js'
 
 interface BuildAppOptions {
     eventRepository: EventRepository
     metricQueryRepository: MetricQueryRepository
+    memoryHealthRepository?: MemoryHealthRepository
     appId: string
     now: () => number
     corsOrigins?: string[]
@@ -133,6 +137,18 @@ export function buildApp(
             metricQueryService,
         }
     )
+
+    if (options.memoryHealthRepository !== undefined) {
+        const memoryHealthService = createMemoryHealthService({
+            repository: options.memoryHealthRepository,
+            appId: options.appId,
+            now: options.now,
+        })
+
+        app.register(registerMemoryHealthRoutes, {
+            memoryHealthService,
+        })
+    }
 
     return app
 }

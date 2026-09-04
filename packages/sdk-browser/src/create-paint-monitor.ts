@@ -37,6 +37,8 @@ import {
     observeInpWithWebVitals,
     observeLcpWithWebVitals,
 } from './web-vitals-adapter.js'
+import type { MemoryInfoLike } from "./types/memoryCollector.type.js";
+import { createMemoryCollector } from "./memory-collector";
 
 
 function getBrowserSessionStorage(): PaintMonitorDependencies['sessionStorage'] {
@@ -56,9 +58,47 @@ function getBrowserPageLifecycle():
     }
 }
 
+function readBrowserMemory(): MemoryInfoLike | undefined {
+    try {
+        const browserPerformance = globalThis.performance as Performance & {
+            memory?: MemoryInfoLike
+        }
+
+        return browserPerformance.memory
+    } catch {
+        return undefined
+    }
+}
+
+
+function getBrowserMemoryScheduler():
+    PaintMonitorDependencies['memoryScheduler'] {
+    try {
+        if (typeof window === 'undefined') {
+            return undefined
+        }
+
+        return {
+            setInterval: (callback, intervalMs) => {
+                return window.setInterval(
+                    callback,
+                    intervalMs,
+                )
+            },
+
+            clearInterval: (handle) => {
+                window.clearInterval(handle)
+            },
+        }
+    } catch {
+        return undefined
+    }
+}
+
 export function createPaintMonitor(config: PaintMonitorConfig): PaintMonitor {
     const browserSessionStorage = getBrowserSessionStorage()
     const browserPageLifecycle = getBrowserPageLifecycle()
+    const browserMemoryScheduler = getBrowserMemoryScheduler()
     /**
      * performance 和 crypto 都是现代浏览器提供的全局对象。浏览器运行js时，会自动提供
      */
@@ -94,7 +134,16 @@ export function createPaintMonitor(config: PaintMonitorConfig): PaintMonitor {
                         callback(entryList)
                     }
                 )
-            }
+            },
+
+            readMemory: readBrowserMemory,
+            ...(browserMemoryScheduler === undefined
+                ? {}
+                : {
+                    memoryScheduler:
+                        browserMemoryScheduler,
+                }),
+            now: () => Date.now()
         }
     )
 }
@@ -240,10 +289,38 @@ export function createPaintMonitorWithDependencies(
         },
     })
 
+    const memoryCollector = createMemoryCollector({
+        ...(dependencies.readMemory === undefined
+            ? {}
+            : {
+                readMemory: dependencies.readMemory,
+            }),
+
+        ...(dependencies.memoryScheduler === undefined
+            ? {}
+            : {
+                scheduler:
+                    dependencies.memoryScheduler,
+            }),
+
+        now:
+            dependencies.now ??
+            (() => Date.now()),
+
+        onSamples: (samples) => {
+            for (const sample of samples) {
+                enqueueMetricSample(sample)
+            }
+
+            void reporter.flush()
+        },
+    })
+
     const handleVisibilityChange = (): void => {
         if (
             dependencies.pageLifecycle?.visibilityState === 'hidden'
         ) {
+            memoryCollector.flush()
             // 启动 flush，但当前函数不等待它完成，也不使用它返回的 Promise
             // js 的 void 会先执行后面的表达式，然后把整个表达式的结果变成 undefined
             // 显式使用 void 也可以告诉检查工具这是有意行为
@@ -258,6 +335,7 @@ export function createPaintMonitorWithDependencies(
         lcpCollector.start()
         clsCollector.start()
         inpCollector.start()
+        memoryCollector.start()
 
         if (visibilityListenerInstalled || dependencies.pageLifecycle === undefined) {
             return
@@ -280,6 +358,7 @@ export function createPaintMonitorWithDependencies(
         lcpCollector.destroy()
         clsCollector.destroy()
         inpCollector.destroy()
+        memoryCollector.destroy()
 
         if (visibilityListenerInstalled && dependencies.pageLifecycle !== undefined) {
             visibilityListenerInstalled = false
@@ -298,6 +377,7 @@ export function createPaintMonitorWithDependencies(
     return {
         start,
         flush: () => {
+            memoryCollector.flush()
             return reporter.flush()
         },
         destroy,

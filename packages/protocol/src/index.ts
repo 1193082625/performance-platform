@@ -35,6 +35,10 @@ export type {
     MetricVersion,
     WebMetric,
     WebVitalMetric,
+    MemoryHealthAssessment,
+    MemoryHealthReason,
+    MemoryHealthSnapshot,
+    MemoryHealthStatus,
 } from './types.js'
 
 export {
@@ -49,3 +53,8 @@ export {
     rateWebVital,
     type MetricRating,
 } from './metric-thresholds.js'
+
+export {
+    evaluateMemoryHealth,
+    MEMORY_HEALTH_THRESHOLDS,
+} from './memory-health.js'

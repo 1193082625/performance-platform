@@ -185,4 +185,44 @@ describe('MetricSummaryCard', () => {
                 .exists(),
         ).toBe(false)
     })
+
+    it('shows a memory metric without a Web Vital rating', () => {
+        const wrapper = mount(
+            MetricSummaryCard,
+            {
+                props: {
+                    label: 'USED HEAP',
+                    type: 'web.memory.used_heap',
+                    metricVersion: 'memory-v1',
+                    unit: 'byte',
+                    stats: {
+                        count: 3,
+                        average: 23_437_190,
+                        p50: 22_000_000,
+                        p75: 24_000_000,
+                        p90: 25_000_000,
+                    },
+                },
+            },
+        )
+        expect(
+            wrapper
+                .get(
+                    '[data-testid="metric-summary-average"]',
+                )
+                .text(),
+        ).toBe('22.35 MiB')
+        expect(
+            wrapper
+                .get(
+                    '[data-testid="metric-summary-p75"]',
+                )
+                .text(),
+        ).toBe('22.89 MiB')
+        expect(
+            wrapper
+                .find('.metric-summary-card__rating')
+                .exists(),
+        ).toBe(false)
+    })
 })

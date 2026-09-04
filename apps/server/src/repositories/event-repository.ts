@@ -8,6 +8,7 @@ import type {
     PaintMetricsData,
     MetricDefinition,
     MetricQueryResponse,
+    MemoryHealthSnapshot,
 } from "@performance-platform/protocol"
 
 export interface PaintMetricsQuery {
@@ -43,4 +44,12 @@ export interface MetricQueryRepository {
     queryMetric(
         query: MetricQuery
     ): Promise<MetricQueryResponse>
+}
+
+export interface MemoryHealthRepository {
+    queryLatestViewMemorySnapshots(input: {
+        appId: string
+        from: Date
+        to: Date
+    }): Promise<MemoryHealthSnapshot[]>
 }

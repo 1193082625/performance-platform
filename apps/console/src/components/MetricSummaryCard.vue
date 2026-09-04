@@ -6,7 +6,7 @@
         <header class="metric-summary-card__header">
             <div>
                 <span class="metric-summary-card__eyebrow">
-                    CORE WEB VITAL
+                    {{ eyebrow }}
                 </span>
                 <h2>{{ label }}</h2>
             </div>
@@ -63,30 +63,44 @@ import type {
     MetricStats,
     MetricUnit,
     MetricVersion,
-    WebVitalMetric,
+    WebMetric,
 } from '@performance-platform/protocol'
 import { rateWebVital } from '@performance-platform/protocol'
 import { computed } from 'vue'
+import { formatBytes } from './metric-value-format.js';
 
 
-const props = defineProps<{
-    label: string
-    type: WebVitalMetric
-    stats: MetricStats
-    unit: MetricUnit
-    metricVersion: MetricVersion
-}>()
+const props = withDefaults(
+    defineProps<{
+        label: string
+        type: WebMetric
+        stats: MetricStats
+        unit: MetricUnit
+        metricVersion: MetricVersion
+        eyebrow?: string
+    }>(),
+    {
+        eyebrow: 'CORE WEB VITAL',
+    },
+)
 
 const rating = computed(() => {
     if (props.stats.p75 === null) {
         return null
     }
 
-    // Web Vitals 通常以 P75 判断整体用户体验
-    return rateWebVital(
-        props.type,
-        props.stats.p75,
-    )
+    switch (props.type) {
+        case 'web.vital.lcp':
+        case 'web.vital.cls':
+        case 'web.vital.inp':
+            return rateWebVital(
+                props.type,
+                props.stats.p75,
+            )
+
+        default:
+            return null
+    }
 })
 
 function formatRating(
@@ -111,7 +125,7 @@ function formatValue(value: number | null): string {
         case 'score':
             return value.toFixed(3)
         case 'byte':
-            return `${(value / 1024 / 1024).toFixed(1)} MiB`
+            return formatBytes(value)
     }
 }
 </script>

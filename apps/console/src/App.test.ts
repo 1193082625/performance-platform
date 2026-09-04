@@ -214,11 +214,11 @@ describe('App', () => {
         await sevenDayButton!.trigger('click')
         await flushPromises()
     
-        expect(fetchMock).toHaveBeenCalledTimes(8)
+        expect(fetchMock).toHaveBeenCalledTimes(16)
     
         const requestUrl = new URL(
             String(
-                fetchMock.mock.calls[4]?.[0],
+                fetchMock.mock.calls[8]?.[0],
             ),
         )
     
@@ -355,6 +355,21 @@ describe('App', () => {
                 unit: 'ms',
                 metricVersion: 'inp-v1',
             },
+            'web.memory.used_heap': {
+                type: 'web.memory.used_heap',
+                unit: 'byte',
+                metricVersion: 'memory-v1',
+            },
+            'web.memory.total_heap': {
+                type: 'web.memory.total_heap',
+                unit: 'byte',
+                metricVersion: 'memory-v1',
+            },
+            'web.memory.heap_limit': {
+                type: 'web.memory.heap_limit',
+                unit: 'byte',
+                metricVersion: 'memory-v1',
+            },
         } as const
         const fetchMock = vi.fn(
             async (input: RequestInfo | URL) => {
@@ -388,7 +403,7 @@ describe('App', () => {
 
         await flushPromises()
 
-        expect(fetchMock).toHaveBeenCalledTimes(4)
+        expect(fetchMock).toHaveBeenCalledTimes(8)
 
         for (const expected of [
             {
@@ -408,6 +423,12 @@ describe('App', () => {
                 label: 'INP',
                 unit: 'ms',
                 color: '#ffc857',
+            },
+            {
+                button: 'MEMORY',
+                label: 'USED HEAP',
+                unit: 'byte',
+                color: '#57e389',
             },
         ] as const) {
             const button = wrapper
@@ -429,7 +450,7 @@ describe('App', () => {
             })
         }
 
-        expect(fetchMock).toHaveBeenCalledTimes(4)
+        expect(fetchMock).toHaveBeenCalledTimes(8)
     })
     it('shows the dashboard title, selected window, and total samples', async () => {
         const fetchMock = vi.fn()
@@ -672,5 +693,79 @@ describe('App', () => {
                 ?.get('[data-testid="metric-summary-average"]')
                 .text(),
         ).toBe('248 ms')
+    })
+
+    it('loads and shows the three memory summaries', async () => {
+        const memoryValues = {
+            'web.memory.used_heap': 23_437_190,
+            'web.memory.total_heap': 24_018_882,
+            'web.memory.heap_limit': 4_395_630_592,
+        } as const
+
+        const fetchMock = vi.fn(
+            async (input: RequestInfo | URL) => {
+                const url = new URL(String(input))
+                const type = url.searchParams.get('type')
+
+                if (
+                    type !== null
+                    && Object.hasOwn(memoryValues, type)
+                ) {
+                    const value = memoryValues[
+                        type as keyof typeof memoryValues
+                    ]
+
+                    return {
+                        ok: true,
+                        json: async () => ({
+                            metric: {
+                                type,
+                                unit: 'byte',
+                                metricVersion: 'memory-v1',
+                            },
+                            range: METRICS_RESPONSE.range,
+                            summary: {
+                                count: 1,
+                                average: value,
+                                p50: value,
+                                p75: value,
+                                p90: value,
+                            },
+                            series: [],
+                        }),
+                    }
+                }
+
+                return {
+                    ok: true,
+                    json: async () => METRICS_RESPONSE,
+                }
+            },
+        )
+
+        vi.stubGlobal('fetch', fetchMock)
+
+        const wrapper = mount(App)
+
+        await flushPromises()
+
+        const memoryCards = wrapper
+            .findAllComponents(MetricSummaryCard)
+            .filter(
+                card => card.props('eyebrow') === 'MEMORY',
+            )
+
+        expect(memoryCards).toHaveLength(3)
+        expect(
+            memoryCards.map(card => card.props('label')),
+        ).toEqual([
+            'USED HEAP',
+            'TOTAL HEAP',
+            'HEAP LIMIT',
+        ])
+
+        expect(wrapper.text()).toContain('22.35 MiB')
+        expect(wrapper.text()).toContain('22.91 MiB')
+        expect(wrapper.text()).toContain('4.09 GiB')
     })
 })

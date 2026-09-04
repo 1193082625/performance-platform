@@ -13,6 +13,7 @@ import type {
 import type {
     ComposeOption,
 } from 'echarts/core'
+import { bytesToMebibytes } from './metric-value-format.js'
 
 export type MetricTrendOption = ComposeOption<
     | LineSeriesOption
@@ -84,9 +85,7 @@ function formatMetricValue(
         case 'score':
             return Number(value.toFixed(3))
         case 'byte':
-            return Number(
-                (value / 1024 / 1024).toFixed(1),
-            )
+            return bytesToMebibytes(value)
     }
 }
 

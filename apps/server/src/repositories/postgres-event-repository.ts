@@ -1,6 +1,6 @@
 import type { Pool } from 'pg'
 
-import type { EventRepository, MetricQueryRepository } from './event-repository.js'
+import type { EventRepository, MemoryHealthRepository, MetricQueryRepository } from './event-repository.js'
 import type {
     MetricSeriesPoint,
     MetricStats,
@@ -36,6 +36,12 @@ interface MetricSummaryRow {
 interface MetricSeriesRow
     extends MetricSummaryRow {
     bucket_time: Date
+}
+
+interface MemorySnapshotRow {
+    event_time: Date
+    used_heap: number
+    heap_limit: number
 }
 
 function getIntervalDuration(
@@ -86,7 +92,7 @@ function emptyStats(): MetricStats {
     }
 }
 
-export function createPostgresEventRepository(pool: Pool): EventRepository & MetricQueryRepository {
+export function createPostgresEventRepository(pool: Pool): EventRepository & MetricQueryRepository & MemoryHealthRepository {
     return {
         async insertBatch(events) {
             if (events.length === 0) return
@@ -568,6 +574,52 @@ export function createPostgresEventRepository(pool: Pool): EventRepository & Met
                 summary,
                 series,
             }
+        },
+        async queryLatestViewMemorySnapshots(query) {
+            const result = await pool.query<MemorySnapshotRow>(
+                `WITH latest_view AS (
+                    SELECT session_id, view_id
+                    FROM metric_events
+                    WHERE app_id = $1
+                        AND event_time >= $2
+                        AND event_time < $3
+                        AND event_type = 'web.memory.used_heap'
+                    ORDER BY event_time DESC
+                    LIMIT 1
+                )
+                SELECT
+                    event_time,
+                    max(metric_value) FILTER (
+                        WHERE event_type = 'web.memory.used_heap'
+                    ) AS used_heap,
+                    max(metric_value) FILTER (
+                        WHERE event_type = 'web.memory.heap_limit'
+                    ) AS heap_limit
+                FROM metric_events
+                JOIN latest_view USING (session_id, view_id)
+                WHERE app_id = $1
+                    AND event_time >= $2
+                    AND event_time < $3
+                    AND event_type IN (
+                        'web.memory.used_heap',
+                        'web.memory.heap_limit'
+                    )
+                GROUP BY event_time
+                HAVING count(*) FILTER (
+                    WHERE event_type = 'web.memory.used_heap'
+                ) > 0
+                AND count(*) FILTER (
+                    WHERE event_type = 'web.memory.heap_limit'
+                ) > 0
+                ORDER BY event_time`,
+                [query.appId, query.from, query.to],
+            )
+
+            return result.rows.map(row => ({
+                observedAt: row.event_time.getTime(),
+                usedHeap: row.used_heap,
+                heapLimit: row.heap_limit,
+            }))
         },
     }
 }
