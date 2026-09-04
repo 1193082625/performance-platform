@@ -142,6 +142,7 @@ button { font: inherit; }
 }
 
 .metric-summary-card {
+  position: relative;
   height: 100%;
   padding: 4.5% 6%;
   color: var(--text);
@@ -234,6 +235,31 @@ button { font: inherit; }
   margin: 0;
   color: var(--muted);
   font-size: clamp(5px, 0.42vw, 8px);
+}
+.metric-summary-card__rating {
+  position: absolute;
+  left: 6%;
+  bottom: 4%;
+  margin: 0;
+  font-size: clamp(7px, 0.44vw, 8px);
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  white-space: nowrap;
+}
+
+.metric-summary-card__rating[data-rating="good"] {
+  color: #4fe0ad;
+  text-shadow: 0 0 8px rgb(79 224 173 / 55%);
+}
+
+.metric-summary-card__rating[data-rating="needs-improvement"] {
+  color: var(--warning);
+  text-shadow: 0 0 8px rgb(255 200 87 / 45%);
+}
+
+.metric-summary-card__rating[data-rating="poor"] {
+  color: #ff7188;
+  text-shadow: 0 0 8px rgb(255 68 99 / 55%);
 }
 
 .paint-metrics-summary { display: contents; }
@@ -607,7 +633,10 @@ button { font: inherit; }
   .vital-metric-slot { order: 3; min-height: 180px; }
   .vital-metric-slot { grid-template-columns: 1fr; gap: 16px; }
   .vital-metric-panel { min-height: 180px; }
-  .metric-summary-card { min-height: 180px; padding: 28px; }
+  .metric-summary-card {
+    min-height: 180px;
+    padding: 28px;
+  }
   .performance-score__callout { display: none; }
   .paint-metrics-summary { order: 4; display: grid; grid-template-columns: 1fr; gap: 16px; }
   .paint-metric-card { min-height: 360px; padding: 28px; background: rgb(4 18 42 / 90%); border: 1px solid rgb(47 159 219 / 55%); }

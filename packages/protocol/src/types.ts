@@ -1,12 +1,12 @@
 // 环境
-export type Environment = 
+export type Environment =
     | 'development'
     | 'test'
     | 'staging'
     | 'production'
 
 // 上报类型
-export type PaintMetric = 
+export type PaintMetric =
     | 'web.paint.fp'
     | 'web.paint.fcp'
 
@@ -101,7 +101,7 @@ export interface PaintEventV1 {
 }
 
 // 丢弃原因
-export type DiscardReason = 
+export type DiscardReason =
     | 'unsupported_schema_version'
     | 'invalid_event_id'
     | 'invalid_app_id'
@@ -120,7 +120,7 @@ export type DiscardReason =
     | 'invalid_metric_version'
 
 // 上报内容校验结果
-export type ValidationResult<T> = 
+export type ValidationResult<T> =
     | {
         ok: true,
         value: T
@@ -175,12 +175,12 @@ export interface BatchResponse {
 }
 
 // 批量提交错误码
-export type BatchErrorCode = 
+export type BatchErrorCode =
     | 'INVALID_BATCH' // 批次结构非法
     | 'BATCH_TOO_LARGE' // 超过20条
 
 // 所有API错误的稳定、机器可读标识
-export type ApiErrorCode = 
+export type ApiErrorCode =
     | BatchErrorCode
     | 'INVALID_JSON'
     | 'PAYLOAD_TOO_LARGE'
@@ -210,7 +210,7 @@ export interface ValidatedPaintBatch {
     reasons: Partial<Record<DiscardReason, number>>
 }
 
-export type BatchValidationResult = 
+export type BatchValidationResult =
     | {
         ok: true
         value: ValidatedPaintBatch
@@ -221,7 +221,7 @@ export type BatchValidationResult =
     }
 
 // 表示时间序列的聚合力度
-export type MetricsInterval = 
+export type MetricsInterval =
     | 'minute' // 每分钟一个数据点
     | 'hour'   // 每小时一个数据点
     | 'day'    // 每天一个数据点
@@ -269,7 +269,7 @@ export interface PaintMetricsData {
     series: PaintSeriesPoint[]
 }
 
-export type PaintScoreStatus = 
+export type PaintScoreStatus =
     | 'good'
     | 'needs-improvement'
     | 'poor'
@@ -342,6 +342,18 @@ export type MetricDefinition =
 
 export type WebMetric =
     MetricDefinition['type']
+
+/**
+ * Extract 表示从一个联合类型中筛选出符合条件的成员
+ * 等同于 export type WebVitalMetric =
+            | 'web.vital.lcp'
+            | 'web.vital.cls'
+            | 'web.vital.inp'
+ */
+export type WebVitalMetric = Extract<
+    WebMetric,
+    `web.vital.${string}`
+>
 
 export type MetricUnit =
     MetricDefinition['unit']

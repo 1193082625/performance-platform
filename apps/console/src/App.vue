@@ -43,6 +43,7 @@
             <MetricSummaryCard
                 v-else-if="lcpData?.metric?.type === 'web.vital.lcp'"
                 label="LCP"
+                type="web.vital.lcp"
                 :stats="lcpData.summary"
                 :unit="lcpData.metric.unit"
                 :metric-version="lcpData.metric.metricVersion"
@@ -67,6 +68,7 @@
             <MetricSummaryCard
                 v-else-if="clsData?.metric?.type === 'web.vital.cls'"
                 label="CLS"
+                type="web.vital.cls"
                 :stats="clsData.summary"
                 :unit="clsData.metric.unit"
                 :metric-version="clsData.metric.metricVersion"
@@ -91,6 +93,7 @@
             <MetricSummaryCard
                 v-else-if="inpData?.metric?.type === 'web.vital.inp'"
                 label="INP"
+                type="web.vital.inp"
                 :stats="inpData.summary"
                 :unit="inpData.metric.unit"
                 :metric-version="inpData.metric.metricVersion"

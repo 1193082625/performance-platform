@@ -41,6 +41,14 @@
         </div>
 
         <p
+            v-if="rating !== null"
+            class="metric-summary-card__rating"
+            :data-rating="rating"
+        >
+            {{ formatRating(rating) }}
+        </p>
+
+        <p
             v-if="stats.count === 0"
             class="metric-summary-card__empty"
         >
@@ -51,17 +59,48 @@
 
 <script setup lang="ts">
 import type {
+    MetricRating,
     MetricStats,
     MetricUnit,
     MetricVersion,
+    WebVitalMetric,
 } from '@performance-platform/protocol'
+import { rateWebVital } from '@performance-platform/protocol'
+import { computed } from 'vue'
+
 
 const props = defineProps<{
     label: string
+    type: WebVitalMetric
     stats: MetricStats
     unit: MetricUnit
     metricVersion: MetricVersion
 }>()
+
+const rating = computed(() => {
+    if (props.stats.p75 === null) {
+        return null
+    }
+
+    // Web Vitals 通常以 P75 判断整体用户体验
+    return rateWebVital(
+        props.type,
+        props.stats.p75,
+    )
+})
+
+function formatRating(
+    value: MetricRating,
+): string {
+    switch (value) {
+        case 'good':
+            return 'GOOD'
+        case 'needs-improvement':
+            return 'NEEDS IMPROVEMENT'
+        case 'poor':
+            return 'POOR'
+    }
+}
 
 function formatValue(value: number | null): string {
     if (value === null) return '—'

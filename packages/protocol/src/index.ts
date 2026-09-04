@@ -34,6 +34,7 @@ export type {
     MetricUnit,
     MetricVersion,
     WebMetric,
+    WebVitalMetric,
 } from './types.js'
 
 export {
@@ -42,3 +43,9 @@ export {
     validateMetricEvent,
     validateMetricBatch,
 } from './validate.js'
+
+export {
+    WEB_VITAL_THRESHOLDS,
+    rateWebVital,
+    type MetricRating,
+} from './metric-thresholds.js'
