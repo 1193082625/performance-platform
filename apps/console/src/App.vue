@@ -1,5 +1,9 @@
 <template>
   <main class="dashboard-shell">
+    <div class="dashboard-plate dashboard-plate--header" aria-hidden="true"></div>
+    <div class="dashboard-plate dashboard-plate--main" aria-hidden="true"></div>
+    <div class="dashboard-plate dashboard-plate--memory" aria-hidden="true"></div>
+
     <header class="dashboard-header">
       <h1>WEB PERFORMANCE</h1>
 
