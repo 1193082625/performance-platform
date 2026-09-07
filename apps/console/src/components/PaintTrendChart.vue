@@ -91,5 +91,6 @@ const option = computed(
     width: 100%;
     height: 100%;
     min-height: 0;
+    margin-left: -18px;
 }
 </style>
