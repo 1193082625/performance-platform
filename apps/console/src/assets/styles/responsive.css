@@ -1,0 +1,34 @@
+/* Layout tracks always derive from available space, never a fixed canvas width. */
+.dashboard{width:100%;height:auto;min-height:100dvh}
+.topbar{flex-wrap:wrap;height:auto;min-height:94px;column-gap:clamp(12px,2.1vw,36px);row-gap:14px}
+.brand{min-width:0}
+.brand h1{font-size:clamp(26px,2.75vw,46px)}
+.main-shell{height:auto;grid-template-columns:minmax(0,2.66fr) minmax(0,1fr);align-items:stretch}
+.performance,.memory-panel,.metrics,.charts,.metric-card,.chart-panel,.health-card{min-width:0}
+.performance{margin-bottom:12px}
+.metrics{grid-template-columns:repeat(5,minmax(0,1fr))}
+.metric-card{height:auto;min-height:313px}
+.metric-card dl{padding-left:0}
+.metrics .ring{width:min(100%,160px)!important}
+.charts{grid-template-columns:minmax(0,1fr) minmax(0,1.02fr);min-height:390px}
+.chart-heading{flex-wrap:wrap;gap:10px 20px}
+.metric-tabs{min-width:0;max-width:100%;flex-wrap:wrap;flex:1 1 240px}
+.metric-tabs button{min-width:0;flex:1;padding-inline:clamp(6px,.8vw,14px)}
+.metric-tabs button.memory{min-width:0}
+.trend-chart{min-width:0;min-height:290px}
+.health-body{gap:clamp(8px,.8vw,15px)}
+.health-ring{width:45%!important;max-width:168px;flex:0 1 45%}
+.health-stats{min-width:0;flex:1}
+.health-stats em{white-space:normal;overflow-wrap:anywhere}
+.health-card{height:auto;min-height:331px}
+.reason{margin-left:clamp(0px,4vw,73px)}
+.heap-card{max-height:none;min-width:0}
+.heap-heading{flex-wrap:wrap}
+.heap-heading h2,.heap-heading strong{white-space:normal}
+.sample-total{min-width:0}
+@media(min-width:1500px){.main-shell{min-height:calc(100dvh - 123px)}.performance{padding-bottom:22px}.metric-tabs{flex:1}.p75-heading{gap:12px}}
+@media(max-width:1250px){.main-shell{grid-template-columns:minmax(0,1fr)}.performance{margin-bottom:0}.memory-panel{display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,1fr);gap:16px}.health-card{grid-row:span 3}.health-body{justify-content:center;gap:20px}.health-ring{flex-basis:40%}.health-stats{flex:0 1 auto}.health-card h2{margin-bottom:25px}.health-card .reason{margin-left:15%}.heap-card{min-height:112px}.brand h1{font-size:clamp(26px,3.3vw,40px)}.date-time{margin-left:auto}.chart-heading h2{font-size:22px}}
+@media(max-width:900px){.metrics{grid-template-columns:repeat(3,minmax(0,1fr))}.metric-card:last-child{grid-column:auto}.charts{grid-template-columns:minmax(0,1fr)}.chart-panel{min-height:375px}.metric-tabs{flex:1}.metric-card dl{font-size:14px}.topbar .brand{flex:1 1 65%}.topbar .live-badge{margin-left:auto}.range-tabs{flex:1;justify-content:center}.range-tabs button{width:auto;flex:1;max-width:85px}.chart-heading h2{font-size:22px}.metric-tabs button{font-size:15px}}
+@media(max-width:600px){.metrics{grid-template-columns:repeat(2,minmax(0,1fr))}.metric-card{padding-inline:clamp(10px,3vw,20px);min-height:306px}.metric-card:last-child{grid-column:1/-1}.memory-panel{grid-template-columns:minmax(0,1fr)}.health-card{grid-row:auto}.health-card h2{margin-bottom:10px}.health-body{gap:22px}.health-card .reason{margin-left:15%}.brand{gap:10px}.topbar .brand{flex-basis:70%}.brand h1{font-size:clamp(21px,5.5vw,30px);white-space:normal}.brand svg{width:clamp(32px,8vw,42px);flex-shrink:0}.topbar{padding-inline:16px;gap:12px}.live-badge{min-width:64px;font-size:16px;padding-inline:6px;gap:6px}.live-badge i{width:8px;height:8px}.date-time{margin-left:auto}.range-tabs{order:4;flex-basis:100%}.range-tabs button{max-width:none}.chart-heading{gap:12px}.p75-heading h2{flex-basis:100%}.metric-tabs{width:100%}.metric-tabs button{padding-inline:7px}.chart-panel{min-height:375px}.chart-heading h2{font-size:21px}.heap-heading h2{font-size:19px}.heap-heading strong{font-size:28px}footer{font-size:11px}.main-shell{padding-bottom:58px}}
+@media(max-width:350px){.metrics{grid-template-columns:minmax(0,1fr)}.metric-tabs button{font-size:12px;padding-inline:4px}.health-body{gap:9px}.health-stats>strong{font-size:23px}.health-stats em{font-size:15px}.heap-card{gap:6px}.heap-card>svg{width:38px;margin-right:0}}
+@media(min-width:1500px){.p75-heading .metric-tabs{flex:1 1 300px}}

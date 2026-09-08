@@ -1,228 +1,104 @@
-import {
-    describe,
-    expect,
-    it,
-} from 'vitest'
-import {
-    mount,
-} from '@vue/test-utils'
-import MetricSummaryCard from './MetricSummaryCard.vue'
+import { mount } from "@vue/test-utils";
+import { describe, expect, it } from "vitest";
 
-describe('MetricSummaryCard', () => {
-    it('shows a millisecond metric summary', () => {
-        const wrapper = mount(MetricSummaryCard, {
-            props: {
-                label: 'LCP',
-                type: 'web.vital.lcp',
-                metricVersion: 'lcp-v1',
-                unit: 'ms',
-                stats: {
-                    count: 24,
-                    average: 128.4,
-                    p50: 110,
-                    p75: 184.6,
-                    p90: 220,
-                },
-            },
-        })
+import MetricSummaryCard from "./MetricSummaryCard.vue";
 
-        expect(wrapper.text()).toContain('LCP')
-        expect(wrapper.text()).toContain('lcp-v1')
-        expect(
-            wrapper.get('[data-testid="metric-summary-average"]').text(),
-        ).toBe('128 ms')
-        expect(
-            wrapper.get('[data-testid="metric-summary-p75"]').text(),
-        ).toBe('185 ms')
-        expect(
-            wrapper.get('[data-testid="metric-summary-samples"]').text(),
-        ).toBe('24')
-    })
+function metric(overrides: Record<string, unknown> = {}) {
+  return {
+    name: "LCP",
+    stats: {
+      count: 24,
+      average: 128.4,
+      p50: 110,
+      p75: 184.6,
+      p90: 220,
+    },
+    value: "128",
+    unit: "ms",
+    type: "web.vital.lcp",
+    color: "#ad75fa",
+    progress: 3.2,
+    state: null,
+    ...overrides,
+  };
+}
 
-    it('shows an empty state when there are no samples', () => {
-        const wrapper = mount(MetricSummaryCard, {
-            props: {
-                label: 'LCP',
-                type: 'web.vital.lcp',
-                metricVersion: 'lcp-v1',
-                unit: 'ms',
-                stats: {
-                    count: 0,
-                    average: null,
-                    p50: null,
-                    p75: null,
-                    p90: null,
-                },
-            },
-        })
+describe("MetricSummaryCard", () => {
+  it("renders the current metric prop and formats milliseconds", () => {
+    const wrapper = mount(MetricSummaryCard, { props: { metric: metric() } });
 
-        expect(wrapper.text()).toContain('暂无 LCP 数据')
-        expect(
-            wrapper.get('[data-testid="metric-summary-average"]').text(),
-        ).toBe('—')
-    })
+    expect(wrapper.get("h2").text()).toBe("LCP");
+    expect(wrapper.findAll("dl dd").map((item) => item.text())).toEqual([
+      "128 ms",
+      "185 ms",
+      "24",
+    ]);
+    expect(wrapper.get(".ring-value strong").text()).toBe("128");
+  });
 
-    it('formats a CLS score without a unit suffix', () => {
-        const wrapper = mount(MetricSummaryCard, {
-            props: {
-                label: 'CLS',
-                type: 'web.vital.cls',
-                metricVersion: 'cls-v1',
-                unit: 'score',
-                stats: {
-                    count: 3,
-                    average: 0.0724,
-                    p50: 0.05,
-                    p75: 0.0944,
-                    p90: 0.12,
-                },
-            },
-        })
+  it("formats CLS without a unit suffix", () => {
+    const wrapper = mount(MetricSummaryCard, {
+      props: {
+        metric: metric({
+          name: "CLS",
+          unit: "score",
+          type: "web.vital.cls",
+          value: "0.072",
+          stats: {
+            count: 3,
+            average: 0.0724,
+            p50: 0.05,
+            p75: 0.0944,
+            p90: 0.12,
+          },
+        }),
+      },
+    });
 
-        expect(
-            wrapper.get('[data-testid="metric-summary-average"]').text(),
-        ).toBe('0.072')
-        expect(
-            wrapper.get('[data-testid="metric-summary-p75"]').text(),
-        ).toBe('0.094')
-    })
+    expect(wrapper.findAll("dl dd").map((item) => item.text())).toEqual([
+      "0.072",
+      "0.094",
+      "3",
+    ]);
+  });
 
-    it.each([
-        [200, 'GOOD'],
-        [300, 'NEEDS IMPROVEMENT'],
-        [501, 'POOR'],
-    ] as const)(
-        'rates INP P75 %s as %s',
-        (p75, expected) => {
-            const wrapper = mount(
-                MetricSummaryCard,
-                {
-                    props: {
-                        label: 'INP',
-                        type: 'web.vital.inp',
-                        metricVersion: 'inp-v1',
-                        unit: 'ms',
-                        stats: {
-                            count: 5,
-                            average: 240,
-                            p50: 220,
-                            p75,
-                            p90: 520,
-                        },
-                    },
-                },
-            )
+  it.each([
+    [200, "GOOD"],
+    [300, "NEEDS IMPROVEMENT"],
+    [501, "POOR"],
+  ] as const)("rates INP P75 %s as %s", (p75, expected) => {
+    const wrapper = mount(MetricSummaryCard, {
+      props: {
+        metric: metric({
+          name: "INP",
+          type: "web.vital.inp",
+          stats: { count: 5, average: 240, p50: 220, p75, p90: 520 },
+        }),
+      },
+    });
 
-            const rating = wrapper.get(
-                '.metric-summary-card__rating',
-            )
+    expect(wrapper.get(".good").text()).toBe(expected);
+  });
 
-            expect(rating.text()).toBe(expected)
-        },
-    )
+  it.each([
+    ["loading", "LOADING"],
+    ["error", "LOAD FAILED"],
+    ["empty", "NO DATA"],
+  ] as const)("renders the %s state", (state, expected) => {
+    const wrapper = mount(MetricSummaryCard, {
+      props: {
+        metric: metric({ state, stats: undefined, value: "—", progress: 0 }),
+      },
+    });
 
-    it.each([
-        [200, 'good', 'GOOD'],
-        [300, 'needs-improvement', 'NEEDS IMPROVEMENT'],
-        [501, 'poor', 'POOR'],
-    ] as const)(
-        'rates INP P75 %s as %s',
-        (p75, expectedRating, expectedText) => {
-            const wrapper = mount(
-                MetricSummaryCard,
-                {
-                    props: {
-                        label: 'INP',
-                        type: 'web.vital.inp',
-                        metricVersion: 'inp-v1',
-                        unit: 'ms',
-                        stats: {
-                            count: 5,
-                            average: 240,
-                            p50: 220,
-                            p75,
-                            p90: 520,
-                        },
-                    },
-                },
-            )
+    expect(wrapper.get(`.metric-card__state--${state}`).text()).toBe(expected);
+  });
 
-            const rating = wrapper.get(
-                '.metric-summary-card__rating',
-            )
+  it("does not rate a non-Web-Vital metric", () => {
+    const wrapper = mount(MetricSummaryCard, {
+      props: { metric: metric({ name: "FP", type: "web.paint.fp" }) },
+    });
 
-            expect(rating.text()).toBe(expectedText)
-
-            expect(
-                rating.attributes('data-rating'),
-            ).toBe(expectedRating)
-        },
-    )
-
-    it('does not render a rating without P75', () => {
-        const wrapper = mount(
-            MetricSummaryCard,
-            {
-                props: {
-                    label: 'INP',
-                    type: 'web.vital.inp',
-                    metricVersion: 'inp-v1',
-                    unit: 'ms',
-                    stats: {
-                        count: 0,
-                        average: null,
-                        p50: null,
-                        p75: null,
-                        p90: null,
-                    },
-                },
-            },
-        )
-
-        expect(
-            wrapper
-                .find('.metric-summary-card__rating')
-                .exists(),
-        ).toBe(false)
-    })
-
-    it('shows a memory metric without a Web Vital rating', () => {
-        const wrapper = mount(
-            MetricSummaryCard,
-            {
-                props: {
-                    label: 'USED HEAP',
-                    type: 'web.memory.used_heap',
-                    metricVersion: 'memory-v1',
-                    unit: 'byte',
-                    stats: {
-                        count: 3,
-                        average: 23_437_190,
-                        p50: 22_000_000,
-                        p75: 24_000_000,
-                        p90: 25_000_000,
-                    },
-                },
-            },
-        )
-        expect(
-            wrapper
-                .get(
-                    '[data-testid="metric-summary-average"]',
-                )
-                .text(),
-        ).toBe('22.35 MiB')
-        expect(
-            wrapper
-                .get(
-                    '[data-testid="metric-summary-p75"]',
-                )
-                .text(),
-        ).toBe('22.89 MiB')
-        expect(
-            wrapper
-                .find('.metric-summary-card__rating')
-                .exists(),
-        ).toBe(false)
-    })
-})
+    expect(wrapper.find(".good").exists()).toBe(false);
+  });
+});

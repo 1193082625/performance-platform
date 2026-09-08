@@ -1,0 +1,99 @@
+/* Finishing pass against design.png; all layout tracks remain fluid. */
+.tech-frame { isolation:isolate; clip-path:none; background:transparent; }
+.tech-frame::before,.tech-frame::after { content:none; }
+.frame-decoration { position:absolute; inset:0; width:100%; height:100%; z-index:-1; pointer-events:none; overflow:visible; fill:none; stroke-linejoin:miter; stroke-width:.8; }
+.frame-surface { fill:#010c1d; stroke:none; }
+.tech-frame>.frame-decoration { width:100%; height:100%; margin:0; filter:none; }
+.frame-outline { stroke:#08b9e7; opacity:.84; }
+.frame-inset { stroke:#087bab; opacity:.35; stroke-width:.65; }
+.frame-leading { stroke:var(--accent); stroke-width:.85; }
+.frame-trailing { stroke:#008dc1; opacity:.65; }
+.frame-traces { stroke:var(--accent); opacity:.75; stroke-width:.7; }
+.topbar .frame-surface,.main-shell>.frame-decoration .frame-surface { fill:#02081b; fill-opacity:.5; }
+.topbar .frame-outline { stroke:#48a7ec; }
+.topbar .frame-trailing { stroke:#8a89e9; opacity:.95; }
+.topbar .frame-traces { stroke:#139cce; }
+.performance>.frame-decoration .frame-surface,.memory-panel>.frame-decoration .frame-surface { fill:#010918; fill-opacity:.72; }
+.performance>.frame-decoration .frame-inset,.memory-panel>.frame-decoration .frame-inset { opacity:.2; }
+.health-card .frame-outline,.heap-card .frame-outline { stroke:var(--accent); opacity:.66; }
+.health-card .frame-inset,.heap-card .frame-inset { stroke:var(--accent); opacity:.26; }
+.health-card .frame-leading,.heap-card .frame-leading { opacity:.9; }
+.health-card .frame-trailing,.heap-card .frame-trailing { stroke:var(--accent); opacity:.76; }
+.health-card .frame-traces,.heap-card .frame-traces { opacity:.2; }
+.health-card .frame-surface,.heap-card .frame-surface { fill:#010e19; }
+.heap-card.limit .frame-surface { fill:#070b20; }
+.dashboard { background-image:radial-gradient(ellipse at 40% 80%,#05234125,transparent 70%),linear-gradient(#063b652b 1px,transparent 1px),linear-gradient(90deg,#063b652b 1px,transparent 1px); background-size:auto,14px 14px,14px 14px; background-color:#010616; }
+
+/* Header */
+.brand h1 { font-weight:700; letter-spacing:1.1px; text-shadow:0 0 3px #94cfff,0 0 13px #286daa88; }
+.brand svg { filter:drop-shadow(0 0 4px #00d3ff25); }
+.live-badge { border-color:#255947; border-radius:4px; background:#00191040; }
+.range-tabs button { position:relative; border-color:#484786; background:#050b2166; font-size:21px; }
+.range-tabs button.active { border-color:#02d3fa; box-shadow:inset 0 0 12px #00bdff20,0 0 4px #009cdd60; }
+.range-tabs button::after { content:''; position:absolute; inset:3px; background:linear-gradient(currentColor,currentColor) left top/5px 1px no-repeat,linear-gradient(currentColor,currentColor) left top/1px 4px no-repeat,linear-gradient(currentColor,currentColor) right bottom/5px 1px no-repeat,linear-gradient(currentColor,currentColor) right bottom/1px 4px no-repeat; opacity:.5; pointer-events:none; }
+.sample-total strong { font-weight:600; font-size:33px; }
+
+/* Performance cards */
+.metric-card { display:flex; flex-direction:column; padding-bottom:0; }
+.metric-card h2 { font-size:24px; font-weight:600; line-height:29px; }
+.metrics .ring { width:min(100%,160px)!important; height:160px; flex-shrink:0; transform:none; margin-top:-9px; margin-bottom:-2px; }
+.ring-value { padding-top:4px; }
+.ring-value strong { font-family:'Rajdhani',sans-serif; font-size:39px; font-weight:600; text-shadow:0 0 8px #cbdcff14; }
+.ring-value span { font-family:Arial,sans-serif; font-size:17px; }
+.ticks { stroke-width:3; stroke-dasharray:1.15 5; opacity:.95; }
+.fine-ring { stroke-dasharray:2 2; opacity:.5; }
+.track { opacity:.28; stroke-width:6; }
+.inner-ring { stroke-width:1.5; opacity:.65; stroke-dasharray:3 5 1 8 70 8; }
+.ring .crosshairs { stroke:#011127; stroke-width:3; }
+.metric-card dl { line-height:23px; }
+.metric-card dt { color:#b5c6e6; }
+.metric-card .good { margin-top:auto; min-height:49px; padding-top:0; font-size:18px; font-weight:600; border-top-color:#16445d; }
+.good i { width:11px; height:11px; box-shadow:0 0 13px #60e47b66; }
+
+/* Charts */
+.chart-panel { padding-top:20px; }
+.chart-heading { margin-bottom:7px; }
+.chart-heading h2 { font-size:22px; font-weight:600; letter-spacing:.1px; }
+.chart-heading select { border-color:#284c70; background-color:#020c1f; font-family:Arial,sans-serif; font-size:14px; }
+.metric-tabs button { flex:1 0 auto; font-family:Arial,sans-serif; font-size:12px; border-color:#444491; border-radius:3px; background:#040b20; }
+.metric-tabs button.selected.memory { border-color:#70d3be; background:#002e293f; box-shadow:inset 0 0 9px #21eeb625; }
+
+/* Memory */
+.health-card h2 { font-size:21px; font-weight:600; border-bottom-color:#244b4e; }
+.health-body { margin-top:17px; gap:13px; }
+.health-ring { height:172px; width:47%!important; max-width:176px; flex-basis:47%; }
+.health-ring .ring-art { transform:scale(1.04); }
+.health-ring .ticks { stroke-dasharray:.7 2.1; stroke-width:3; opacity:.42; }
+.health-ring .fine-ring { stroke-dasharray:1 1; opacity:.6; }
+.health-ring .ring-value { padding-top:4px; }
+.health-ring .ring-value svg { width:64px; height:64px; }
+.health-stats { padding-top:3px; }
+.health-stats>strong { font-size:27px; line-height:1.3; color:#7fe374; }
+.health-stats>b { font-family:Arial,sans-serif; font-size:26px; line-height:1.4; margin-bottom:10px; }
+.health-stats em { font-family:'Rajdhani',Arial,sans-serif; font-size:22px; line-height:1.35; }
+.reason { margin-top:12px; }
+.heap-heading h2 { font-size:21px; font-weight:600; }
+.heap-card>svg:not(.frame-decoration) { height:60px; }
+.heap-heading strong { font-size:31px; line-height:1.1; }
+.heap-card p { line-height:20px; margin-top:4px; }
+.segmented-bar { gap:3px; height:7px; margin-top:13px; }
+.segmented-bar span { background:#092333; }
+.segmented-bar span.filled { box-shadow:inset 1px 0 2px #e0ffd37a; }
+.heap-card.limit .segmented-bar { gap:4px; }
+footer { font-family:'Rajdhani',Arial,sans-serif; font-size:16px; }
+
+@media(min-width:1500px) {
+ .charts { min-height:389px; }
+ .performance { padding:29px 19px 22px 23px; }
+ .metrics { gap:16px; }
+ .metric-card { padding:12px 16px 0 18px; }
+ .metric-card h2 { margin-left:10px; }
+ .metric-card dl { padding-left:10px; }
+ .memory-panel { padding:28px 23px 22px 18px; }
+ .chart-heading { gap:23px; }
+ .p75-heading { gap:20px; }
+ .p75-heading .metric-tabs { flex-basis:300px; }
+}
+@media(max-width:1250px) { .health-ring { flex:0 1 40%; } .health-body { gap:22px; } .health-stats { flex:0 1 auto; } }
+@media(max-width:900px) { .metrics .ring { height:160px; } .metric-card .good { min-height:49px; } .health-stats>strong { font-size:25px; } .health-stats em { font-size:20px; } }
+@media(max-width:600px) { .metric-card h2 { font-size:23px; } .chart-heading h2 { font-size:20px; } .metric-tabs button { font-size:11px; } .heap-heading h2 { font-size:19px; } .health-ring { flex-basis:45%; } footer { font-size:12px; } .sample-total strong { font-size:26px; } .range-tabs button { font-size:18px; } }

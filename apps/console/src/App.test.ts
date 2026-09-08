@@ -27,10 +27,8 @@ vi.mock('vue-echarts', () => ({
 
 import App from './App.vue'
 import type { PaintMetricsResponse } from '@performance-platform/protocol'
-import PaintMetricCard from './components/PaintMetricCard.vue'
-import PaintTrendChart from './components/PaintTrendChart.vue'
+import TrendChart from "./components/TrendChart.vue";
 import MetricSummaryCard from './components/MetricSummaryCard.vue'
-import MetricTrendChart from './components/MetricTrendChart.vue'
 
 const EMPTY_STATS = {
     count: 0,
@@ -60,11 +58,12 @@ const METRICS_RESPONSE = {
 
 describe('App', () => {
     afterEach(() => {
+        vi.useRealTimers()
         vi.unstubAllGlobals()
         vi.restoreAllMocks()
     })
 
-    it('shows the performance score returned by the metrics API', async () => {
+    it('renders a successful paint response without an error state', async () => {
         const fetchMock = vi.fn()
 
         fetchMock.mockResolvedValue({
@@ -114,8 +113,9 @@ describe('App', () => {
 
         await flushPromises()
 
-        expect(wrapper.text()).toContain('综合性能评分')
-        expect(wrapper.get('[data-testid="overall-score"]').text()).toBe('90')
+        expect(wrapper.text()).toContain('120 ms')
+        expect(wrapper.text()).toContain('260 ms')
+        expect(wrapper.text()).not.toContain('性能数据加载失败')
     })
 
     it('shows a loading state while metrics are being requested', async () => {
@@ -146,7 +146,7 @@ describe('App', () => {
         expect(wrapper.text()).not.toContain('暂无评分')
         expect(wrapper.find('[data-testid="overall-score"]').exists()).toBe(false)
     })
-    it('shows an unavailable score when the request succeeds without samples', async () => {
+    it('shows an empty state when the request succeeds without samples', async () => {
         const fetchMock = vi.fn()
     
         fetchMock.mockResolvedValue({
@@ -166,17 +166,10 @@ describe('App', () => {
     
         await flushPromises()
     
-        expect(wrapper.text()).toContain(
-            '综合性能评分',
-        )
-    
-        expect(wrapper.text()).toContain(
-            '暂无评分',
-        )
-    
-        expect(wrapper.text()).not.toContain(
-            '性能数据加载失败',
-        )
+        expect(wrapper.text()).toContain('暂无性能数据')
+        expect(wrapper.findAll('.metric-card__state--empty')).toHaveLength(5)
+        expect(wrapper.text()).toContain('暂无趋势数据')
+        expect(wrapper.text()).not.toContain('性能数据加载失败')
     })
     it('loads the selected range immediately', async () => {
         vi.spyOn(
@@ -240,91 +233,113 @@ describe('App', () => {
             requestUrl.searchParams.get('interval'),
         ).toBe('day')
     })
-    it('shows FP and FCP summary cards', async () => {
-        const fetchMock = vi.fn()
-    
+    it("shows FP and FCP summary cards", async () => {
+        const fetchMock = vi.fn();
+        const paintResponse = {
+          ...METRICS_RESPONSE,
+          summary: {
+            fp: { ...EMPTY_STATS, average: 1_000 },
+            fcp: { ...EMPTY_STATS, average: 1_500 },
+          },
+        };
+      
         fetchMock.mockResolvedValue({
-            ok: true,
-            json: async () => METRICS_RESPONSE,
-        })
-    
-        vi.stubGlobal(
-            'fetch',
-            fetchMock,
-        )
-    
-        const wrapper = mount(App)
-    
-        await flushPromises()
-    
-        const cards =
-            wrapper.findAllComponents(
-                PaintMetricCard,
-            )
-    
-        expect(cards).toHaveLength(2)
-    
-        expect(cards[0]?.props()).toMatchObject({
-            metric: 'FP',
-            stats: METRICS_RESPONSE.summary.fp,
-        })
-    
-        expect(cards[1]?.props()).toMatchObject({
-            metric: 'FCP',
-            stats: METRICS_RESPONSE.summary.fcp,
-        })
-    })
-    it('shows the paint trend returned by the metrics API', async () => {
+          ok: true,
+          json: async () => paintResponse,
+        });
+      
+        vi.stubGlobal("fetch", fetchMock);
+      
+        const wrapper = mount(App);
+      
+        await flushPromises();
+      
+        const cards = wrapper.findAllComponents(MetricSummaryCard);
+      
+        expect(cards).toHaveLength(5);
+      
+        expect(cards[0]?.props("metric")).toMatchObject({
+          name: "FP",
+          stats: paintResponse.summary.fp,
+          progress: 50,
+        });
+      
+        expect(cards[1]?.props("metric")).toMatchObject({
+          name: "FCP",
+          stats: paintResponse.summary.fcp,
+          progress: 50,
+        });
+      });
+      it("passes the paint trend returned by the API to TrendChart", async () => {
         const trendPoints = [
-            {
-                time: '2026-08-31T10:00:00.000Z',
-                fp: METRICS_RESPONSE.summary.fp,
-                fcp: METRICS_RESPONSE.summary.fcp,
+          {
+            time: "2026-08-31T10:00:00.000Z",
+            fp: {
+              ...METRICS_RESPONSE.summary.fp,
+              average: 120,
+              p75: 180,
             },
-        ]
-    
-        const fetchMock = vi.fn()
-    
+            fcp: {
+              ...METRICS_RESPONSE.summary.fcp,
+              average: 260,
+              p75: 340,
+            },
+          },
+        ];
+      
+        const fetchMock = vi.fn();
+      
         fetchMock.mockResolvedValue({
-            ok: true,
-    
-            json: async () => ({
-                ...METRICS_RESPONSE,
-                series: trendPoints,
-            }),
-        })
-    
-        vi.stubGlobal(
-            'fetch',
-            fetchMock,
-        )
-    
-        const wrapper = mount(App)
-    
-        await flushPromises()
-    
-        const trendCharts = wrapper.findAllComponents(
-            PaintTrendChart,
-        )
-
-        expect(trendCharts).toHaveLength(2)
-
-        expect(
-            trendCharts[0]?.props(),
-        ).toMatchObject({
-            points: trendPoints,
-            title: 'AVERAGE TREND',
-            statistic: 'average',
-        })
-
-        expect(
-            trendCharts[1]?.props(),
-        ).toMatchObject({
-            points: trendPoints,
-            title: 'P75 TREND',
-            statistic: 'p75',
-        })
-    })
+          ok: true,
+          json: async () => ({
+            ...METRICS_RESPONSE,
+            series: trendPoints,
+          }),
+        });
+      
+        vi.stubGlobal("fetch", fetchMock);
+      
+        const wrapper = mount(App);
+      
+        await flushPromises();
+      
+        const [averageChart, p75Chart] =
+          wrapper.findAllComponents(TrendChart);
+      
+        expect(averageChart).toBeDefined();
+        expect(p75Chart).toBeDefined();
+      
+        expect(averageChart!.props("series")).toEqual([
+          {
+            key: "fp",
+            label: "FP",
+            unit: "ms",
+            color: "#09d9ea",
+            points: [
+              {
+                time: "2026-08-31T10:00:00.000Z",
+                value: 120,
+              },
+            ],
+          },
+          {
+            key: "fcp",
+            label: "FCP",
+            unit: "ms",
+            color: "#00baff",
+            points: [
+              {
+                time: "2026-08-31T10:00:00.000Z",
+                value: 260,
+              },
+            ],
+          },
+        ]);
+      
+        expect(averageChart!.props("ariaLabel")).toBe(
+          "PAINT average performance trend",
+        );
+      });
 
     it('switches between the Web Vital P75 trends without refetching', async () => {
         const metricSeries = [
@@ -407,49 +422,67 @@ describe('App', () => {
 
         for (const expected of [
             {
-                button: 'LCP',
-                label: 'LCP',
-                unit: 'ms',
-                color: '#56e4ff',
+              button: "LCP",
+              key: "lcp",
+              label: "LCP",
+              unit: "ms",
+              color: "#ae66fa",
             },
             {
-                button: 'CLS',
-                label: 'CLS',
-                unit: 'score',
-                color: '#a18bff',
+              button: "CLS",
+              key: "cls",
+              label: "CLS",
+              unit: "score",
+              color: "#e262ef",
             },
             {
-                button: 'INP',
-                label: 'INP',
-                unit: 'ms',
-                color: '#ffc857',
+              button: "INP",
+              key: "inp",
+              label: "INP",
+              unit: "ms",
+              color: "#9860ee",
             },
             {
-                button: 'MEMORY',
-                label: 'USED HEAP',
-                unit: 'byte',
-                color: '#57e389',
+              button: "MEMORY",
+              key: "used-heap",
+              label: "Used Heap",
+              unit: "byte",
+              color: "#7be66b",
             },
-        ] as const) {
+          ] as const) {
             const button = wrapper
-                .findAll('.trend-switcher button')
-                .find(item => item.text() === expected.button)
-
-            expect(button).toBeDefined()
-
-            await button!.trigger('click')
-
-            expect(
-                wrapper.getComponent(MetricTrendChart).props(),
-            ).toMatchObject({
-                points: metricSeries,
+              .findAll(".metric-tabs button")
+              .find((item) => item.text() === expected.button);
+          
+            expect(button).toBeDefined();
+          
+            await button!.trigger("click");
+          
+            const trendCharts = wrapper.findAllComponents(TrendChart);
+            const p75Chart = trendCharts[1];
+          
+            expect(p75Chart).toBeDefined();
+          
+            expect(p75Chart!.props("series")).toEqual([
+              {
+                key: expected.key,
                 label: expected.label,
                 unit: expected.unit,
                 color: expected.color,
-                statistic: 'p75',
-            })
-        }
-
+                points: [
+                  {
+                    time: "2026-08-31T10:00:00.000Z",
+                    value: 196,
+                  },
+                ],
+              },
+            ]);
+          
+            expect(p75Chart!.props("ariaLabel")).toBe(
+              `${expected.button} P75 performance trend`,
+            );
+          }
+          
         expect(fetchMock).toHaveBeenCalledTimes(8)
     })
     it('shows the dashboard title, selected window, and total samples', async () => {
@@ -488,15 +521,68 @@ describe('App', () => {
             'WEB PERFORMANCE',
         )
     
-        expect(wrapper.text()).toContain(
-            '24H WINDOW',
-        )
+        const activeRange = wrapper.get(".range-tabs button.active");
+
+        expect(activeRange.text()).toBe("24h");
+        expect(activeRange.attributes("aria-pressed")).toBe("true");
     
         expect(wrapper.text()).toContain(
             'TOTAL SAMPLES',
         )
     
         expect(wrapper.text()).toContain('240')
+    })
+
+    it('shows the query end as the dashboard UTC date and time', async () => {
+        const fetchMock = vi.fn().mockResolvedValue({
+            ok: true,
+            json: async () => METRICS_RESPONSE,
+        })
+
+        vi.stubGlobal('fetch', fetchMock)
+
+        const wrapper = mount(App)
+        await flushPromises()
+
+        const dateTime = wrapper.get('.date-time')
+
+        expect(dateTime.get('span').text()).toBe('AUG 30, 2026')
+        expect(dateTime.get('strong').text()).toBe('00:00:00 UTC')
+    })
+
+    it('refreshes automatically while LIVE and pauses on demand', async () => {
+        vi.useFakeTimers()
+
+        const fetchMock = vi.fn().mockResolvedValue({
+            ok: true,
+            json: async () => METRICS_RESPONSE,
+        })
+
+        vi.stubGlobal('fetch', fetchMock)
+
+        const wrapper = mount(App)
+        await flushPromises()
+
+        expect(fetchMock).toHaveBeenCalledTimes(8)
+
+        await vi.advanceTimersByTimeAsync(30_000)
+        await flushPromises()
+        expect(fetchMock).toHaveBeenCalledTimes(16)
+
+        const liveButton = wrapper.get('.live-badge')
+        await liveButton.trigger('click')
+        expect(liveButton.text()).toContain('PAUSED')
+
+        await vi.advanceTimersByTimeAsync(60_000)
+        await flushPromises()
+        expect(fetchMock).toHaveBeenCalledTimes(16)
+
+        await liveButton.trigger('click')
+        await flushPromises()
+        expect(liveButton.text()).toContain('LIVE')
+        expect(fetchMock).toHaveBeenCalledTimes(24)
+
+        wrapper.unmount()
     })
 
     it('loads and shows the LCP summary', async () => {
@@ -538,17 +624,29 @@ describe('App', () => {
         await flushPromises()
 
         expect(wrapper.text()).toContain('LCP')
-        expect(wrapper.text()).toContain('lcp-v1')
-        const lcpCard = wrapper.getComponent(
-            MetricSummaryCard,
-        )
 
-        expect(lcpCard.props()).toMatchObject({
-            label: 'LCP',
-            unit: 'ms',
-            metricVersion: 'lcp-v1',
+        const lcpCard = wrapper
+            .findAllComponents(MetricSummaryCard)
+            .find(
+            (card) =>
+                card.props("metric").name === "LCP",
+            );
+        
+        expect(lcpCard).toBeDefined();
+        
+        expect(lcpCard!.props("metric")).toMatchObject({
+            name: "LCP",
+            unit: "ms",
             stats: lcpResponse.summary,
-        })
+            progress: 3.9,
+        });
+        
+        expect(
+            lcpCard!.get("dl dd").text(),
+        ).toBe("156 ms");
+        expect(
+            lcpCard!.get('.ring-value strong').text(),
+        ).toBe('156')
 
         const lcpRequest = fetchMock.mock.calls.find(
             ([input]) =>
@@ -613,20 +711,22 @@ describe('App', () => {
             MetricSummaryCard,
         )
         const clsCard = cards.find(
-            card => card.props('label') === 'CLS',
-        )
+            (card) =>
+            card.props("metric").name === "CLS",
+        );
 
         expect(clsCard).toBeDefined()
-        expect(clsCard?.props()).toMatchObject({
-            label: 'CLS',
-            unit: 'score',
-            metricVersion: 'cls-v1',
+        expect(clsCard!.props("metric")).toMatchObject({
+            name: "CLS",
+            unit: "score",
             stats: clsResponse.summary,
-        })
+            progress: 28.8,
+          });
         expect(
-            clsCard
-                ?.get('[data-testid="metric-summary-average"]')
-                .text(),
+        clsCard!.get("dl dd").text(),
+        ).toBe("0.072");
+        expect(
+            clsCard!.get('.ring-value strong').text(),
         ).toBe('0.072')
     })
 
@@ -678,21 +778,23 @@ describe('App', () => {
             MetricSummaryCard,
         )
         const inpCard = cards.find(
-            card => card.props('label') === 'INP',
+            card =>
+                card.props('metric').name === 'INP',
         )
 
         expect(inpCard).toBeDefined()
-        expect(inpCard?.props()).toMatchObject({
-            label: 'INP',
+        expect(inpCard!.props('metric')).toMatchObject({
+            name: 'INP',
             unit: 'ms',
-            metricVersion: 'inp-v1',
             stats: inpResponse.summary,
+            progress: 49.6,
         })
         expect(
-            inpCard
-                ?.get('[data-testid="metric-summary-average"]')
-                .text(),
+            inpCard!.get('dl dd').text(),
         ).toBe('248 ms')
+        expect(
+            inpCard!.get('.ring-value strong').text(),
+        ).toBe('248')
     })
 
     it('loads and shows the three memory summaries', async () => {
@@ -749,23 +851,87 @@ describe('App', () => {
 
         await flushPromises()
 
-        const memoryCards = wrapper
-            .findAllComponents(MetricSummaryCard)
-            .filter(
-                card => card.props('eyebrow') === 'MEMORY',
-            )
+        const memoryCards = wrapper.findAll(".heap-card");
 
-        expect(memoryCards).toHaveLength(3)
+        expect(memoryCards).toHaveLength(3);
+
         expect(
-            memoryCards.map(card => card.props('label')),
+        memoryCards.map((card) => card.get("h2").text()),
         ).toEqual([
-            'USED HEAP',
-            'TOTAL HEAP',
-            'HEAP LIMIT',
-        ])
+            "USED HEAP",
+            "TOTAL HEAP",
+            "HEAP LIMIT",
+        ]);
 
         expect(wrapper.text()).toContain('22.35 MiB')
         expect(wrapper.text()).toContain('22.91 MiB')
         expect(wrapper.text()).toContain('4.09 GiB')
+
+        const usedHeapCard = memoryCards[0]!
+        const expectedUtilization =
+            memoryValues['web.memory.used_heap']
+            / memoryValues['web.memory.heap_limit']
+
+        expect(usedHeapCard.get('p').text()).toBe(
+            `${(expectedUtilization * 100).toFixed(1)}% of Heap Limit`,
+        )
+        expect(
+            usedHeapCard.findAll('.segmented-bar .filled'),
+        ).toHaveLength(Math.ceil(expectedUtilization * 14))
+    })
+
+    it('renders memory health from the memory health API', async () => {
+        const fetchMock = vi.fn(
+            async (input: RequestInfo | URL) => {
+                const url = new URL(String(input))
+
+                if (url.pathname === '/api/v2/memory-health') {
+                    return {
+                        ok: true,
+                        json: async () => ({
+                            status: 'WARNING',
+                            reasons: [
+                                'HIGH_HEAP_PRESSURE',
+                                'SUSTAINED_HEAP_GROWTH',
+                            ],
+                            sampleCount: 12,
+                            window: { from: 1, to: 2 },
+                            latest: {
+                                usedHeap: 760,
+                                heapLimit: 1_000,
+                                utilization: 0.76,
+                            },
+                            growth: {
+                                absolute: 100,
+                                ratio: 0.2,
+                                increasingTransitionRatio: 0.8,
+                            },
+                        }),
+                    }
+                }
+
+                return {
+                    ok: true,
+                    json: async () => METRICS_RESPONSE,
+                }
+            },
+        )
+
+        vi.stubGlobal('fetch', fetchMock)
+
+        const wrapper = mount(App)
+        await flushPromises()
+
+        const healthCard = wrapper.get('.health-card')
+
+        expect(healthCard.attributes('data-status')).toBe('WARNING')
+        expect(healthCard.text()).toContain('76.0%')
+        expect(healthCard.text()).toContain('GOOD (12)')
+        expect(healthCard.text()).toContain(
+            'Heap utilization is above the healthy threshold.',
+        )
+        expect(healthCard.text()).toContain(
+            'Heap usage shows sustained growth.',
+        )
     })
 })

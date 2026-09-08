@@ -1,353 +1,322 @@
 <template>
-  <main class="dashboard-shell">
-    <div class="dashboard-plate dashboard-plate--header" aria-hidden="true"></div>
-    <div class="dashboard-plate dashboard-plate--main" aria-hidden="true"></div>
-    <div class="dashboard-plate dashboard-plate--memory" aria-hidden="true"></div>
-
-    <header class="dashboard-header">
-      <h1>WEB PERFORMANCE</h1>
-
-      <div class="dashboard-status">
-          <h3 class="dashboard-status__live">
-              LIVE
-          </h3>
-
-          <h3>
-              {{ selectedWindow }}
-          </h3>
-
-          <span class="dashboard-status__samples">
-              <small>TOTAL SAMPLES</small>
-
-              <strong>
-                  {{ totalSamples.toLocaleString() }}
-              </strong>
-          </span>
+  <main class="dashboard">
+    <header v-frame class="topbar tech-frame">
+      <div class="brand">
+        <Icon name="pulse" />
+        <h1>WEB PERFORMANCE</h1>
       </div>
-  </header>
-
-    <MetricsRangeSelector :range="selectedRange" @select="handleSelectedRange" />
-
-    <MemoryHealthCard
-        :assessment="memoryHealth"
-        :loading="memoryHealthLoading"
-        :error="memoryHealthError"
-    />
-
-    <section class="vital-metric-slot" aria-live="polite">
-        <div class="vital-metric-panel">
-            <p
-                v-if="lcpLoading"
-                class="vital-metric-slot__state"
-            >
-                正在加载 LCP
-            </p>
-
-            <p
-                v-else-if="lcpError"
-                class="vital-metric-slot__state vital-metric-slot__state--error"
-            >
-                LCP 数据加载失败
-            </p>
-
-            <MetricSummaryCard
-                v-else-if="lcpData?.metric?.type === 'web.vital.lcp'"
-                label="LCP"
-                type="web.vital.lcp"
-                :stats="lcpData.summary"
-                :unit="lcpData.metric.unit"
-                :metric-version="lcpData.metric.metricVersion"
-            />
+      <button
+        class="live-badge"
+        :class="{ paused: !live }"
+        @click="toggleLive"
+        :aria-pressed="live"
+        :title="live ? 'Pause automatic refresh' : 'Resume automatic refresh'"
+      >
+        <i></i>{{ live ? "LIVE" : "PAUSED" }}
+      </button>
+      <div class="sample-total">
+        <span>TOTAL SAMPLES</span>
+        <strong>{{ totalSamples.toLocaleString() }}</strong>
+      </div>
+      <MetricsRangeSelector
+        :range="selectedRange"
+        @select="handleSelectedRange"
+      />
+      <div class="date-time">
+        <Icon name="clock" />
+        <div>
+          <span>{{ dashboardDate }}</span
+          ><strong>{{ dashboardTime }} UTC</strong>
         </div>
+      </div>
+    </header>
 
-        <div class="vital-metric-panel">
-            <p
-                v-if="clsLoading"
-                class="vital-metric-slot__state"
-            >
-                正在加载 CLS
-            </p>
-
-            <p
-                v-else-if="clsError"
-                class="vital-metric-slot__state vital-metric-slot__state--error"
-            >
-                CLS 数据加载失败
-            </p>
-
-            <MetricSummaryCard
-                v-else-if="clsData?.metric?.type === 'web.vital.cls'"
-                label="CLS"
-                type="web.vital.cls"
-                :stats="clsData.summary"
-                :unit="clsData.metric.unit"
-                :metric-version="clsData.metric.metricVersion"
-            />
-        </div>
-
-        <div class="vital-metric-panel">
-            <p
-                v-if="inpLoading"
-                class="vital-metric-slot__state"
-            >
-                正在加载 INP
-            </p>
-
-            <p
-                v-else-if="inpError"
-                class="vital-metric-slot__state vital-metric-slot__state--error"
-            >
-                INP 数据加载失败
-            </p>
-
-            <MetricSummaryCard
-                v-else-if="inpData?.metric?.type === 'web.vital.inp'"
-                label="INP"
-                type="web.vital.inp"
-                :stats="inpData.summary"
-                :unit="inpData.metric.unit"
-                :metric-version="inpData.metric.metricVersion"
-            />
-        </div>
-    </section>
-
-    <section
-        class="vital-metric-slot memory-metric-slot"
-        aria-live="polite"
+    <p v-if="loading && data === null" class="dashboard-state" role="status">
+      正在加载性能数据
+    </p>
+    <p v-else-if="error !== null && data === null" class="dashboard-state" role="alert">
+      性能数据加载失败
+    </p>
+    <p
+      v-else-if="data !== null && data.summary.fp.count === 0 && data.summary.fcp.count === 0"
+      class="dashboard-state"
+      role="status"
     >
-        <p
-            v-if="memoryLoading"
-            class="vital-metric-slot__state"
-        >
-            正在加载内存数据
-        </p>
+      暂无性能数据
+    </p>
 
-        <p
-            v-else-if="memoryError"
-            class="vital-metric-slot__state vital-metric-slot__state--error"
-        >
-            内存数据加载失败
-        </p>
-
-        <template v-else>
-            <div class="vital-metric-panel">
-                <MetricSummaryCard
-                    v-if="usedHeapData?.metric?.type === 'web.memory.used_heap'"
-                    eyebrow="MEMORY"
-                    label="USED HEAP"
-                    type="web.memory.used_heap"
-                    :stats="usedHeapData.summary"
-                    :unit="usedHeapData.metric.unit"
-                    :metric-version="usedHeapData.metric.metricVersion"
-                />
+    <div v-frame class="main-shell tech-frame">
+      <section v-frame class="performance tech-frame">
+        <div class="metrics">
+          <MetricSummaryCard
+            v-for="metric in metrics"
+            :key="metric.name"
+            :metric="metric"
+          />
+        </div>
+        <div class="charts">
+          <article v-frame class="chart-panel tech-frame">
+            <div class="chart-heading">
+              <h2>AVERAGE TREND</h2>
+              <select v-model="averageMode" aria-label="Average trend metric">
+                <option
+                  v-for="mode in ['PAINT', 'LCP', 'CLS', 'INP', 'MEMORY']"
+                  :key="mode"
+                >
+                  {{ mode }}
+                </option>
+              </select>
             </div>
-
-            <div class="vital-metric-panel">
-                <MetricSummaryCard
-                    v-if="totalHeapData?.metric?.type === 'web.memory.total_heap'"
-                    eyebrow="MEMORY"
-                    label="TOTAL HEAP"
-                    type="web.memory.total_heap"
-                    :stats="totalHeapData.summary"
-                    :unit="totalHeapData.metric.unit"
-                    :metric-version="totalHeapData.metric.metricVersion"
-                />
-            </div>
-
-            <div class="vital-metric-panel">
-                <MetricSummaryCard
-                    v-if="heapLimitData?.metric?.type === 'web.memory.heap_limit'"
-                    eyebrow="MEMORY"
-                    label="HEAP LIMIT"
-                    type="web.memory.heap_limit"
-                    :stats="heapLimitData.summary"
-                    :unit="heapLimitData.metric.unit"
-                    :metric-version="heapLimitData.metric.metricVersion"
-                />
-            </div>
-        </template>
-    </section>
-
-    <div v-if="loading" class="dashboard-state">正在加载性能数据</div>
-    <div v-else-if="error" class="dashboard-state">性能数据加载失败</div>
-    <template v-else>
-        <PerformanceScore
-            :score="data?.score ?? null"
-            :fp-average="data?.summary.fp.average ?? null"
-            :fcp-average="data?.summary.fcp.average ?? null"
-        />
-
-        <template v-if="data">
-          <section
-              class="paint-metrics-summary"
-          >
-              <PaintMetricCard
-                  metric="FP"
-                  :stats="data.summary.fp"
-              />
-
-              <PaintMetricCard
-                  metric="FCP"
-                  :stats="data.summary.fcp"
-              />
-          </section>
-
-          <section class="paint-trends">
-              <PaintTrendChart
-                  title="AVERAGE TREND"
-                  statistic="average"
-                  :points="data.series"
-              />
-
-              <div class="trend-explorer">
-                  <nav
-                      class="trend-switcher"
-                      aria-label="P75 趋势指标"
-                  >
-                      <button
-                          v-for="item in trendSelections"
-                          :key="item.value"
-                          type="button"
-                          :aria-pressed="selectedTrend === item.value"
-                          @click="selectedTrend = item.value"
-                      >
-                          {{ item.label }}
-                      </button>
-                  </nav>
-
-                  <PaintTrendChart
-                      v-if="selectedTrend === 'paint'"
-                      title="P75 TREND"
-                      statistic="p75"
-                      :points="data.series"
-                  />
-
-                  <MetricTrendChart
-                      v-else-if="selectedTrend === 'lcp' && lcpData?.metric.type === 'web.vital.lcp'"
-                      title="LCP P75 TREND"
-                      label="LCP"
-                      unit="ms"
-                      color="#56e4ff"
-                      :points="lcpData.series"
-                  />
-
-                  <MetricTrendChart
-                      v-else-if="selectedTrend === 'cls' && clsData?.metric.type === 'web.vital.cls'"
-                      title="CLS P75 TREND"
-                      label="CLS"
-                      unit="score"
-                      color="#a18bff"
-                      :points="clsData.series"
-                  />
-
-                  <MetricTrendChart
-                      v-else-if="selectedTrend === 'inp' && inpData?.metric.type === 'web.vital.inp'"
-                      title="INP P75 TREND"
-                      label="INP"
-                      unit="ms"
-                      color="#ffc857"
-                      :points="inpData.series"
-                  />
-
-                  <MetricTrendChart
-                      v-else-if="selectedTrend === 'memory' && usedHeapData?.metric?.type === 'web.memory.used_heap'"
-                      title="USED HEAP P75 TREND"
-                      label="USED HEAP"
-                      unit="byte"
-                      color="#57e389"
-                      :points="usedHeapData.series"
-                  />
-
-                  <p
-                      v-else
-                      class="trend-explorer__state"
-                  >
-                      对应指标数据不可用
-                  </p>
+            <TrendChart
+              :series="averageTrendSeries"
+              :loading="trendState(averageMode).loading"
+              :error="trendState(averageMode).error"
+              :aria-label="`${averageMode} average performance trend`"
+            />
+          </article>
+          <article v-frame class="chart-panel tech-frame">
+            <div class="chart-heading p75-heading">
+              <h2>P75 TREND</h2>
+              <div class="metric-tabs" aria-label="P75 trend metric">
+                <button
+                  v-for="mode in ['PAINT', 'LCP', 'CLS', 'INP', 'MEMORY']"
+                  :key="mode"
+                  :class="{
+                    selected: p75Mode === mode,
+                    memory: mode === 'MEMORY',
+                  }"
+                  @click="p75Mode = mode"
+                >
+                  {{ mode }}
+                </button>
               </div>
-          </section>
-        </template>
-    </template>
+            </div>
+            <TrendChart
+              :series="p75TrendSeries"
+              :loading="trendState(p75Mode).loading"
+              :error="trendState(p75Mode).error"
+              :aria-label="`${p75Mode} P75 performance trend`"
+            />
+          </article>
+        </div>
+      </section>
+      <aside v-frame class="memory-panel tech-frame">
+        <article
+          v-frame
+          class="health-card tech-frame"
+          :data-status="memoryHealthView.status"
+        >
+          <h2>MEMORY HEALTH</h2>
+          <div class="health-body">
+            <Ring health color="#78e76b" :progress="memoryHealthView.progress" />
+            <div class="health-stats">
+              <strong>{{ memoryHealthView.status }}</strong
+              ><span>UTILIZATION</span><b>{{ memoryHealthView.utilization }}</b
+              ><span>SAMPLE SUFFICIENCY</span
+              ><em>{{ memoryHealthView.sufficiency }} ({{ memoryHealthView.sampleCount }})</em>
+            </div>
+          </div>
+          <div class="reason">
+            <span>REASON</span>
+            <p>{{ memoryHealthView.reason }}</p>
+          </div>
+        </article>
+        <article
+          v-for="heap in heaps"
+          :key="heap.title"
+          v-frame
+          class="heap-card tech-frame"
+          :class="heap.kind"
+          :style="{ '--accent': heap.color }"
+        >
+          <Icon name="chip" />
+          <div class="heap-content">
+            <div class="heap-heading">
+              <h2>{{ heap.title }}</h2>
+              <strong>{{ heap.value }}</strong>
+            </div>
+            <p :class="{ 'heap-card__error': heap.state === 'error' }">
+              {{ heap.caption }}
+            </p>
+            <div class="segmented-bar">
+              <span
+                v-for="i in 14"
+                :key="i"
+                :class="{ filled: i <= heap.bars }"
+              ></span>
+            </div>
+          </div>
+        </article>
+      </aside>
+      <footer>
+        <Icon name="info" /><span
+          >All times are in UTC. Metrics update continuously. Data reflects real
+          user monitoring (RUM) from production.</span
+        >
+      </footer>
+    </div>
   </main>
 </template>
 
 <script setup lang="ts">
+import { computed, onMounted, onUnmounted, ref } from "vue";
+import { createPaintMetricsApi } from "./api/metrics.js";
+import { createMetricQueryApi } from "./api/metric-query.js";
+
+import { usePaintMetrics } from "./composables/use-paint-metrics.js";
+import { useMetricQuery } from "./composables/use-metric-query.js";
+import MetricsRangeSelector from "./components/MetricsRangeSelector.vue";
+import type { MetricsRange } from "./composables/metrics-range.js";
+import MetricSummaryCard from "./components/MetricSummaryCard.vue";
+import { createMemoryHealthApi } from "./api/memory-health.js";
+import type { MemoryHealthAssessment } from "@performance-platform/protocol";
+import { WEB_VITAL_THRESHOLDS } from "@performance-platform/protocol";
+import { formatBytes } from "./components/metric-value-format.js";
+
+import Icon from "./components/Icon.vue";
+import Ring from "./components/Ring.vue";
+import TrendChart from "./components/TrendChart.vue";
+
 import {
-    computed,
-    onMounted,
-    ref,
-} from 'vue'
-import { createPaintMetricsApi } from './api/metrics.js'
-import { createMetricQueryApi } from './api/metric-query.js'
+  createMetricTrendSeries,
+  createPaintTrendSeries,
+} from "./components/trend-series.js";
 
-import { usePaintMetrics } from './composables/use-paint-metrics.js'
-import { useMetricQuery } from './composables/use-metric-query.js'
-import PerformanceScore from './components/PerformanceScore.vue'
-import MetricsRangeSelector from './components/MetricsRangeSelector.vue'
-import type { MetricsRange } from './composables/metrics-range.js'
-import PaintMetricCard from './components/PaintMetricCard.vue'
-import PaintTrendChart from './components/PaintTrendChart.vue'
-import MetricSummaryCard from './components/MetricSummaryCard.vue'
-import MetricTrendChart from './components/MetricTrendChart.vue'
-import MemoryHealthCard from './components/MemoryHealthCard.vue'
-import { createMemoryHealthApi } from './api/memory-health.js'
-import type { MemoryHealthAssessment } from '@performance-platform/protocol'
+import type { TrendSeries, TrendStatistic } from "./components/trend-series.js";
 
-type TrendSelection =
-    | 'paint'
-    | 'lcp'
-    | 'cls'
-    | 'inp'
-    | 'memory'
+type TrendMode = "PAINT" | "LCP" | "CLS" | "INP" | "MEMORY";
+type DataState = "loading" | "error" | "empty" | null;
 
-const trendSelections: ReadonlyArray<{
-    value: TrendSelection
-    label: string
-}> = [
-    { value: 'paint', label: 'PAINT' },
-    { value: 'lcp', label: 'LCP' },
-    { value: 'cls', label: 'CLS' },
-    { value: 'inp', label: 'INP' },
-    { value: 'memory', label: 'MEMORY' },
-]
+const PAINT_POOR_THRESHOLDS = {
+  "web.paint.fp": 2_000,
+  "web.paint.fcp": 3_000,
+} as const;
+
+function calculateRingProgress(
+  value: number | null | undefined,
+  poorThreshold: number,
+): number {
+  if (value === null || value === undefined || !Number.isFinite(value)) {
+    return 0;
+  }
+
+  const percentage = Math.min(100, Math.max(0, (value / poorThreshold) * 100));
+
+  return Math.round(percentage * 10) / 10;
+}
 
 const metricsApi = createPaintMetricsApi({
   baseUrl: window.location.origin,
-  fetch: window.fetch.bind(window)
-})
+  fetch: window.fetch.bind(window),
+});
 
 const metricQueryApi = createMetricQueryApi({
   baseUrl: window.location.origin,
-  fetch: window.fetch.bind(window)
-})
+  fetch: window.fetch.bind(window),
+});
 const memoryHealthApi = createMemoryHealthApi({
   baseUrl: window.location.origin,
-  fetch: window.fetch.bind(window)
-})
-const memoryHealth = ref<MemoryHealthAssessment | null>(null)
-const memoryHealthLoading = ref(false)
-const memoryHealthError = ref<string | null>(null)
+  fetch: window.fetch.bind(window),
+});
+const memoryHealth = ref<MemoryHealthAssessment | null>(null);
+const memoryHealthLoading = ref(false);
+const memoryHealthError = ref<string | null>(null);
+let latestMemoryHealthRequestId = 0;
+
+const memoryHealthReasonLabels = {
+  HIGH_HEAP_PRESSURE: "Heap utilization is above the healthy threshold.",
+  SUSTAINED_HEAP_GROWTH: "Heap usage shows sustained growth.",
+  INSUFFICIENT_SAMPLES: "More samples are required for a reliable assessment.",
+} as const;
+
+const memoryHealthView = computed(() => {
+  if (memoryHealthLoading.value) {
+    return {
+      status: "LOADING",
+      utilization: "—",
+      progress: 0,
+      sufficiency: "PENDING",
+      sampleCount: 0,
+      reason: "Memory health assessment is loading.",
+    };
+  }
+
+  if (memoryHealthError.value !== null || memoryHealth.value === null) {
+    return {
+      status: "UNAVAILABLE",
+      utilization: "—",
+      progress: 0,
+      sufficiency: "UNKNOWN",
+      sampleCount: 0,
+      reason: memoryHealthError.value ?? "Memory health data is unavailable.",
+    };
+  }
+
+  const assessment = memoryHealth.value;
+
+  if (
+    typeof assessment.status !== "string" ||
+    !Array.isArray(assessment.reasons) ||
+    typeof assessment.sampleCount !== "number"
+  ) {
+    return {
+      status: "UNAVAILABLE",
+      utilization: "—",
+      progress: 0,
+      sufficiency: "UNKNOWN",
+      sampleCount: 0,
+      reason: "Memory health data is unavailable.",
+    };
+  }
+
+  const utilization = assessment.latest?.utilization;
+  const utilizationPercent =
+    utilization === undefined
+      ? null
+      : Math.min(100, Math.max(0, utilization * 100));
+  const reasons = assessment.reasons.map(
+    (reason) => memoryHealthReasonLabels[reason],
+  );
+
+  return {
+    status: assessment.status.replace("_", " "),
+    utilization:
+      utilizationPercent === null ? "—" : `${utilizationPercent.toFixed(1)}%`,
+    progress: utilizationPercent ?? 0,
+    sufficiency:
+      assessment.status === "INSUFFICIENT_DATA" ? "INSUFFICIENT" : "GOOD",
+    sampleCount: assessment.sampleCount.toLocaleString(),
+    reason:
+      reasons.length > 0
+        ? reasons.join(" ")
+        : "Heap usage is within normal range with healthy headroom.",
+  };
+});
 
 async function loadMemoryHealth(): Promise<void> {
-    memoryHealthLoading.value = true
-    memoryHealthError.value = null
-    try {
-        memoryHealth.value = await memoryHealthApi.query()
-    } catch {
-        memoryHealthError.value = 'Unable to load memory health'
-    } finally {
-        memoryHealthLoading.value = false
+  const requestId = ++latestMemoryHealthRequestId;
+  memoryHealthLoading.value = true;
+  memoryHealthError.value = null;
+  try {
+    const response = await memoryHealthApi.query();
+
+    if (requestId === latestMemoryHealthRequestId) {
+      memoryHealth.value = response;
     }
+  } catch {
+    if (requestId === latestMemoryHealthRequestId) {
+      memoryHealthError.value = "Unable to load memory health";
+    }
+  } finally {
+    if (requestId === latestMemoryHealthRequestId) {
+      memoryHealthLoading.value = false;
+    }
+  }
 }
 
-const {
-  data,
-  loading,
-  error,
-  loadRange
-} = usePaintMetrics({
-  query: metricsApi.query
-})
+const { data, loading, error, loadRange } = usePaintMetrics({
+  query: metricsApi.query,
+});
 
 const {
   data: lcpData,
@@ -355,9 +324,9 @@ const {
   error: lcpError,
   loadRange: loadLcpRange,
 } = useMetricQuery({
-  type: 'web.vital.lcp',
+  type: "web.vital.lcp",
   query: metricQueryApi.query,
-})
+});
 
 const {
   data: clsData,
@@ -365,9 +334,9 @@ const {
   error: clsError,
   loadRange: loadClsRange,
 } = useMetricQuery({
-  type: 'web.vital.cls',
+  type: "web.vital.cls",
   query: metricQueryApi.query,
-})
+});
 
 const {
   data: inpData,
@@ -375,131 +344,484 @@ const {
   error: inpError,
   loadRange: loadInpRange,
 } = useMetricQuery({
-  type: 'web.vital.inp',
+  type: "web.vital.inp",
   query: metricQueryApi.query,
-})
+});
+
+function resolveDataState(
+  hasData: boolean,
+  isLoading: boolean,
+  queryError: string | null,
+): DataState {
+  if (hasData) return null;
+  if (isLoading) return "loading";
+  if (queryError !== null) return "error";
+  return "empty";
+}
+
+const metrics = computed(() => [
+  {
+    name: "FP",
+    stats: data.value?.summary.fp,
+    value:
+      data.value?.summary.fp.average === null ||
+      data.value?.summary.fp.average === undefined
+        ? "—"
+        : Math.round(data.value.summary.fp.average).toLocaleString(),
+    unit: "ms",
+    type: "web.paint.fp",
+    color: "#00d8ff",
+    progress: calculateRingProgress(
+      data.value?.summary.fp.average,
+      PAINT_POOR_THRESHOLDS["web.paint.fp"],
+    ),
+    state: resolveDataState(
+      (data.value?.summary.fp.count ?? 0) > 0,
+      loading.value,
+      error.value,
+    ),
+  },
+  {
+    name: "FCP",
+    stats: data.value?.summary.fcp,
+    value:
+      data.value?.summary.fcp.average === null ||
+      data.value?.summary.fcp.average === undefined
+        ? "—"
+        : Math.round(data.value.summary.fcp.average).toLocaleString(),
+    unit: "ms",
+    type: "web.paint.fcp",
+    color: "#00baff",
+    progress: calculateRingProgress(
+      data.value?.summary.fcp.average,
+      PAINT_POOR_THRESHOLDS["web.paint.fcp"],
+    ),
+    state: resolveDataState(
+      (data.value?.summary.fcp.count ?? 0) > 0,
+      loading.value,
+      error.value,
+    ),
+  },
+  {
+    name: "LCP",
+    stats: lcpData.value?.summary,
+    value:
+      lcpData.value?.summary.average === null ||
+      lcpData.value?.summary.average === undefined
+        ? "—"
+        : Math.round(lcpData.value.summary.average).toLocaleString(),
+    unit: lcpData.value?.metric?.unit,
+    type: "web.vital.lcp",
+    color: "#ad75fa",
+    progress: calculateRingProgress(
+      lcpData.value?.summary.average,
+      WEB_VITAL_THRESHOLDS["web.vital.lcp"].poor,
+    ),
+    state: resolveDataState(
+      (lcpData.value?.summary.count ?? 0) > 0,
+      lcpLoading.value,
+      lcpError.value,
+    ),
+  },
+  {
+    name: "CLS",
+    stats: clsData.value?.summary,
+    value:
+      clsData.value?.summary.average === null ||
+      clsData.value?.summary.average === undefined
+        ? "—"
+        : clsData.value.summary.average.toFixed(3),
+    unit: clsData.value?.metric?.unit,
+    type: "web.vital.cls",
+    color: "#bc7eff",
+    progress: calculateRingProgress(
+      clsData.value?.summary.average,
+      WEB_VITAL_THRESHOLDS["web.vital.cls"].poor,
+    ),
+    state: resolveDataState(
+      (clsData.value?.summary.count ?? 0) > 0,
+      clsLoading.value,
+      clsError.value,
+    ),
+  },
+  {
+    name: "INP",
+    stats: inpData.value?.summary,
+    value:
+      inpData.value?.summary.average === null ||
+      inpData.value?.summary.average === undefined
+        ? "—"
+        : Math.round(inpData.value.summary.average).toLocaleString(),
+    unit: inpData.value?.metric?.unit,
+    type: "web.vital.inp",
+    color: "#a673ff",
+    progress: calculateRingProgress(
+      inpData.value?.summary.average,
+      WEB_VITAL_THRESHOLDS["web.vital.inp"].poor,
+    ),
+    state: resolveDataState(
+      (inpData.value?.summary.count ?? 0) > 0,
+      inpLoading.value,
+      inpError.value,
+    ),
+  },
+]);
 
 const {
-    data: usedHeapData,
-    loading: usedHeapLoading,
-    error: usedHeapError,
-    loadRange: loadUsedHeapRange,
+  data: usedHeapData,
+  loading: usedHeapLoading,
+  error: usedHeapError,
+  loadRange: loadUsedHeapRange,
 } = useMetricQuery({
-    type: 'web.memory.used_heap',
-    query: metricQueryApi.query,
-})
+  type: "web.memory.used_heap",
+  query: metricQueryApi.query,
+});
 
 const {
-    data: totalHeapData,
-    loading: totalHeapLoading,
-    error: totalHeapError,
-    loadRange: loadTotalHeapRange,
+  data: totalHeapData,
+  loading: totalHeapLoading,
+  error: totalHeapError,
+  loadRange: loadTotalHeapRange,
 } = useMetricQuery({
-    type: 'web.memory.total_heap',
-    query: metricQueryApi.query,
-})
+  type: "web.memory.total_heap",
+  query: metricQueryApi.query,
+});
 
 const {
-    data: heapLimitData,
-    loading: heapLimitLoading,
-    error: heapLimitError,
-    loadRange: loadHeapLimitRange,
+  data: heapLimitData,
+  loading: heapLimitLoading,
+  error: heapLimitError,
+  loadRange: loadHeapLimitRange,
 } = useMetricQuery({
-    type: 'web.memory.heap_limit',
-    query: metricQueryApi.query,
-})
+  type: "web.memory.heap_limit",
+  query: metricQueryApi.query,
+});
 
-const selectedRange = ref<MetricsRange>('24h')
-const selectedTrend = ref<TrendSelection>('paint')
-const selectedWindow = computed(
-    () => `${selectedRange.value.toUpperCase()} WINDOW`,
-)
+function formatHeapAverage(value: number | null | undefined): string {
+  return value === null || value === undefined ? "—" : formatBytes(value);
+}
 
-const totalSamples = computed(
-    () => {
-        if (data.value === null) {
-            return 0
-        }
+const usedHeapUtilization = computed(() => {
+  const usedHeap = usedHeapData.value?.summary.average;
+  const heapLimit = heapLimitData.value?.summary.average;
 
-        const lcpSamples =
-            lcpData.value?.metric?.type === 'web.vital.lcp'
-                ? lcpData.value.summary.count
-                : 0
-        const clsSamples =
-            clsData.value?.metric?.type === 'web.vital.cls'
-                ? clsData.value.summary.count
-                : 0
-        const inpSamples =
-            inpData.value?.metric?.type === 'web.vital.inp'
-                ? inpData.value.summary.count
-                : 0
+  if (
+    usedHeap === null ||
+    usedHeap === undefined ||
+    heapLimit === null ||
+    heapLimit === undefined ||
+    !Number.isFinite(usedHeap) ||
+    !Number.isFinite(heapLimit) ||
+    usedHeap < 0 ||
+    heapLimit <= 0
+  ) {
+    return null;
+  }
 
-        return (
-            data.value.summary.fp.count
-            + data.value.summary.fcp.count
-            + lcpSamples
-            + clsSamples
-            + inpSamples
-        )
-    },
-)
+  return Math.min(1, usedHeap / heapLimit);
+});
 
-const memoryLoading = computed(
-    () =>
-        usedHeapLoading.value
-        || totalHeapLoading.value
-        || heapLimitLoading.value,
-)
+function heapCaption(defaultCaption: string, state: DataState): string {
+  switch (state) {
+    case "loading":
+      return "Loading…";
+    case "error":
+      return "Unable to load data";
+    case "empty":
+      return "No samples";
+    default:
+      return defaultCaption;
+  }
+}
 
-const memoryError = computed(
-    () =>
-        usedHeapError.value
-        ?? totalHeapError.value
-        ?? heapLimitError.value,
-)
+const heaps = computed(() => {
+  const usedState = resolveDataState(
+    (usedHeapData.value?.summary.count ?? 0) > 0,
+    usedHeapLoading.value,
+    usedHeapError.value,
+  );
+  const totalState = resolveDataState(
+    (totalHeapData.value?.summary.count ?? 0) > 0,
+    totalHeapLoading.value,
+    totalHeapError.value,
+  );
+  const limitState = resolveDataState(
+    (heapLimitData.value?.summary.count ?? 0) > 0,
+    heapLimitLoading.value,
+    heapLimitError.value,
+  );
 
-function handleSelectedRange(
-  range: MetricsRange
-): void {
-    selectedRange.value = range
-    void loadRange(range)
-    void loadLcpRange(range)
-    void loadClsRange(range)
-    void loadInpRange(range)
-    void loadUsedHeapRange(range)
-    void loadTotalHeapRange(range)
-    void loadHeapLimitRange(range)
-    void loadMemoryHealth()
+  return [
+    {
+    title: "USED HEAP",
+    value: formatHeapAverage(usedHeapData.value?.summary.average),
+    caption: heapCaption(
+      usedHeapUtilization.value === null
+        ? "— of Heap Limit"
+        : `${(usedHeapUtilization.value * 100).toFixed(1)}% of Heap Limit`,
+      usedState,
+    ),
+    color: "#79e76d",
+    bars:
+      usedHeapUtilization.value === null
+        ? 0
+        : Math.ceil(usedHeapUtilization.value * 14),
+    kind: "used",
+    state: usedState,
+  },
+  {
+    title: "TOTAL HEAP",
+    value: formatHeapAverage(totalHeapData.value?.summary.average),
+    caption: heapCaption("Allocated", totalState),
+    color: "#06d2ee",
+    bars: totalState === null ? 6 : 0,
+    kind: "total",
+    state: totalState,
+  },
+  {
+    title: "HEAP LIMIT",
+    value: formatHeapAverage(heapLimitData.value?.summary.average),
+    caption: heapCaption("Hard Limit", limitState),
+    color: "#b77aff",
+    bars: limitState === null ? 14 : 0,
+    kind: "limit",
+    state: limitState,
+  },
+  ];
+});
+
+function createDashboardTrendSeries(
+  mode: TrendMode,
+  statistic: TrendStatistic,
+): TrendSeries[] {
+  switch (mode) {
+    case "PAINT":
+      return data.value === null
+        ? []
+        : createPaintTrendSeries(data.value.series, statistic);
+
+    case "LCP": {
+      const response = lcpData.value;
+
+      if (response?.metric?.type !== "web.vital.lcp") {
+        return [];
+      }
+
+      return [
+        createMetricTrendSeries({
+          key: "lcp",
+          label: "LCP",
+          unit: response.metric.unit,
+          color: "#ae66fa",
+          points: response.series,
+          statistic,
+        }),
+      ];
+    }
+
+    case "CLS": {
+      const response = clsData.value;
+
+      if (response?.metric?.type !== "web.vital.cls") {
+        return [];
+      }
+
+      return [
+        createMetricTrendSeries({
+          key: "cls",
+          label: "CLS",
+          unit: response.metric.unit,
+          color: "#e262ef",
+          points: response.series,
+          statistic,
+        }),
+      ];
+    }
+
+    case "INP": {
+      const response = inpData.value;
+
+      if (response?.metric?.type !== "web.vital.inp") {
+        return [];
+      }
+
+      return [
+        createMetricTrendSeries({
+          key: "inp",
+          label: "INP",
+          unit: response.metric.unit,
+          color: "#9860ee",
+          points: response.series,
+          statistic,
+        }),
+      ];
+    }
+
+    case "MEMORY": {
+      const response = usedHeapData.value;
+
+      if (response?.metric?.type !== "web.memory.used_heap") {
+        return [];
+      }
+
+      return [
+        createMetricTrendSeries({
+          key: "used-heap",
+          label: "Used Heap",
+          unit: response.metric.unit,
+          color: "#7be66b",
+          points: response.series,
+          statistic,
+        }),
+      ];
+    }
+  }
+}
+
+function trendState(mode: TrendMode): { loading: boolean; error: boolean } {
+  switch (mode) {
+    case "PAINT":
+      return { loading: loading.value, error: error.value !== null };
+    case "LCP":
+      return { loading: lcpLoading.value, error: lcpError.value !== null };
+    case "CLS":
+      return { loading: clsLoading.value, error: clsError.value !== null };
+    case "INP":
+      return { loading: inpLoading.value, error: inpError.value !== null };
+    case "MEMORY":
+      return {
+        loading: usedHeapLoading.value,
+        error: usedHeapError.value !== null,
+      };
+  }
+}
+
+const live = ref(true);
+const LIVE_REFRESH_INTERVAL_MS = 30_000;
+let liveRefreshTimer: ReturnType<typeof setInterval> | undefined;
+const averageMode = ref<TrendMode>("PAINT");
+const p75Mode = ref<TrendMode>("MEMORY");
+const averageTrendSeries = computed(() =>
+  createDashboardTrendSeries(averageMode.value, "average"),
+);
+const p75TrendSeries = computed(() =>
+  createDashboardTrendSeries(p75Mode.value, "p75"),
+);
+const initialTimestamp = Date.now();
+const dashboardTimestamp = computed(() => {
+  const queryEnd =
+    data.value?.range.to ??
+    lcpData.value?.range.to ??
+    clsData.value?.range.to ??
+    inpData.value?.range.to ??
+    usedHeapData.value?.range.to ??
+    totalHeapData.value?.range.to ??
+    heapLimitData.value?.range.to;
+  const parsedTimestamp = queryEnd === undefined ? NaN : Date.parse(queryEnd);
+
+  return Number.isFinite(parsedTimestamp) ? parsedTimestamp : initialTimestamp;
+});
+const dashboardDate = computed(() =>
+  new Intl.DateTimeFormat("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    timeZone: "UTC",
+  })
+    .format(dashboardTimestamp.value)
+    .toUpperCase(),
+);
+const dashboardTime = computed(() =>
+  new Intl.DateTimeFormat("en-GB", {
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hourCycle: "h23",
+    timeZone: "UTC",
+  }).format(dashboardTimestamp.value),
+);
+const selectedRange = ref<MetricsRange>("24h");
+
+const totalSamples = computed(() => {
+  if (data.value === null) {
+    return 0;
+  }
+
+  const lcpSamples =
+    lcpData.value?.metric?.type === "web.vital.lcp"
+      ? lcpData.value.summary.count
+      : 0;
+  const clsSamples =
+    clsData.value?.metric?.type === "web.vital.cls"
+      ? clsData.value.summary.count
+      : 0;
+  const inpSamples =
+    inpData.value?.metric?.type === "web.vital.inp"
+      ? inpData.value.summary.count
+      : 0;
+
+  return (
+    data.value.summary.fp.count +
+    data.value.summary.fcp.count +
+    lcpSamples +
+    clsSamples +
+    inpSamples
+  );
+});
+
+async function refreshDashboard(
+  range: MetricsRange = selectedRange.value,
+): Promise<void> {
+  await Promise.all([
+    loadRange(range),
+    loadLcpRange(range),
+    loadClsRange(range),
+    loadInpRange(range),
+    loadUsedHeapRange(range),
+    loadTotalHeapRange(range),
+    loadHeapLimitRange(range),
+    loadMemoryHealth(),
+  ]);
+}
+
+function stopLiveRefresh(): void {
+  if (liveRefreshTimer !== undefined) {
+    clearInterval(liveRefreshTimer);
+    liveRefreshTimer = undefined;
+  }
+}
+
+function startLiveRefresh(): void {
+  stopLiveRefresh();
+  liveRefreshTimer = setInterval(() => {
+    void refreshDashboard();
+  }, LIVE_REFRESH_INTERVAL_MS);
+}
+
+function toggleLive(): void {
+  live.value = !live.value;
+
+  if (live.value) {
+    void refreshDashboard();
+    startLiveRefresh();
+  } else {
+    stopLiveRefresh();
+  }
+}
+
+function handleSelectedRange(range: MetricsRange): void {
+  selectedRange.value = range;
+  void refreshDashboard(range);
+
+  if (live.value) {
+    startLiveRefresh();
+  }
 }
 
 onMounted(() => {
-    void loadMemoryHealth()
-    void loadRange(
-        selectedRange.value
-    )
+  void refreshDashboard();
+  startLiveRefresh();
+});
 
-    void loadLcpRange(
-        selectedRange.value
-    )
-
-    void loadClsRange(
-        selectedRange.value
-    )
-
-    void loadInpRange(
-        selectedRange.value
-    )
-
-    void loadUsedHeapRange(
-        selectedRange.value,
-    )
-
-    void loadTotalHeapRange(
-        selectedRange.value,
-    )
-
-    void loadHeapLimitRange(
-        selectedRange.value,
-    )
-})
+onUnmounted(stopLiveRefresh);
 </script>

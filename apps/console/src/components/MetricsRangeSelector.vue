@@ -1,29 +1,27 @@
 <template>
-    <div class="btn-group">
-        <!-- aria-pressed 是标准的 ARIA 无障碍属性，专门描述“可切换按钮当前是否被按下或选中” -->
-        <button
-            v-for="btn in buttons"
-            :key="btn"
-            type="button"
-            :class="`btn-group__button--${btn}`"
-            :aria-pressed="btn === props.range"
-            @click="emit('select', btn)"
-        >{{btn}}</button>
-    </div>
+  <div class="range-tabs" aria-label="Time range">
+    <button
+      v-for="item in buttons"
+      :key="item"
+      type="button"
+      :class="{ active: props.range === item }"
+      :aria-pressed="props.range === item"
+      @click="emit('select', item)"
+    >
+      {{ item }}
+    </button>
+  </div>
 </template>
 
 <script setup lang="ts">
-import type {
-    MetricsRange,
-} from '../composables/metrics-range.js'
+import type { MetricsRange } from "../composables/metrics-range.js";
 
 const props = defineProps<{
-    range: '1h' | '24h' | '7d' | '30d'
-}>()
+  range: "1h" | "24h" | "7d" | "30d";
+}>();
 const emit = defineEmits<{
-    select: [range: MetricsRange]
-}>()
+  select: [range: MetricsRange];
+}>();
 
-const buttons: MetricsRange[] = ['1h', '24h', '7d', '30d']
-
+const buttons: MetricsRange[] = ["1h", "24h", "7d", "30d"];
 </script>

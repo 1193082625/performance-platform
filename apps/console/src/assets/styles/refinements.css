@@ -1,0 +1,29 @@
+.tech-frame{background:linear-gradient(135deg,var(--accent),#136084 37%,#15415f 70%,var(--accent))}
+.tech-frame:before{background:radial-gradient(ellipse at 50% 50%,#021024,#010919)}
+.topbar:before{background:linear-gradient(90deg,#010919f5,#02071df9)}
+.metric-card{background:linear-gradient(135deg,var(--accent),#076293 18%,#075177 80%,#00bded)}
+.brand h1{font-size:46px;letter-spacing:1.8px}
+.metric-card dl,.health-stats>span,.reason,.heap-card p,footer{font-family:'Arial',sans-serif;font-size:14px}
+.metric-card dl{line-height:23px}
+.metric-card h2{font-size:25px}
+.metric-card .ring{transform:translateY(-4px);margin-bottom:-5px}
+.metric-card .good{margin-top:11px}
+.health-ring{margin:0 0 0 -8px!important}
+.health-body{gap:13px}
+.health-stats>span{font-size:14px;line-height:1.4}
+.health-stats em{font-family:'Arial',sans-serif;font-size:19px}
+.reason{margin-top:11px}
+.reason p{font-size:14px;line-height:21px;margin-top:3px}
+.health-stats>strong{font-family:'Arial',sans-serif;font-size:28px;margin-bottom:12px}
+.heap-heading strong{font-family:'Rajdhani',sans-serif;font-size:31px}
+.heap-card p{font-size:15px;margin-top:7px}
+.chart-heading h2{font-size:23px}
+.metric-tabs button{min-width:71px;padding:5px 13px}
+.metric-tabs button.memory{min-width:92px}
+.sample-total span,.date-time span{font-family:'Arial',sans-serif;font-size:16px}
+.sample-total strong{line-height:1.25}
+.date-time strong{font-family:'Arial',sans-serif;font-size:18px;line-height:1.4}
+@media(min-width:1500px){.performance{margin-bottom:12px}.memory-panel{padding-right:23px}.metrics{grid-template-columns:1fr 1.05fr .94fr .94fr .92fr}.ring{width:160px!important;height:151px}.metric-card{padding-left:18px;padding-right:15px}.health-ring{width:168px!important;height:172px}.heap-card{min-height:113px}.health-card{padding-left:20px}.performance{padding-left:23px}.metric-card h2{margin-left:10px}.metric-card dl{padding:0 0 0 10px}.chart-panel{padding-bottom:16px}.topbar{gap:36px}.brand{gap:27px}.chart-heading{gap:24px}}
+@media(max-width:1499px){.brand h1{font-size:33px}.metric-tabs button{min-width:0;padding:5px 8px}.metric-tabs button.memory{min-width:0}.chart-heading h2{font-size:19px}.health-stats>strong{font-size:24px}.health-stats em{font-size:16px}.health-stats>span{font-size:12px}.date-time span{font-size:14px}.date-time strong{font-size:16px}.metric-card dl{font-size:13px}}
+@media(max-width:1150px){.health-stats em{font-size:19px}.health-stats>strong{font-size:28px}.health-stats>span{font-size:14px}.metric-card dl{font-size:14px}}
+@media(max-width:760px){.brand h1{font-size:26px}.date-time span{font-size:11px}.date-time strong{font-size:12px}.sample-total span{font-size:11px}.chart-heading h2{font-size:18px}.health-body{gap:24px}footer{font-size:11px}.metric-card dl{font-size:14px}}
