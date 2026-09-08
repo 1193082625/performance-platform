@@ -14,6 +14,7 @@
 .health-stats em{font-family:'Arial',sans-serif;font-size:19px}
 .reason{margin-top:11px}
 .reason p{font-size:14px;line-height:21px;margin-top:3px}
+.locale-toggle{height:42px;min-width:54px;padding:0 10px;color:#8defff;border-color:#245272;background:#03152a;font-size:15px;white-space:nowrap}
 .health-stats>strong{font-family:'Arial',sans-serif;font-size:28px;margin-bottom:12px}
 .heap-heading strong{font-family:'Rajdhani',sans-serif;font-size:31px}
 .heap-card p{font-size:15px;margin-top:7px}

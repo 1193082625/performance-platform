@@ -29,6 +29,7 @@ import App from './App.vue'
 import type { PaintMetricsResponse } from '@performance-platform/protocol'
 import TrendChart from "./components/TrendChart.vue";
 import MetricSummaryCard from './components/MetricSummaryCard.vue'
+import { LOCALE_STORAGE_KEY } from './i18n.js'
 
 const EMPTY_STATS = {
     count: 0,
@@ -115,7 +116,7 @@ describe('App', () => {
 
         expect(wrapper.text()).toContain('120 ms')
         expect(wrapper.text()).toContain('260 ms')
-        expect(wrapper.text()).not.toContain('性能数据加载失败')
+        expect(wrapper.text()).not.toContain('Unable to load performance data')
     })
 
     it('shows a loading state while metrics are being requested', async () => {
@@ -130,7 +131,7 @@ describe('App', () => {
         const wrapper = mount(App)
 
         await flushPromises()
-        expect(wrapper.text()).toContain('正在加载性能数据')
+        expect(wrapper.text()).toContain('Loading performance data')
         expect(wrapper.text()).not.toContain('暂无评分')
     })
 
@@ -142,7 +143,7 @@ describe('App', () => {
         vi.stubGlobal('fetch', fetchMock)
         const wrapper = mount(App)
         await flushPromises()
-        expect(wrapper.text()).toContain('性能数据加载失败')
+        expect(wrapper.text()).toContain('Unable to load performance data')
         expect(wrapper.text()).not.toContain('暂无评分')
         expect(wrapper.find('[data-testid="overall-score"]').exists()).toBe(false)
     })
@@ -166,10 +167,10 @@ describe('App', () => {
     
         await flushPromises()
     
-        expect(wrapper.text()).toContain('暂无性能数据')
+        expect(wrapper.text()).toContain('No performance data')
         expect(wrapper.findAll('.metric-card__state--empty')).toHaveLength(5)
-        expect(wrapper.text()).toContain('暂无趋势数据')
-        expect(wrapper.text()).not.toContain('性能数据加载失败')
+        expect(wrapper.text()).toContain('No trend data')
+        expect(wrapper.text()).not.toContain('Unable to load performance data')
     })
     it('loads the selected range immediately', async () => {
         vi.spyOn(
@@ -533,7 +534,34 @@ describe('App', () => {
         expect(wrapper.text()).toContain('240')
     })
 
-    it('shows the query end as the dashboard UTC date and time', async () => {
+    it('switches the dashboard between English and Chinese', async () => {
+        const fetchMock = vi.fn().mockResolvedValue({
+            ok: true,
+            json: async () => METRICS_RESPONSE,
+        })
+        vi.stubGlobal('fetch', fetchMock)
+
+        const wrapper = mount(App)
+        await flushPromises()
+
+        expect(wrapper.get('h1').text()).toBe('WEB PERFORMANCE')
+        expect(wrapper.text()).toContain('TOTAL SAMPLES')
+
+        await wrapper.get('.locale-toggle').trigger('click')
+
+        expect(wrapper.get('h1').text()).toBe('网页性能监控')
+        expect(wrapper.text()).toContain('样本总数')
+        expect(wrapper.text()).toContain('平均值趋势')
+        expect(document.documentElement.lang).toBe('zh-CN')
+        expect(window.localStorage.getItem(LOCALE_STORAGE_KEY)).toBe('zh-CN')
+
+        wrapper.unmount()
+    })
+
+    it('shows and updates the real UTC clock while LIVE', async () => {
+        vi.useFakeTimers()
+        vi.setSystemTime(new Date('2026-08-30T00:00:00.000Z'))
+
         const fetchMock = vi.fn().mockResolvedValue({
             ok: true,
             json: async () => METRICS_RESPONSE,
@@ -548,6 +576,17 @@ describe('App', () => {
 
         expect(dateTime.get('span').text()).toBe('AUG 30, 2026')
         expect(dateTime.get('strong').text()).toBe('00:00:00 UTC')
+
+        await vi.advanceTimersByTimeAsync(1_000)
+
+        expect(dateTime.get('strong').text()).toBe('00:00:01 UTC')
+
+        await wrapper.get('.live-badge').trigger('click')
+        await vi.advanceTimersByTimeAsync(5_000)
+
+        expect(dateTime.get('strong').text()).toBe('00:00:01 UTC')
+
+        wrapper.unmount()
     })
 
     it('refreshes automatically while LIVE and pauses on demand', async () => {

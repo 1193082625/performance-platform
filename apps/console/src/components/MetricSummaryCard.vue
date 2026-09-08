@@ -14,7 +14,7 @@
     />
     <dl>
       <div>
-        <dt>AVERAGE</dt>
+        <dt>{{ t("metric.average") }}</dt>
         <dd>{{ formatValue(metric.stats?.average) }}</dd>
       </div>
       <div>
@@ -22,7 +22,7 @@
         <dd>{{ formatValue(metric.stats?.p75) }}</dd>
       </div>
       <div>
-        <dt>SAMPLES</dt>
+        <dt>{{ t("metric.samples") }}</dt>
         <dd>{{ metric.stats?.count?.toLocaleString() ?? "—" }}</dd>
       </div>
     </dl>
@@ -45,6 +45,9 @@ import { rateWebVital } from "@performance-platform/protocol";
 import { computed } from "vue";
 import { formatBytes } from "./metric-value-format.js";
 import Ring from "./Ring.vue";
+import { useI18n } from "vue-i18n";
+
+const { t, n } = useI18n();
 
 interface MetricItem {
   name: string;
@@ -82,11 +85,11 @@ const rating = computed(() => {
 const stateMessage = computed(() => {
   switch (props.metric.state) {
     case "loading":
-      return "LOADING";
+      return t("metric.loading");
     case "error":
-      return "LOAD FAILED";
+      return t("metric.error");
     case "empty":
-      return "NO DATA";
+      return t("metric.empty");
     default:
       return "";
   }
@@ -95,11 +98,11 @@ const stateMessage = computed(() => {
 function formatRating(value: MetricRating): string {
   switch (value) {
     case "good":
-      return "GOOD";
+      return t("status.GOOD");
     case "needs-improvement":
-      return "NEEDS IMPROVEMENT";
+      return t("status.NEEDS_IMPROVEMENT");
     case "poor":
-      return "POOR";
+      return t("status.POOR");
   }
 }
 
@@ -108,7 +111,7 @@ function formatValue(value: number | null | undefined): string {
 
   switch (props.metric.unit) {
     case "ms":
-      return `${Math.round(value).toLocaleString()} ms`;
+      return `${n(Math.round(value))} ms`;
     case "score":
       return value.toFixed(3);
     case "byte":

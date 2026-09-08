@@ -18,7 +18,19 @@ function collectTimes(series: TrendSeries[]): string[] {
     ].sort((left, right) => Date.parse(left) - Date.parse(right))
 }
 
-function formatTime(value: string, endTime: string) {
+export interface TrendTimeLabels {
+    now: string
+    hoursAgo(count: number): string
+    daysAgo(count: number): string
+}
+
+const DEFAULT_TIME_LABELS: TrendTimeLabels = {
+    now: "NOW",
+    hoursAgo: (count) => `${count}H AGO`,
+    daysAgo: (count) => `${count}D AGO`,
+}
+
+function formatTime(value: string, endTime: string, labels: TrendTimeLabels) {
     const differenceInHours = Math.max(
         0,
         Math.round(
@@ -26,10 +38,10 @@ function formatTime(value: string, endTime: string) {
         )
     )
 
-    if (differenceInHours === 0) return "NOW"
-    if (differenceInHours < 24) return `${differenceInHours}H AGO`
+    if (differenceInHours === 0) return labels.now
+    if (differenceInHours < 24) return labels.hoursAgo(differenceInHours)
 
-    return `${Math.round(differenceInHours / 24)}D AGO`
+    return labels.daysAgo(Math.round(differenceInHours / 24))
 }
 
 function formatAxisValue(value: number, unit: MetricUnit): string {
@@ -46,7 +58,8 @@ function formatAxisValue(value: number, unit: MetricUnit): string {
 }
 
 export function buildTrendChartOption(
-    series: TrendSeries[]
+    series: TrendSeries[],
+    timeLabels: TrendTimeLabels = DEFAULT_TIME_LABELS,
 ): TrendChartOption {
     const times = collectTimes(series)
     const endTime = times.at(-1) ?? ""
@@ -109,7 +122,7 @@ export function buildTrendChartOption(
             axisLabel: {
                 color: "#bdcde8",
                 fontFamily: "Arial, sans-serif",
-                formatter: (value: string) => formatTime(value, endTime),
+                formatter: (value: string) => formatTime(value, endTime, timeLabels),
                 showMinLabel: true,
                 showMaxLabel: true,
             },

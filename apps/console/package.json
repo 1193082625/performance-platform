@@ -15,7 +15,8 @@
     "@performance-platform/protocol": "workspace:*",
     "echarts": "^6.1.0",
     "vue": "^3.5.40",
-    "vue-echarts": "^8.2.0"
+    "vue-echarts": "^8.2.0",
+    "vue-i18n": "^11.4.10"
   },
   "devDependencies": {
     "@types/node": "^24.13.3",

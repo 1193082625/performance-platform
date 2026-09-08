@@ -76,7 +76,7 @@ describe("TrendChart", () => {
       },
     });
 
-    expect(wrapper.text()).toContain("暂无趋势数据");
+    expect(wrapper.text()).toContain("No trend data");
     expect(wrapper.findComponent(VChart).exists()).toBe(false);
   });
 
@@ -85,8 +85,8 @@ describe("TrendChart", () => {
       props: { series: [], loading: true },
     });
 
-    expect(wrapper.text()).toContain("趋势数据加载中");
-    expect(wrapper.text()).not.toContain("暂无趋势数据");
+    expect(wrapper.text()).toContain("Loading trend data");
+    expect(wrapper.text()).not.toContain("No trend data");
   });
 
   it("distinguishes a request failure from an empty result", () => {
@@ -94,7 +94,7 @@ describe("TrendChart", () => {
       props: { series: [], error: true },
     });
 
-    expect(wrapper.text()).toContain("趋势数据加载失败");
-    expect(wrapper.text()).not.toContain("暂无趋势数据");
+    expect(wrapper.text()).toContain("Unable to load trend data");
+    expect(wrapper.text()).not.toContain("No trend data");
   });
 });

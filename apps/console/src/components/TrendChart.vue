@@ -1,10 +1,10 @@
 <template>
   <div class="trend-chart">
-    <p v-if="loading && !hasValues" class="trend-chart__empty">趋势数据加载中</p>
+    <p v-if="loading && !hasValues" class="trend-chart__empty">{{ t("trend.loading") }}</p>
     <p v-else-if="error && !hasValues" class="trend-chart__empty trend-chart__error">
-      趋势数据加载失败
+      {{ t("trend.error") }}
     </p>
-    <p v-else-if="!hasValues" class="trend-chart__empty">暂无趋势数据</p>
+    <p v-else-if="!hasValues" class="trend-chart__empty">{{ t("trend.empty") }}</p>
 
     <VChart
       v-else
@@ -32,6 +32,9 @@ import VChart from "vue-echarts";
 
 import { buildTrendChartOption } from "./trend-chart-option.js";
 import type { TrendSeries } from "./trend-series.js";
+import { useI18n } from "vue-i18n";
+
+const { t } = useI18n();
 
 use([
   CanvasRenderer,
@@ -49,7 +52,7 @@ const props = withDefaults(
     error?: boolean;
   }>(),
   {
-    ariaLabel: "Performance trend",
+    ariaLabel: undefined,
     loading: false,
     error: false,
   },
@@ -61,7 +64,14 @@ const hasValues = computed(() =>
   ),
 );
 
-const option = computed(() => buildTrendChartOption(props.series));
+const option = computed(() =>
+  buildTrendChartOption(props.series, {
+    now: t("trend.now"),
+    hoursAgo: (count) => t("trend.hoursAgo", { count }),
+    daysAgo: (count) => t("trend.daysAgo", { count }),
+  }),
+);
+const ariaLabel = computed(() => props.ariaLabel ?? t("trend.defaultLabel"));
 </script>
 
 <style scoped>

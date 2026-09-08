@@ -3,20 +3,28 @@
     <header v-frame class="topbar tech-frame">
       <div class="brand">
         <Icon name="pulse" />
-        <h1>WEB PERFORMANCE</h1>
+        <h1>{{ t("app.title") }}</h1>
       </div>
       <button
         class="live-badge"
         :class="{ paused: !live }"
         @click="toggleLive"
         :aria-pressed="live"
-        :title="live ? 'Pause automatic refresh' : 'Resume automatic refresh'"
+        :title="live ? t('app.pauseRefresh') : t('app.resumeRefresh')"
       >
-        <i></i>{{ live ? "LIVE" : "PAUSED" }}
+        <i></i>{{ live ? t("app.live") : t("app.paused") }}
+      </button>
+      <button
+        type="button"
+        class="locale-toggle"
+        :title="t('app.switchLanguage')"
+        @click="toggleLocale"
+      >
+        {{ locale === "en-US" ? "中文" : "EN" }}
       </button>
       <div class="sample-total">
-        <span>TOTAL SAMPLES</span>
-        <strong>{{ totalSamples.toLocaleString() }}</strong>
+        <span>{{ t("app.totalSamples") }}</span>
+        <strong>{{ n(totalSamples) }}</strong>
       </div>
       <MetricsRangeSelector
         :range="selectedRange"
@@ -32,14 +40,14 @@
     </header>
 
     <p v-if="loading && data === null" class="dashboard-state" role="status">
-      正在加载性能数据
+      {{ t("app.loading") }}
     </p>
     <p
       v-else-if="error !== null && data === null"
       class="dashboard-state"
       role="alert"
     >
-      性能数据加载失败
+      {{ t("app.error") }}
     </p>
     <p
       v-else-if="
@@ -50,7 +58,7 @@
       class="dashboard-state"
       role="status"
     >
-      暂无性能数据
+      {{ t("app.empty") }}
     </p>
 
     <div v-frame class="main-shell tech-frame">
@@ -65,8 +73,8 @@
         <div class="charts">
           <article v-frame class="chart-panel tech-frame">
             <div class="chart-heading">
-              <h2>AVERAGE TREND</h2>
-              <select v-model="averageMode" aria-label="Average trend metric">
+              <h2>{{ t("app.averageTrend") }}</h2>
+              <select v-model="averageMode" :aria-label="t('app.averageMetric')">
                 <option
                   v-for="mode in ['PAINT', 'LCP', 'CLS', 'INP', 'MEMORY']"
                   :key="mode"
@@ -79,13 +87,13 @@
               :series="averageTrendSeries"
               :loading="trendState(averageMode).loading"
               :error="trendState(averageMode).error"
-              :aria-label="`${averageMode} average performance trend`"
+              :aria-label="t('app.averageTrendLabel', { metric: averageMode })"
             />
           </article>
           <article v-frame class="chart-panel tech-frame">
             <div class="chart-heading p75-heading">
-              <h2>P75 TREND</h2>
-              <div class="metric-tabs" aria-label="P75 trend metric">
+              <h2>{{ t("app.p75Trend") }}</h2>
+              <div class="metric-tabs" :aria-label="t('app.p75Metric')">
                 <button
                   v-for="mode in ['PAINT', 'LCP', 'CLS', 'INP', 'MEMORY']"
                   :key="mode"
@@ -103,7 +111,7 @@
               :series="p75TrendSeries"
               :loading="trendState(p75Mode).loading"
               :error="trendState(p75Mode).error"
-              :aria-label="`${p75Mode} P75 performance trend`"
+              :aria-label="t('app.p75TrendLabel', { metric: p75Mode })"
             />
           </article>
         </div>
@@ -114,7 +122,7 @@
           class="health-card tech-frame"
           :data-status="memoryHealthView.status"
         >
-          <h2>MEMORY HEALTH</h2>
+          <h2>{{ t("app.memoryHealth") }}</h2>
           <div class="health-body">
             <Ring
               health
@@ -122,24 +130,24 @@
               :progress="memoryHealthView.progress"
             />
             <div class="health-stats">
-              <strong>{{ memoryHealthView.status }}</strong
-              ><span>UTILIZATION</span><b>{{ memoryHealthView.utilization }}</b
-              ><span>SAMPLE SUFFICIENCY</span
+              <strong>{{ t(`status.${memoryHealthView.status}`) }}</strong
+              ><span>{{ t("app.utilization") }}</span><b>{{ memoryHealthView.utilization }}</b
+              ><span>{{ t("app.sampleSufficiency") }}</span
               ><em
-                >{{ memoryHealthView.sufficiency }} ({{
+                >{{ t(`status.${memoryHealthView.sufficiency}`) }} ({{
                   memoryHealthView.sampleCount
                 }})</em
               >
             </div>
           </div>
           <div class="reason">
-            <span>REASON</span>
+            <span>{{ t("app.reason") }}</span>
             <p>{{ memoryHealthView.reason }}</p>
           </div>
         </article>
         <article
           v-for="heap in heaps"
-          :key="heap.title"
+          :key="heap.kind"
           v-frame
           class="heap-card tech-frame"
           :class="heap.kind"
@@ -165,10 +173,7 @@
         </article>
       </aside>
       <footer>
-        <Icon name="info" /><span
-          >All times are in UTC. Metrics update continuously. Data reflects real
-          user monitoring (RUM) from production.</span
-        >
+        <Icon name="info" /><span>{{ t("app.footer") }}</span>
       </footer>
     </div>
   </main>
@@ -193,6 +198,8 @@ import MetricSummaryCard from "./components/MetricSummaryCard.vue";
 import { createMemoryHealthApi } from "./api/memory-health.js";
 import type { MemoryHealthAssessment } from "@performance-platform/protocol";
 import { WEB_VITAL_THRESHOLDS } from "@performance-platform/protocol";
+import { useI18n } from "vue-i18n";
+import { LOCALE_STORAGE_KEY, type AppLocale } from "./i18n.js";
 import { formatBytes } from "./components/metric-value-format.js";
 
 import Icon from "./components/Icon.vue";
@@ -208,6 +215,15 @@ import type { TrendSeries, TrendStatistic } from "./components/trend-series.js";
 const TrendChart = defineAsyncComponent(
   () => import("./components/TrendChart.vue"),
 );
+const { t, n, locale } = useI18n();
+document.documentElement.lang = locale.value;
+
+function toggleLocale(): void {
+  const nextLocale: AppLocale = locale.value === "en-US" ? "zh-CN" : "en-US";
+  locale.value = nextLocale;
+  window.localStorage.setItem(LOCALE_STORAGE_KEY, nextLocale);
+  document.documentElement.lang = nextLocale;
+}
 
 type TrendMode = "PAINT" | "LCP" | "CLS" | "INP" | "MEMORY";
 type DataState = "loading" | "error" | "empty" | null;
@@ -249,9 +265,9 @@ const memoryHealthError = ref<string | null>(null);
 let latestMemoryHealthRequestId = 0;
 
 const memoryHealthReasonLabels = {
-  HIGH_HEAP_PRESSURE: "Heap utilization is above the healthy threshold.",
-  SUSTAINED_HEAP_GROWTH: "Heap usage shows sustained growth.",
-  INSUFFICIENT_SAMPLES: "More samples are required for a reliable assessment.",
+  HIGH_HEAP_PRESSURE: "memory.highPressure",
+  SUSTAINED_HEAP_GROWTH: "memory.sustainedGrowth",
+  INSUFFICIENT_SAMPLES: "memory.insufficientSamples",
 } as const;
 
 const memoryHealthView = computed(() => {
@@ -262,7 +278,7 @@ const memoryHealthView = computed(() => {
       progress: 0,
       sufficiency: "PENDING",
       sampleCount: 0,
-      reason: "Memory health assessment is loading.",
+      reason: t("memory.loading"),
     };
   }
 
@@ -273,7 +289,7 @@ const memoryHealthView = computed(() => {
       progress: 0,
       sufficiency: "UNKNOWN",
       sampleCount: 0,
-      reason: memoryHealthError.value ?? "Memory health data is unavailable.",
+      reason: t("memory.unavailable"),
     };
   }
 
@@ -290,7 +306,7 @@ const memoryHealthView = computed(() => {
       progress: 0,
       sufficiency: "UNKNOWN",
       sampleCount: 0,
-      reason: "Memory health data is unavailable.",
+      reason: t("memory.unavailable"),
     };
   }
 
@@ -300,11 +316,11 @@ const memoryHealthView = computed(() => {
       ? null
       : Math.min(100, Math.max(0, utilization * 100));
   const reasons = assessment.reasons.map(
-    (reason) => memoryHealthReasonLabels[reason],
+    (reason) => t(memoryHealthReasonLabels[reason]),
   );
 
   return {
-    status: assessment.status.replace("_", " "),
+    status: assessment.status,
     utilization:
       utilizationPercent === null ? "—" : `${utilizationPercent.toFixed(1)}%`,
     progress: utilizationPercent ?? 0,
@@ -314,7 +330,7 @@ const memoryHealthView = computed(() => {
     reason:
       reasons.length > 0
         ? reasons.join(" ")
-        : "Heap usage is within normal range with healthy headroom.",
+        : t("memory.healthy"),
   };
 });
 
@@ -549,11 +565,11 @@ const usedHeapUtilization = computed(() => {
 function heapCaption(defaultCaption: string, state: DataState): string {
   switch (state) {
     case "loading":
-      return "Loading…";
+      return t("memory.loadingData");
     case "error":
-      return "Unable to load data";
+      return t("memory.loadFailed");
     case "empty":
-      return "No samples";
+      return t("memory.noSamples");
     default:
       return defaultCaption;
   }
@@ -578,12 +594,14 @@ const heaps = computed(() => {
 
   return [
     {
-      title: "USED HEAP",
+      title: t("memory.usedHeap"),
       value: formatHeapAverage(usedHeapData.value?.summary.average),
       caption: heapCaption(
         usedHeapUtilization.value === null
-          ? "— of Heap Limit"
-          : `${(usedHeapUtilization.value * 100).toFixed(1)}% of Heap Limit`,
+        ? t("memory.unavailableOfHeapLimit")
+        : t("memory.ofHeapLimit", {
+            value: (usedHeapUtilization.value * 100).toFixed(1),
+          }),
         usedState,
       ),
       color: "#79e76d",
@@ -595,18 +613,18 @@ const heaps = computed(() => {
       state: usedState,
     },
     {
-      title: "TOTAL HEAP",
+      title: t("memory.totalHeap"),
       value: formatHeapAverage(totalHeapData.value?.summary.average),
-      caption: heapCaption("Allocated", totalState),
+    caption: heapCaption(t("memory.allocated"), totalState),
       color: "#06d2ee",
       bars: totalState === null ? 6 : 0,
       kind: "total",
       state: totalState,
     },
     {
-      title: "HEAP LIMIT",
+      title: t("memory.heapLimit"),
       value: formatHeapAverage(heapLimitData.value?.summary.average),
-      caption: heapCaption("Hard Limit", limitState),
+    caption: heapCaption(t("memory.hardLimit"), limitState),
       color: "#b77aff",
       bars: limitState === null ? 14 : 0,
       kind: "limit",
@@ -692,7 +710,7 @@ function createDashboardTrendSeries(
       return [
         createMetricTrendSeries({
           key: "used-heap",
-          label: "Used Heap",
+          label: t("memory.usedHeapTrend"),
           unit: response.metric.unit,
           color: "#7be66b",
           points: response.series,
@@ -723,7 +741,9 @@ function trendState(mode: TrendMode): { loading: boolean; error: boolean } {
 
 const live = ref(true);
 const LIVE_REFRESH_INTERVAL_MS = 30_000;
+const LIVE_CLOCK_INTERVAL_MS = 1_000;
 let liveRefreshTimer: ReturnType<typeof setInterval> | undefined;
+let liveClockTimer: ReturnType<typeof setInterval> | undefined;
 const averageMode = ref<TrendMode>("PAINT");
 const p75Mode = ref<TrendMode>("MEMORY");
 const averageTrendSeries = computed(() =>
@@ -732,22 +752,9 @@ const averageTrendSeries = computed(() =>
 const p75TrendSeries = computed(() =>
   createDashboardTrendSeries(p75Mode.value, "p75"),
 );
-const initialTimestamp = Date.now();
-const dashboardTimestamp = computed(() => {
-  const queryEnd =
-    data.value?.range.to ??
-    lcpData.value?.range.to ??
-    clsData.value?.range.to ??
-    inpData.value?.range.to ??
-    usedHeapData.value?.range.to ??
-    totalHeapData.value?.range.to ??
-    heapLimitData.value?.range.to;
-  const parsedTimestamp = queryEnd === undefined ? NaN : Date.parse(queryEnd);
-
-  return Number.isFinite(parsedTimestamp) ? parsedTimestamp : initialTimestamp;
-});
+const dashboardTimestamp = ref(Date.now());
 const dashboardDate = computed(() =>
-  new Intl.DateTimeFormat("en-US", {
+  new Intl.DateTimeFormat(locale.value, {
     month: "short",
     day: "numeric",
     year: "numeric",
@@ -757,7 +764,7 @@ const dashboardDate = computed(() =>
     .toUpperCase(),
 );
 const dashboardTime = computed(() =>
-  new Intl.DateTimeFormat("en-GB", {
+  new Intl.DateTimeFormat(locale.value, {
     hour: "2-digit",
     minute: "2-digit",
     second: "2-digit",
@@ -814,6 +821,11 @@ function stopLiveRefresh(): void {
     clearInterval(liveRefreshTimer);
     liveRefreshTimer = undefined;
   }
+
+  if (liveClockTimer !== undefined) {
+    clearInterval(liveClockTimer);
+    liveClockTimer = undefined;
+  }
 }
 
 function startLiveRefresh(): void {
@@ -821,12 +833,16 @@ function startLiveRefresh(): void {
   liveRefreshTimer = setInterval(() => {
     void refreshDashboard();
   }, LIVE_REFRESH_INTERVAL_MS);
+  liveClockTimer = setInterval(() => {
+    dashboardTimestamp.value = Date.now();
+  }, LIVE_CLOCK_INTERVAL_MS);
 }
 
 function toggleLive(): void {
   live.value = !live.value;
 
   if (live.value) {
+    dashboardTimestamp.value = Date.now();
     void refreshDashboard();
     startLiveRefresh();
   } else {
