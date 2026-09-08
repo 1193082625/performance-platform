@@ -81,6 +81,27 @@ describe("MetricSummaryCard", () => {
   });
 
   it.each([
+    ["web.paint.fp", 1_000, "GOOD"],
+    ["web.paint.fp", 1_500, "NEEDS IMPROVEMENT"],
+    ["web.paint.fp", 2_001, "POOR"],
+    ["web.paint.fcp", 1_800, "GOOD"],
+    ["web.paint.fcp", 2_400, "NEEDS IMPROVEMENT"],
+    ["web.paint.fcp", 3_001, "POOR"],
+  ] as const)("rates %s P75 %s as %s", (type, p75, expected) => {
+    const wrapper = mount(MetricSummaryCard, {
+      props: {
+        metric: metric({
+          name: type === "web.paint.fp" ? "FP" : "FCP",
+          type,
+          stats: { count: 5, average: 800, p50: 700, p75, p90: 2_000 },
+        }),
+      },
+    });
+
+    expect(wrapper.get(".metric-rating").text()).toBe(expected);
+  });
+
+  it.each([
     ["loading", "LOADING"],
     ["error", "LOAD FAILED"],
     ["empty", "NO DATA"],
@@ -94,9 +115,11 @@ describe("MetricSummaryCard", () => {
     expect(wrapper.get(`.metric-card__state--${state}`).text()).toBe(expected);
   });
 
-  it("does not rate a non-Web-Vital metric", () => {
+  it("does not rate a memory metric", () => {
     const wrapper = mount(MetricSummaryCard, {
-      props: { metric: metric({ name: "FP", type: "web.paint.fp" }) },
+      props: {
+        metric: metric({ name: "USED HEAP", type: "web.memory.used_heap" }),
+      },
     });
 
     expect(wrapper.find(".good").exists()).toBe(false);

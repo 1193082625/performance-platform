@@ -1,10 +1,17 @@
 <template>
   <div class="trend-chart">
-    <p v-if="loading && !hasValues" class="trend-chart__empty">{{ t("trend.loading") }}</p>
-    <p v-else-if="error && !hasValues" class="trend-chart__empty trend-chart__error">
+    <p v-if="loading && !hasValues" class="trend-chart__empty">
+      {{ t("trend.loading") }}
+    </p>
+    <p
+      v-else-if="error && !hasValues"
+      class="trend-chart__empty trend-chart__error"
+    >
       {{ t("trend.error") }}
     </p>
-    <p v-else-if="!hasValues" class="trend-chart__empty">{{ t("trend.empty") }}</p>
+    <p v-else-if="!hasValues" class="trend-chart__empty">
+      {{ t("trend.empty") }}
+    </p>
 
     <VChart
       v-else
@@ -85,6 +92,7 @@ const ariaLabel = computed(() => props.ariaLabel ?? t("trend.defaultLabel"));
   width: 100%;
   height: 100%;
   min-height: 0;
+  margin-left: -18px;
 }
 
 .trend-chart__empty {

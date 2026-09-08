@@ -50,7 +50,9 @@ export {
 
 export {
     WEB_VITAL_THRESHOLDS,
+    PAINT_METRIC_THRESHOLDS,
     rateWebVital,
+    ratePaintMetric,
     type MetricRating,
 } from './metric-thresholds.js'
 

@@ -26,7 +26,12 @@
         <dd>{{ metric.stats?.count?.toLocaleString() ?? "—" }}</dd>
       </div>
     </dl>
-    <div class="good" v-if="rating !== null">
+    <div
+      v-if="rating !== null"
+      class="good metric-rating"
+      :class="`metric-rating--${rating}`"
+      :data-rating="rating"
+    >
       <i></i>{{ formatRating(rating) }}
     </div>
     <p
@@ -41,7 +46,7 @@
 
 <script setup lang="ts">
 import type { MetricRating } from "@performance-platform/protocol";
-import { rateWebVital } from "@performance-platform/protocol";
+import { ratePaintMetric, rateWebVital } from "@performance-platform/protocol";
 import { computed } from "vue";
 import { formatBytes } from "./metric-value-format.js";
 import Ring from "./Ring.vue";
@@ -72,6 +77,9 @@ const rating = computed(() => {
   }
 
   switch (props.metric.type) {
+    case "web.paint.fp":
+    case "web.paint.fcp":
+      return ratePaintMetric(props.metric.type, p75);
     case "web.vital.lcp":
     case "web.vital.cls":
     case "web.vital.inp":
@@ -138,5 +146,21 @@ function formatValue(value: number | null | undefined): string {
 
 .metric-card__state--error {
   color: #ff7f91;
+}
+
+.metric-rating--needs-improvement {
+  color: #f1c75b;
+}
+
+.metric-rating--needs-improvement i {
+  background: #f1c75b;
+}
+
+.metric-rating--poor {
+  color: #ff7185;
+}
+
+.metric-rating--poor i {
+  background: #ff7185;
 }
 </style>

@@ -31,6 +31,20 @@ export const WEB_VITAL_THRESHOLDS = {
     MetricThreshold
 >
 
+export const PAINT_METRIC_THRESHOLDS = {
+    'web.paint.fp': {
+        good: 1_000,
+        poor: 2_000,
+    },
+    'web.paint.fcp': {
+        good: 1_800,
+        poor: 3_000,
+    },
+} as const satisfies Record<
+    'web.paint.fp' | 'web.paint.fcp',
+    MetricThreshold
+>
+
 export type MetricRating = 
     | 'good'
     | 'needs-improvement'
@@ -51,4 +65,21 @@ export function rateWebVital(
     }
 
     return "poor"
+}
+
+export function ratePaintMetric(
+    type: keyof typeof PAINT_METRIC_THRESHOLDS,
+    value: number,
+): MetricRating {
+    const threshold = PAINT_METRIC_THRESHOLDS[type]
+
+    if (value <= threshold.good) {
+        return 'good'
+    }
+
+    if (value <= threshold.poor) {
+        return 'needs-improvement'
+    }
+
+    return 'poor'
 }

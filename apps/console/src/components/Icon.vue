@@ -12,7 +12,7 @@ defineProps({ name: String });
     aria-hidden="true"
   >
     <template v-if="name === 'pulse'">
-      <path d="M17 4h30l14 28-14 28H17L3 32Z" />
+      <path d="M32 3 49 8 60 23 60 41 49 56 32 61 15 56 4 41 4 23 15 8Z" />
       <path d="M12 32h9l5-12 7 25 7-18 4 7h8" />
     </template>
     <template v-else-if="name === 'shield'">

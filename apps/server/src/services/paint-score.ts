@@ -3,6 +3,7 @@ import type {
     PaintScoreStatus,
     PaintStats,
 } from '@performance-platform/protocol'
+import { PAINT_METRIC_THRESHOLDS } from '@performance-platform/protocol'
 
 interface PaintScoreInput {
     fp: PaintStats
@@ -13,16 +14,6 @@ interface MetricThresholds {
     good: number
     poor: number
 }
-
-const FP_THRESHOLDS = {
-    good: 1_000,
-    poor: 2_000,
-} satisfies MetricThresholds
-
-const FCP_THRESHOLDS = {
-    good: 1_800,
-    poor: 3_000,
-} satisfies MetricThresholds
 
 function roundToOneDecimal(
     value: number,
@@ -100,14 +91,14 @@ export function calculatePaintScore(
     const fp = roundToOneDecimal(
         calculateMetricScore(
             input.fp.p75,
-            FP_THRESHOLDS,
+            PAINT_METRIC_THRESHOLDS['web.paint.fp'],
         ),
     )
 
     const fcp = roundToOneDecimal(
         calculateMetricScore(
             input.fcp.p75,
-            FCP_THRESHOLDS,
+            PAINT_METRIC_THRESHOLDS['web.paint.fcp'],
         ),
     )
 

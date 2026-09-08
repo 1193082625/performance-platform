@@ -197,7 +197,10 @@ import type { MetricsRange } from "./composables/metrics-range.js";
 import MetricSummaryCard from "./components/MetricSummaryCard.vue";
 import { createMemoryHealthApi } from "./api/memory-health.js";
 import type { MemoryHealthAssessment } from "@performance-platform/protocol";
-import { WEB_VITAL_THRESHOLDS } from "@performance-platform/protocol";
+import {
+  PAINT_METRIC_THRESHOLDS,
+  WEB_VITAL_THRESHOLDS,
+} from "@performance-platform/protocol";
 import { useI18n } from "vue-i18n";
 import { LOCALE_STORAGE_KEY, type AppLocale } from "./i18n.js";
 import { formatBytes } from "./components/metric-value-format.js";
@@ -227,11 +230,6 @@ function toggleLocale(): void {
 
 type TrendMode = "PAINT" | "LCP" | "CLS" | "INP" | "MEMORY";
 type DataState = "loading" | "error" | "empty" | null;
-
-const PAINT_POOR_THRESHOLDS = {
-  "web.paint.fp": 2_000,
-  "web.paint.fcp": 3_000,
-} as const;
 
 function calculateRingProgress(
   value: number | null | undefined,
@@ -414,7 +412,7 @@ const metrics = computed(() => [
     color: "#00d8ff",
     progress: calculateRingProgress(
       data.value?.summary.fp.average,
-      PAINT_POOR_THRESHOLDS["web.paint.fp"],
+      PAINT_METRIC_THRESHOLDS["web.paint.fp"].poor,
     ),
     state: resolveDataState(
       (data.value?.summary.fp.count ?? 0) > 0,
@@ -435,7 +433,7 @@ const metrics = computed(() => [
     color: "#00baff",
     progress: calculateRingProgress(
       data.value?.summary.fcp.average,
-      PAINT_POOR_THRESHOLDS["web.paint.fcp"],
+      PAINT_METRIC_THRESHOLDS["web.paint.fcp"].poor,
     ),
     state: resolveDataState(
       (data.value?.summary.fcp.count ?? 0) > 0,
