@@ -34,11 +34,19 @@
     <p v-if="loading && data === null" class="dashboard-state" role="status">
       正在加载性能数据
     </p>
-    <p v-else-if="error !== null && data === null" class="dashboard-state" role="alert">
+    <p
+      v-else-if="error !== null && data === null"
+      class="dashboard-state"
+      role="alert"
+    >
       性能数据加载失败
     </p>
     <p
-      v-else-if="data !== null && data.summary.fp.count === 0 && data.summary.fcp.count === 0"
+      v-else-if="
+        data !== null &&
+        data.summary.fp.count === 0 &&
+        data.summary.fcp.count === 0
+      "
       class="dashboard-state"
       role="status"
     >
@@ -108,12 +116,20 @@
         >
           <h2>MEMORY HEALTH</h2>
           <div class="health-body">
-            <Ring health color="#78e76b" :progress="memoryHealthView.progress" />
+            <Ring
+              health
+              color="#78e76b"
+              :progress="memoryHealthView.progress"
+            />
             <div class="health-stats">
               <strong>{{ memoryHealthView.status }}</strong
               ><span>UTILIZATION</span><b>{{ memoryHealthView.utilization }}</b
               ><span>SAMPLE SUFFICIENCY</span
-              ><em>{{ memoryHealthView.sufficiency }} ({{ memoryHealthView.sampleCount }})</em>
+              ><em
+                >{{ memoryHealthView.sufficiency }} ({{
+                  memoryHealthView.sampleCount
+                }})</em
+              >
             </div>
           </div>
           <div class="reason">
@@ -159,7 +175,13 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, ref } from "vue";
+import {
+  computed,
+  defineAsyncComponent,
+  onMounted,
+  onUnmounted,
+  ref,
+} from "vue";
 import { createPaintMetricsApi } from "./api/metrics.js";
 import { createMetricQueryApi } from "./api/metric-query.js";
 
@@ -175,7 +197,6 @@ import { formatBytes } from "./components/metric-value-format.js";
 
 import Icon from "./components/Icon.vue";
 import Ring from "./components/Ring.vue";
-import TrendChart from "./components/TrendChart.vue";
 
 import {
   createMetricTrendSeries,
@@ -183,6 +204,10 @@ import {
 } from "./components/trend-series.js";
 
 import type { TrendSeries, TrendStatistic } from "./components/trend-series.js";
+
+const TrendChart = defineAsyncComponent(
+  () => import("./components/TrendChart.vue"),
+);
 
 type TrendMode = "PAINT" | "LCP" | "CLS" | "INP" | "MEMORY";
 type DataState = "loading" | "error" | "empty" | null;
@@ -553,40 +578,40 @@ const heaps = computed(() => {
 
   return [
     {
-    title: "USED HEAP",
-    value: formatHeapAverage(usedHeapData.value?.summary.average),
-    caption: heapCaption(
-      usedHeapUtilization.value === null
-        ? "— of Heap Limit"
-        : `${(usedHeapUtilization.value * 100).toFixed(1)}% of Heap Limit`,
-      usedState,
-    ),
-    color: "#79e76d",
-    bars:
-      usedHeapUtilization.value === null
-        ? 0
-        : Math.ceil(usedHeapUtilization.value * 14),
-    kind: "used",
-    state: usedState,
-  },
-  {
-    title: "TOTAL HEAP",
-    value: formatHeapAverage(totalHeapData.value?.summary.average),
-    caption: heapCaption("Allocated", totalState),
-    color: "#06d2ee",
-    bars: totalState === null ? 6 : 0,
-    kind: "total",
-    state: totalState,
-  },
-  {
-    title: "HEAP LIMIT",
-    value: formatHeapAverage(heapLimitData.value?.summary.average),
-    caption: heapCaption("Hard Limit", limitState),
-    color: "#b77aff",
-    bars: limitState === null ? 14 : 0,
-    kind: "limit",
-    state: limitState,
-  },
+      title: "USED HEAP",
+      value: formatHeapAverage(usedHeapData.value?.summary.average),
+      caption: heapCaption(
+        usedHeapUtilization.value === null
+          ? "— of Heap Limit"
+          : `${(usedHeapUtilization.value * 100).toFixed(1)}% of Heap Limit`,
+        usedState,
+      ),
+      color: "#79e76d",
+      bars:
+        usedHeapUtilization.value === null
+          ? 0
+          : Math.ceil(usedHeapUtilization.value * 14),
+      kind: "used",
+      state: usedState,
+    },
+    {
+      title: "TOTAL HEAP",
+      value: formatHeapAverage(totalHeapData.value?.summary.average),
+      caption: heapCaption("Allocated", totalState),
+      color: "#06d2ee",
+      bars: totalState === null ? 6 : 0,
+      kind: "total",
+      state: totalState,
+    },
+    {
+      title: "HEAP LIMIT",
+      value: formatHeapAverage(heapLimitData.value?.summary.average),
+      caption: heapCaption("Hard Limit", limitState),
+      color: "#b77aff",
+      bars: limitState === null ? 14 : 0,
+      kind: "limit",
+      state: limitState,
+    },
   ];
 });
 
