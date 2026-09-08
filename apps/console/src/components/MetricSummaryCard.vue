@@ -6,6 +6,10 @@
     :aria-busy="metric.state === 'loading'"
   >
     <h2>{{ metric.name }}</h2>
+    <RecommendationPopover
+      v-if="recommendation"
+      :recommendation="recommendation"
+    />
     <Ring
       :value="metric.value"
       :unit="metric.unit"
@@ -50,6 +54,8 @@ import { ratePaintMetric, rateWebVital } from "@performance-platform/protocol";
 import { computed } from "vue";
 import { formatBytes } from "./metric-value-format.js";
 import Ring from "./Ring.vue";
+import RecommendationPopover from "./RecommendationPopover.vue";
+import type { PerformanceRecommendation } from "./performance-recommendations.js";
 import { useI18n } from "vue-i18n";
 
 const { t, n } = useI18n();
@@ -67,6 +73,7 @@ interface MetricItem {
 
 const props = defineProps<{
   metric: MetricItem;
+  recommendation?: PerformanceRecommendation;
 }>();
 
 const rating = computed(() => {

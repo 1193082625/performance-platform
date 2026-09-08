@@ -35,6 +35,7 @@
 
 /* Performance cards */
 .metric-card { display:flex; flex-direction:column; padding-bottom:0; }
+.metric-card:has(.recommendation-popover[open]),.health-card:has(.recommendation-popover[open]) { z-index:10; }
 .metric-card h2 { font-size:24px; font-weight:600; line-height:29px; }
 .metrics .ring { width:min(100%,160px)!important; height:160px; flex-shrink:0; transform:none; margin-top:-9px; margin-bottom:-2px; }
 .ring-value { padding-top:4px; }
@@ -81,6 +82,7 @@
 .segmented-bar span.filled { box-shadow:inset 1px 0 2px #e0ffd37a; }
 .heap-card.limit .segmented-bar { gap:4px; }
 footer { font-family:'Rajdhani',Arial,sans-serif; font-size:16px; }
+
 
 @media(min-width:1500px) {
  .charts { min-height:389px; }

@@ -124,4 +124,33 @@ describe("MetricSummaryCard", () => {
 
     expect(wrapper.find(".good").exists()).toBe(false);
   });
+
+  it("anchors its recommendation popover to the card icon", async () => {
+    const wrapper = mount(MetricSummaryCard, {
+      props: {
+        metric: metric({
+          stats: { count: 5, average: 2_800, p50: 2_600, p75: 3_100, p90: 3_400 },
+        }),
+        recommendation: {
+          metric: "LCP",
+          status: "POOR",
+          messageKey: "recommendations.lcp",
+        },
+      },
+    });
+
+    const popover = wrapper.get(".recommendation-popover");
+    const trigger = popover.get("summary");
+
+    expect(trigger.attributes("aria-label")).toBe(
+      "Show optimization recommendation for LCP",
+    );
+    expect(popover.get(".recommendation-popover__panel").text()).toContain(
+      "Inspect the LCP element",
+    );
+
+    await trigger.trigger("click");
+
+    expect(popover.attributes("open")).toBeDefined();
+  });
 });

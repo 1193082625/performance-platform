@@ -68,6 +68,7 @@
             v-for="metric in metrics"
             :key="metric.name"
             :metric="metric"
+            :recommendation="recommendationFor(metric.name)"
           />
         </div>
         <div class="charts">
@@ -123,6 +124,10 @@
           :data-status="memoryHealthView.status"
         >
           <h2>{{ t("app.memoryHealth") }}</h2>
+          <RecommendationPopover
+            v-if="recommendationFor('MEMORY')"
+            :recommendation="recommendationFor('MEMORY')!"
+          />
           <div class="health-body">
             <Ring
               health
@@ -204,9 +209,11 @@ import {
 import { useI18n } from "vue-i18n";
 import { LOCALE_STORAGE_KEY, type AppLocale } from "./i18n.js";
 import { formatBytes } from "./components/metric-value-format.js";
+import { createPerformanceRecommendations } from "./components/performance-recommendations.js";
 
 import Icon from "./components/Icon.vue";
 import Ring from "./components/Ring.vue";
+import RecommendationPopover from "./components/RecommendationPopover.vue";
 
 import {
   createMetricTrendSeries,
@@ -505,6 +512,21 @@ const metrics = computed(() => [
     ),
   },
 ]);
+
+const recommendations = computed(() =>
+  createPerformanceRecommendations({
+    fp: data.value?.summary.fp,
+    fcp: data.value?.summary.fcp,
+    lcp: lcpData.value?.summary,
+    cls: clsData.value?.summary,
+    inp: inpData.value?.summary,
+    memoryHealth: memoryHealth.value,
+  }),
+);
+
+function recommendationFor(metric: string) {
+  return recommendations.value.find((item) => item.metric === metric);
+}
 
 const {
   data: usedHeapData,

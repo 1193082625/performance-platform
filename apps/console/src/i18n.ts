@@ -89,6 +89,18 @@ export const i18n = createI18n({
         hardLimit: "Hard Limit",
       },
       range: { label: "Time range" },
+      recommendations: {
+        title: "OPTIMIZATION RECOMMENDATIONS",
+        count: "{count} issue(s)",
+        show: "Show optimization recommendation for {metric}",
+        fp: "Check server response time and reduce render-blocking CSS and JavaScript before the first paint.",
+        fcp: "Reduce render-blocking resources, inline critical CSS, and defer non-critical scripts.",
+        lcp: "Inspect the LCP element, optimize and preload its resource, and reduce server response and render delay.",
+        cls: "Reserve dimensions for images and embeds, avoid inserting content above existing UI, and stabilize font loading.",
+        inp: "Break up long main-thread tasks, simplify event handlers, and defer non-essential JavaScript work.",
+        memoryWarning: "Inspect retained objects, event listeners, timers, and DOM references for sustained heap growth.",
+        memoryCritical: "Prioritize a heap snapshot and allocation timeline; check for detached DOM nodes and unbounded caches.",
+      },
     },
     "zh-CN": {
       app: {
@@ -164,6 +176,18 @@ export const i18n = createI18n({
         hardLimit: "硬上限",
       },
       range: { label: "时间范围" },
+      recommendations: {
+        title: "优化建议",
+        count: "{count} 个问题",
+        show: "查看 {metric} 优化建议",
+        fp: "建议检查服务端响应时间，并减少首次绘制前阻塞渲染的 CSS 和 JavaScript。",
+        fcp: "建议减少阻塞渲染的资源、内联关键 CSS，并延后执行非关键脚本。",
+        lcp: "建议定位 LCP 元素，优化并预加载对应资源，同时降低服务端响应和渲染延迟。",
+        cls: "建议为图片和嵌入内容预留尺寸，避免在现有内容上方插入元素，并稳定字体加载。",
+        inp: "建议拆分主线程长任务、简化事件处理器，并延后非必要的 JavaScript 工作。",
+        memoryWarning: "建议检查未释放对象、事件监听器、定时器和 DOM 引用，定位持续堆增长。",
+        memoryCritical: "建议优先采集堆快照和分配时间线，检查游离 DOM 节点及无限增长的缓存。",
+      },
     },
   },
 });
