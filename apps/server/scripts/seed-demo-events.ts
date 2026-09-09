@@ -3,17 +3,20 @@ import {
 } from 'node:crypto'
 
 import type {
+    MetricEventV2,
     PaintEventV1,
 } from '@performance-platform/protocol'
 
+import { createLcpDemoCohorts } from './lcp-demo-scenarios.js'
+
 const endpoint =
     process.env.EVENTS_ENDPOINT
-    ?? 'http://localhost:5001/api/v1/events/batch'
+    ?? 'http://localhost:3000/api/v2/events/batch'
 
 const HOUR_MS = 60 * 60 * 1_000
 const now = Date.now()
 
-const events: PaintEventV1[] = []
+const paintEvents: PaintEventV1[] = []
 
 function createEvent(
     type: PaintEventV1['type'],
@@ -78,7 +81,7 @@ for (
             + sampleIndex * 35
             + Math.cos(hourIndex / 4) * 140
 
-        events.push(
+        paintEvents.push(
             createEvent(
                 'web.paint.fp',
                 timestamp,
@@ -86,7 +89,7 @@ for (
             ),
         )
 
-        events.push(
+        paintEvents.push(
             createEvent(
                 'web.paint.fcp',
                 timestamp,
@@ -95,6 +98,18 @@ for (
         )
     }
 }
+
+const v2PaintEvents: MetricEventV2[] = paintEvents.map((event) => ({
+    ...event,
+    schemaVersion: '2.0',
+    sampleRate: 1,
+    metricVersion: 'paint-v1',
+}))
+
+const lcpEvents = createLcpDemoCohorts(now).flatMap(
+    (cohort) => cohort.events,
+)
+const events = [...v2PaintEvents, ...lcpEvents]
 
 for (
     let index = 0;
@@ -128,5 +143,5 @@ for (
 }
 
 console.log(
-    `Seeded ${events.length} paint events`,
+    `Seeded ${v2PaintEvents.length} paint events and ${lcpEvents.length} LCP diagnostic events`,
 )

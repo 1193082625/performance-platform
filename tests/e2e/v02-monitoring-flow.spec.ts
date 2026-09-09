@@ -1,5 +1,13 @@
 import { expect, test } from '@playwright/test'
 import type { APIRequestContext } from '@playwright/test'
+import type {
+    LcpDiagnosticAnalysisResponse,
+    MetricEventV2,
+} from '@performance-platform/protocol'
+
+import {
+    createLcpDemoCohorts,
+} from '../../apps/server/scripts/lcp-demo-scenarios.js'
 
 const CONSOLE_BASE_URL =
     process.env.CONSOLE_BASE_URL
@@ -34,6 +42,46 @@ interface MetricQueryResponse {
     summary: {
         count: number
     }
+}
+
+async function ingestEvents(
+    request: APIRequestContext,
+    events: MetricEventV2[],
+): Promise<void> {
+    for (
+        let index = 0;
+        index < events.length;
+        index += 20
+    ) {
+        const response = await request.post(
+            MONITOR_ENDPOINT,
+            {
+                data: {
+                    events: events.slice(index, index + 20),
+                },
+            },
+        )
+
+        expect(response.ok()).toBe(true)
+    }
+}
+
+async function queryLcpDiagnostic(
+    request: APIRequestContext,
+    from: number,
+    to: number,
+): Promise<LcpDiagnosticAnalysisResponse> {
+    const search = new URLSearchParams({
+        from: new Date(from).toISOString(),
+        to: new Date(to).toISOString(),
+    })
+    const response = await request.get(
+        `${CONSOLE_BASE_URL}/api/v2/diagnostics/lcp?${search.toString()}`,
+    )
+
+    expect(response.ok()).toBe(true)
+
+    return response.json() as Promise<LcpDiagnosticAnalysisResponse>
 }
 
 async function queryPaintCounts(
@@ -186,5 +234,51 @@ test(
             page.getByText('内存数据加载失败'),
         ).toHaveCount(0)
         expect(pageErrors).toEqual([])
+    },
+)
+
+test(
+    'diagnoses all LCP phases and displays the primary recommendation',
+    async ({ page, request }) => {
+        const cohorts = createLcpDemoCohorts(Date.now() - 60_000)
+
+        await ingestEvents(
+            request,
+            cohorts.flatMap((cohort) => cohort.events),
+        )
+
+        for (const cohort of cohorts) {
+            const diagnostic = await queryLcpDiagnostic(
+                request,
+                cohort.timestamp - 1,
+                cohort.timestamp + 1,
+            )
+
+            expect(diagnostic.sampleCount).toBe(
+                cohort.scenario.sampleCount,
+            )
+            expect(diagnostic.evidenceSampleCount).toBe(
+                cohort.scenario.sampleCount,
+            )
+            expect(diagnostic.findings).toEqual([
+                expect.objectContaining({
+                    ruleId: cohort.scenario.ruleId,
+                    phase: cohort.scenario.phase,
+                    ruleVersion: '1',
+                }),
+            ])
+        }
+
+        await page.goto(CONSOLE_BASE_URL)
+
+        const recommendationButton = page.locator(
+            'summary[aria-label="Show optimization recommendation for LCP"]',
+        )
+
+        await expect(recommendationButton).toBeVisible()
+        await recommendationButton.click()
+        await expect(page.getByRole('note')).toContainText(
+            'The LCP element renders too late after its resource is ready.',
+        )
     },
 )

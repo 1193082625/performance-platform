@@ -97,6 +97,14 @@ corepack pnpm build
 corepack pnpm test:e2e
 ```
 
+如需写入包含四类 LCP 瓶颈的确定性演示数据：
+
+```bash
+corepack pnpm --filter @performance-platform/server seed:demo
+```
+
+脚本会写入 TTFB、资源发现、资源加载和元素渲染四类诊断样本；组合数据会稳定地将元素渲染延迟作为首要建议。
+
 ## 主要接口
 
 | 接口 | 用途 |
