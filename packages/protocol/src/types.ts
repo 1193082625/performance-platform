@@ -406,19 +406,36 @@ export interface LcpDiagnosticResponse {
     }
 }
 
-export interface LcpDiagnosticFinding {
-    ruleId: 'lcp.late-resource-discovery'
-    ruleVersion: '1'
-    phase: 'resourceLoadDelay'
-    evidence: {
-        overallP75: number
-        phaseAverage: number
-        contribution: number
-        targetShare: number
-        sampleCount: number
-        evidenceSampleCount: number
-    }
+interface LcpDiagnosticFindingEvidence {
+    overallP75: number
+    phaseAverage: number
+    contribution: number
+    targetShare: number
+    sampleCount: number
+    evidenceSampleCount: number
 }
+
+export type LcpDiagnosticFinding = {
+    ruleVersion: '1'
+    evidence: LcpDiagnosticFindingEvidence
+} & (
+    | {
+          ruleId: 'lcp.slow-server-response'
+          phase: 'timeToFirstByte'
+      }
+    | {
+          ruleId: 'lcp.late-resource-discovery'
+          phase: 'resourceLoadDelay'
+      }
+    | {
+          ruleId: 'lcp.slow-resource-load'
+          phase: 'resourceLoadDuration'
+      }
+    | {
+          ruleId: 'lcp.slow-element-render'
+          phase: 'elementRenderDelay'
+      }
+)
 
 export interface LcpDiagnosticAnalysisResponse
     extends LcpDiagnosticResponse {

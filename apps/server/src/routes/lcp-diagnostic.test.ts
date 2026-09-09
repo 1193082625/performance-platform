@@ -44,11 +44,11 @@ const RESPONSE: LcpDiagnosticResponse = {
             p75: 700,
         },
         resourceLoadDuration: {
-            average: 1_100,
+            average: 1_200,
             p75: 1_200,
         },
         elementRenderDelay: {
-            average: 400,
+            average: 300,
             p75: 500,
         },
     },

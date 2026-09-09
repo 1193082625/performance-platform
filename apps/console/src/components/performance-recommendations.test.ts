@@ -84,6 +84,93 @@ describe("createPerformanceRecommendations", () => {
     ]);
   });
 
+  it("prioritizes the finding that most exceeds its target share", () => {
+    const evidence = {
+      overallP75: 3_200,
+      phaseAverage: 900,
+      contribution: 0.3,
+      targetShare: 0.1,
+      sampleCount: 100,
+      evidenceSampleCount: 80,
+    };
+
+    const [recommendation] = createPerformanceRecommendations({
+      lcp: stats(3_200),
+      lcpFindings: [
+        {
+          ruleId: "lcp.slow-server-response",
+          ruleVersion: "1",
+          phase: "timeToFirstByte",
+          evidence: {
+            ...evidence,
+            contribution: 0.5,
+            targetShare: 0.4,
+          },
+        },
+        {
+          ruleId: "lcp.slow-element-render",
+          ruleVersion: "1",
+          phase: "elementRenderDelay",
+          evidence,
+        },
+      ],
+    });
+
+    expect(recommendation?.messageKey).toBe(
+      "recommendations.lcpSlowElementRender",
+    );
+    expect(recommendation?.messageParams).toMatchObject({
+      contribution: 30,
+      target: 10,
+    });
+  });
+
+  it.each([
+    {
+      finding: {
+        ruleId: "lcp.slow-server-response",
+        ruleVersion: "1",
+        phase: "timeToFirstByte",
+      } as const,
+      messageKey: "recommendations.lcpSlowServerResponse",
+    },
+    {
+      finding: {
+        ruleId: "lcp.slow-resource-load",
+        ruleVersion: "1",
+        phase: "resourceLoadDuration",
+      } as const,
+      messageKey: "recommendations.lcpSlowResourceLoad",
+    },
+    {
+      finding: {
+        ruleId: "lcp.slow-element-render",
+        ruleVersion: "1",
+        phase: "elementRenderDelay",
+      } as const,
+      messageKey: "recommendations.lcpSlowElementRender",
+    },
+  ])("maps $finding.ruleId to precise advice", ({ finding, messageKey }) => {
+    const [recommendation] = createPerformanceRecommendations({
+      lcp: stats(3_200),
+      lcpFindings: [
+        {
+          ...finding,
+          evidence: {
+            overallP75: 3_200,
+            phaseAverage: 1_500,
+            contribution: 0.5,
+            targetShare: 0.4,
+            sampleCount: 100,
+            evidenceSampleCount: 80,
+          },
+        },
+      ],
+    });
+
+    expect(recommendation?.messageKey).toBe(messageKey);
+  });
+
   it("returns no advice for good, empty, or insufficient data", () => {
     expect(
       createPerformanceRecommendations({

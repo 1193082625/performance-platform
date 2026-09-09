@@ -6,6 +6,37 @@ import type {
 const MIN_EVIDENCE_SAMPLE_COUNT = 10
 const MIN_EVIDENCE_COVERAGE = 0.5
 
+const PHASE_RULES = [
+    {
+        finding: {
+            ruleId: 'lcp.slow-server-response',
+            phase: 'timeToFirstByte',
+        },
+        targetShare: 0.4,
+    },
+    {
+        finding: {
+            ruleId: 'lcp.late-resource-discovery',
+            phase: 'resourceLoadDelay',
+        },
+        targetShare: 0.1,
+    },
+    {
+        finding: {
+            ruleId: 'lcp.slow-resource-load',
+            phase: 'resourceLoadDuration',
+        },
+        targetShare: 0.4,
+    },
+    {
+        finding: {
+            ruleId: 'lcp.slow-element-render',
+            phase: 'elementRenderDelay',
+        },
+        targetShare: 0.1,
+    },
+] as const
+
 export function evaluateLcpDiagnosticRules(
     diagnostic: LcpDiagnosticResponse,
 ): LcpDiagnosticFinding[] {
@@ -54,26 +85,29 @@ export function evaluateLcpDiagnosticRules(
         return []
     }
 
-    const contribution = resourceLoadDelay.average / totalAverage
-    const targetShare = 0.1
+    return PHASE_RULES.flatMap((rule): LcpDiagnosticFinding[] => {
+        const phaseAverage = diagnostic.phases[rule.finding.phase].average
 
-    if (contribution <= targetShare) {
-        return []
-    }
+        if (phaseAverage === null) {
+            return []
+        }
 
-    return [
-        {
-            ruleId: 'lcp.late-resource-discovery',
+        const contribution = phaseAverage / totalAverage
+        if (contribution <= rule.targetShare) {
+            return []
+        }
+
+        return [{
+            ...rule.finding,
             ruleVersion: '1',
-            phase: 'resourceLoadDelay',
             evidence: {
                 overallP75,
-                phaseAverage: resourceLoadDelay.average,
+                phaseAverage,
                 contribution,
-                targetShare,
+                targetShare: rule.targetShare,
                 sampleCount: diagnostic.sampleCount,
                 evidenceSampleCount: diagnostic.evidenceSampleCount,
             },
-        },
-    ]
+        }]
+    })
 }

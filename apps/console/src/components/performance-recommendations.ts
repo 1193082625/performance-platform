@@ -56,25 +56,35 @@ export function createPerformanceRecommendations(
 
   add("FP", input.fp, (value) => ratePaintMetric("web.paint.fp", value), "recommendations.fp");
   add("FCP", input.fcp, (value) => ratePaintMetric("web.paint.fcp", value), "recommendations.fcp");
-  const lateDiscovery = input.lcpFindings?.find(
-    (finding) => finding.ruleId === "lcp.late-resource-discovery",
-  );
+  const primaryLcpFinding = input.lcpFindings
+    ?.slice()
+    .sort(
+      (left, right) =>
+        right.evidence.contribution / right.evidence.targetShare -
+        left.evidence.contribution / left.evidence.targetShare,
+    )[0];
+  const lcpMessageKeys = {
+    "lcp.slow-server-response": "recommendations.lcpSlowServerResponse",
+    "lcp.late-resource-discovery": "recommendations.lcpLateResourceDiscovery",
+    "lcp.slow-resource-load": "recommendations.lcpSlowResourceLoad",
+    "lcp.slow-element-render": "recommendations.lcpSlowElementRender",
+  } as const;
   add(
     "LCP",
     input.lcp,
     (value) => rateWebVital("web.vital.lcp", value),
-    lateDiscovery === undefined
+    primaryLcpFinding === undefined
       ? "recommendations.lcp"
-      : "recommendations.lcpLateResourceDiscovery",
+      : lcpMessageKeys[primaryLcpFinding.ruleId],
   );
-  if (lateDiscovery !== undefined) {
+  if (primaryLcpFinding !== undefined) {
     const recommendation = recommendations.find((item) => item.metric === "LCP");
     if (recommendation !== undefined) {
       recommendation.messageParams = {
-        contribution: Math.round(lateDiscovery.evidence.contribution * 100),
-        target: Math.round(lateDiscovery.evidence.targetShare * 100),
-        evidenceSamples: lateDiscovery.evidence.evidenceSampleCount,
-        samples: lateDiscovery.evidence.sampleCount,
+        contribution: Math.round(primaryLcpFinding.evidence.contribution * 100),
+        target: Math.round(primaryLcpFinding.evidence.targetShare * 100),
+        evidenceSamples: primaryLcpFinding.evidence.evidenceSampleCount,
+        samples: primaryLcpFinding.evidence.sampleCount,
       };
     }
   }

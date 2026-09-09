@@ -28,11 +28,11 @@ const DIAGNOSTIC: LcpDiagnosticResponse = {
             p75: 700,
         },
         resourceLoadDuration: {
-            average: 1_100,
+            average: 1_200,
             p75: 1_200,
         },
         elementRenderDelay: {
-            average: 400,
+            average: 300,
             p75: 500,
         },
     },
@@ -54,6 +54,52 @@ describe('evaluateLcpDiagnosticRules', () => {
                     evidenceSampleCount: 80,
                 },
             },
+        ])
+    })
+
+    it.each([
+        {
+            ruleId: 'lcp.slow-server-response',
+            phase: 'timeToFirstByte',
+            phases: {
+                timeToFirstByte: { average: 1_500, p75: 1_600 },
+                resourceLoadDelay: { average: 300, p75: 350 },
+                resourceLoadDuration: { average: 900, p75: 1_000 },
+                elementRenderDelay: { average: 300, p75: 350 },
+            },
+        },
+        {
+            ruleId: 'lcp.slow-resource-load',
+            phase: 'resourceLoadDuration',
+            phases: {
+                timeToFirstByte: { average: 900, p75: 1_000 },
+                resourceLoadDelay: { average: 300, p75: 350 },
+                resourceLoadDuration: { average: 1_500, p75: 1_600 },
+                elementRenderDelay: { average: 300, p75: 350 },
+            },
+        },
+        {
+            ruleId: 'lcp.slow-element-render',
+            phase: 'elementRenderDelay',
+            phases: {
+                timeToFirstByte: { average: 900, p75: 1_000 },
+                resourceLoadDelay: { average: 300, p75: 350 },
+                resourceLoadDuration: { average: 900, p75: 1_000 },
+                elementRenderDelay: { average: 900, p75: 950 },
+            },
+        },
+    ] as const)('reports $ruleId', ({ ruleId, phase, phases }) => {
+        expect(
+            evaluateLcpDiagnosticRules({
+                ...DIAGNOSTIC,
+                phases,
+            }),
+        ).toEqual([
+            expect.objectContaining({
+                ruleId,
+                ruleVersion: '1',
+                phase,
+            }),
         ])
     })
 
@@ -143,7 +189,7 @@ describe('evaluateLcpDiagnosticRules', () => {
                 ...DIAGNOSTIC,
                 phases: {
                     timeToFirstByte: {
-                        average: 900,
+                        average: 1_200,
                         p75: 1_000,
                     },
                     resourceLoadDelay: {
@@ -151,11 +197,11 @@ describe('evaluateLcpDiagnosticRules', () => {
                         p75: 400,
                     },
                     resourceLoadDuration: {
-                        average: 1_100,
+                        average: 1_200,
                         p75: 1_200,
                     },
                     elementRenderDelay: {
-                        average: 700,
+                        average: 300,
                         p75: 800,
                     },
                 },

@@ -125,4 +125,40 @@ describe('LcpDiagnosticResponse', () => {
         expect(finding.ruleVersion).toBe('1')
         expect(finding.evidence.contribution).toBe(0.2)
     })
+
+    it.each([
+        {
+            identity: {
+                ruleId: 'lcp.slow-server-response',
+                phase: 'timeToFirstByte',
+            },
+        },
+        {
+            identity: {
+                ruleId: 'lcp.slow-resource-load',
+                phase: 'resourceLoadDuration',
+            },
+        },
+        {
+            identity: {
+                ruleId: 'lcp.slow-element-render',
+                phase: 'elementRenderDelay',
+            },
+        },
+    ] as const)('supports $identity.ruleId', ({ identity }) => {
+        const finding: LcpDiagnosticFinding = {
+            ...identity,
+            ruleVersion: '1',
+            evidence: {
+                overallP75: 3_200,
+                phaseAverage: 1_500,
+                contribution: 0.5,
+                targetShare: 0.4,
+                sampleCount: 100,
+                evidenceSampleCount: 80,
+            },
+        }
+
+        expect(finding.phase).toBe(identity.phase)
+    })
 })
