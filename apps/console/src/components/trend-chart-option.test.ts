@@ -117,6 +117,31 @@ describe("buildTrendChartOption", () => {
     ]);
   });
 
+  it("shows a marker when a series has only one value", () => {
+    const option = buildTrendChartOption([
+      {
+        key: "lcp",
+        label: "LCP",
+        unit: "ms",
+        color: "#ae66fa",
+        points: [
+          {
+            time: "2026-09-09T01:00:00.000Z",
+            value: 727,
+          },
+        ],
+      },
+    ]);
+
+    expect(option.series).toEqual([
+      expect.objectContaining({
+        data: [727],
+        showSymbol: true,
+        symbolSize: 7,
+      }),
+    ]);
+  });
+
   it("returns an empty chart configuration for empty series", () => {
     const option = buildTrendChartOption([]);
 

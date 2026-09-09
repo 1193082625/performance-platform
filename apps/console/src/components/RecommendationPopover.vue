@@ -27,7 +27,7 @@
         <strong>{{ recommendation.metric }}</strong>
         <span>{{ t(`status.${recommendation.status}`) }}</span>
       </header>
-      <p>{{ t(recommendation.messageKey) }}</p>
+      <p>{{ t(recommendation.messageKey, recommendation.messageParams ?? {}) }}</p>
     </div>
   </details>
 </template>

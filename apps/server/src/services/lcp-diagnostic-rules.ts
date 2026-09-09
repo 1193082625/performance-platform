@@ -1,17 +1,7 @@
-import type { LcpDiagnosticResponse } from '@performance-platform/protocol'
-
-export interface LcpDiagnosticFinding {
-    ruleId: 'lcp.late-resource-discovery'
-    phase: 'resourceLoadDelay'
-    evidence: {
-        overallP75: number
-        phaseAverage: number
-        contribution: number
-        targetShare: number
-        sampleCount: number
-        evidenceSampleCount: number
-    }
-}
+import type {
+    LcpDiagnosticFinding,
+    LcpDiagnosticResponse,
+} from '@performance-platform/protocol'
 
 const MIN_EVIDENCE_SAMPLE_COUNT = 10
 const MIN_EVIDENCE_COVERAGE = 0.5
@@ -74,6 +64,7 @@ export function evaluateLcpDiagnosticRules(
     return [
         {
             ruleId: 'lcp.late-resource-discovery',
+            ruleVersion: '1',
             phase: 'resourceLoadDelay',
             evidence: {
                 overallP75,

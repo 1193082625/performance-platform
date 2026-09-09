@@ -1,5 +1,6 @@
-import type { LcpDiagnosticResponse } from '@performance-platform/protocol'
+import type { LcpDiagnosticAnalysisResponse } from '@performance-platform/protocol'
 import type { LcpDiagnosticRepository } from '../repositories/event-repository.js'
+import { evaluateLcpDiagnosticRules } from './lcp-diagnostic-rules.js'
 
 const DEFAULT_RANGE_MS = 24 * 60 * 60 * 1000
 const MAX_RANGE_MS = 30 * 24 * 60 * 60 * 1_000
@@ -12,8 +13,8 @@ interface LcpDiagnosticServiceOptions {
 
 type LcpDiagnosticQueryResult =
     | {
-          ok: true
-          value: LcpDiagnosticResponse
+      ok: true
+          value: LcpDiagnosticAnalysisResponse
       }
     | {
           ok: false
@@ -100,14 +101,17 @@ export function createLcpDiagnosticService(
             }
 
             try {
-                const value = await options.repository.queryLcpDiagnostics({
+                const diagnostic = await options.repository.queryLcpDiagnostics({
                     appId: options.appId,
                     from,
                     to,
                 })
                 return {
                     ok: true,
-                    value,
+                    value: {
+                        ...diagnostic,
+                        findings: evaluateLcpDiagnosticRules(diagnostic),
+                    },
                 }
             } catch (cause) {
                 return {

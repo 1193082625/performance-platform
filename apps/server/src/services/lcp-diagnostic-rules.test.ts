@@ -43,6 +43,7 @@ describe('evaluateLcpDiagnosticRules', () => {
         expect(evaluateLcpDiagnosticRules(DIAGNOSTIC)).toEqual([
             {
                 ruleId: 'lcp.late-resource-discovery',
+                ruleVersion: '1',
                 phase: 'resourceLoadDelay',
                 evidence: {
                     overallP75: 3_200,

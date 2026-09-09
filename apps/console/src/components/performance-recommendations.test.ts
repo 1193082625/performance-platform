@@ -49,6 +49,41 @@ describe("createPerformanceRecommendations", () => {
     ]);
   });
 
+  it("uses evidence-backed advice for late LCP resource discovery", () => {
+    expect(
+      createPerformanceRecommendations({
+        lcp: stats(3_200),
+        lcpFindings: [
+          {
+            ruleId: "lcp.late-resource-discovery",
+            ruleVersion: "1",
+            phase: "resourceLoadDelay",
+            evidence: {
+              overallP75: 3_200,
+              phaseAverage: 600,
+              contribution: 0.2,
+              targetShare: 0.1,
+              sampleCount: 100,
+              evidenceSampleCount: 80,
+            },
+          },
+        ],
+      }),
+    ).toEqual([
+      {
+        metric: "LCP",
+        status: "NEEDS_IMPROVEMENT",
+        messageKey: "recommendations.lcpLateResourceDiscovery",
+        messageParams: {
+          contribution: 20,
+          target: 10,
+          evidenceSamples: 80,
+          samples: 100,
+        },
+      },
+    ]);
+  });
+
   it("returns no advice for good, empty, or insufficient data", () => {
     expect(
       createPerformanceRecommendations({

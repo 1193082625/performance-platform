@@ -1,6 +1,9 @@
 import { describe, expect, it, vi } from 'vitest'
 
-import type { LcpDiagnosticResponse } from '@performance-platform/protocol'
+import type {
+    LcpDiagnosticAnalysisResponse,
+    LcpDiagnosticResponse,
+} from '@performance-platform/protocol'
 
 import { createLcpDiagnosticService } from './lcp-diagnostic-service.js'
 
@@ -18,30 +21,49 @@ const RESPONSE: LcpDiagnosticResponse = {
         from: FROM,
         to: TO,
     },
-    sampleCount: 10,
-    evidenceSampleCount: 8,
+    sampleCount: 100,
+    evidenceSampleCount: 80,
     overall: {
-        average: 2_000,
-        p75: 2_400,
+        average: 3_000,
+        p75: 3_200,
     },
     phases: {
         timeToFirstByte: {
-            average: 700,
-            p75: 850,
+            average: 900,
+            p75: 1_000,
         },
         resourceLoadDelay: {
-            average: 200,
-            p75: 300,
+            average: 600,
+            p75: 700,
         },
         resourceLoadDuration: {
-            average: 600,
-            p75: 750,
+            average: 1_100,
+            p75: 1_200,
         },
         elementRenderDelay: {
-            average: 300,
-            p75: 400,
+            average: 400,
+            p75: 500,
         },
     },
+}
+
+const ANALYSIS_RESPONSE: LcpDiagnosticAnalysisResponse = {
+    ...RESPONSE,
+    findings: [
+        {
+            ruleId: 'lcp.late-resource-discovery',
+            ruleVersion: '1',
+            phase: 'resourceLoadDelay',
+            evidence: {
+                overallP75: 3_200,
+                phaseAverage: 600,
+                contribution: 0.2,
+                targetShare: 0.1,
+                sampleCount: 100,
+                evidenceSampleCount: 80,
+            },
+        },
+    ],
 }
 
 function setup() {
@@ -72,7 +94,7 @@ describe('LcpDiagnosticService', () => {
             }),
         ).resolves.toEqual({
             ok: true,
-            value: RESPONSE,
+            value: ANALYSIS_RESPONSE,
         })
 
         expect(repository.queryLcpDiagnostics).toHaveBeenCalledWith({

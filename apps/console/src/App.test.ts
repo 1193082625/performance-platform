@@ -208,11 +208,11 @@ describe('App', () => {
         await sevenDayButton!.trigger('click')
         await flushPromises()
     
-        expect(fetchMock).toHaveBeenCalledTimes(16)
+        expect(fetchMock).toHaveBeenCalledTimes(18)
     
         const requestUrl = new URL(
             String(
-                fetchMock.mock.calls[8]?.[0],
+                fetchMock.mock.calls[9]?.[0],
             ),
         )
     
@@ -419,7 +419,7 @@ describe('App', () => {
 
         await flushPromises()
 
-        expect(fetchMock).toHaveBeenCalledTimes(8)
+        expect(fetchMock).toHaveBeenCalledTimes(9)
 
         for (const expected of [
             {
@@ -484,7 +484,7 @@ describe('App', () => {
             );
           }
           
-        expect(fetchMock).toHaveBeenCalledTimes(8)
+        expect(fetchMock).toHaveBeenCalledTimes(9)
     })
     it('shows the dashboard title, selected window, and total samples', async () => {
         const fetchMock = vi.fn()
@@ -602,11 +602,11 @@ describe('App', () => {
         const wrapper = mount(App)
         await flushPromises()
 
-        expect(fetchMock).toHaveBeenCalledTimes(8)
+        expect(fetchMock).toHaveBeenCalledTimes(9)
 
         await vi.advanceTimersByTimeAsync(30_000)
         await flushPromises()
-        expect(fetchMock).toHaveBeenCalledTimes(16)
+        expect(fetchMock).toHaveBeenCalledTimes(18)
 
         const liveButton = wrapper.get('.live-badge')
         await liveButton.trigger('click')
@@ -614,12 +614,12 @@ describe('App', () => {
 
         await vi.advanceTimersByTimeAsync(60_000)
         await flushPromises()
-        expect(fetchMock).toHaveBeenCalledTimes(16)
+        expect(fetchMock).toHaveBeenCalledTimes(18)
 
         await liveButton.trigger('click')
         await flushPromises()
         expect(liveButton.text()).toContain('LIVE')
-        expect(fetchMock).toHaveBeenCalledTimes(24)
+        expect(fetchMock).toHaveBeenCalledTimes(27)
 
         wrapper.unmount()
     })
@@ -700,6 +700,95 @@ describe('App', () => {
         expect(url.searchParams.get('type')).toBe(
             'web.vital.lcp',
         )
+    })
+
+    it('passes evidence-backed LCP advice to the metric card', async () => {
+        const lcpResponse = {
+            metric: {
+                type: 'web.vital.lcp',
+                unit: 'ms',
+                metricVersion: 'lcp-v1',
+            },
+            range: METRICS_RESPONSE.range,
+            summary: {
+                count: 100,
+                average: 3_000,
+                p50: 2_900,
+                p75: 3_200,
+                p90: 3_600,
+            },
+            series: [],
+        }
+        const diagnosticResponse = {
+            metric: lcpResponse.metric,
+            range: {
+                from: METRICS_RESPONSE.range.from,
+                to: METRICS_RESPONSE.range.to,
+            },
+            sampleCount: 100,
+            evidenceSampleCount: 80,
+            overall: { average: 3_000, p75: 3_200 },
+            phases: {
+                timeToFirstByte: { average: 900, p75: 1_000 },
+                resourceLoadDelay: { average: 600, p75: 700 },
+                resourceLoadDuration: { average: 1_100, p75: 1_200 },
+                elementRenderDelay: { average: 400, p75: 500 },
+            },
+            findings: [
+                {
+                    ruleId: 'lcp.late-resource-discovery',
+                    ruleVersion: '1',
+                    phase: 'resourceLoadDelay',
+                    evidence: {
+                        overallP75: 3_200,
+                        phaseAverage: 600,
+                        contribution: 0.2,
+                        targetShare: 0.1,
+                        sampleCount: 100,
+                        evidenceSampleCount: 80,
+                    },
+                },
+            ],
+        }
+        const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+            const url = new URL(String(input))
+
+            return {
+                ok: true,
+                json: async () => {
+                    if (url.pathname === '/api/v2/diagnostics/lcp') {
+                        return diagnosticResponse
+                    }
+                    if (
+                        url.pathname === '/api/v2/metrics' &&
+                        url.searchParams.get('type') === 'web.vital.lcp'
+                    ) {
+                        return lcpResponse
+                    }
+                    return METRICS_RESPONSE
+                },
+            }
+        })
+
+        vi.stubGlobal('fetch', fetchMock)
+        const wrapper = mount(App)
+        await flushPromises()
+
+        const lcpCard = wrapper
+            .findAllComponents(MetricSummaryCard)
+            .find((card) => card.props('metric').name === 'LCP')
+
+        expect(lcpCard?.props('recommendation')).toEqual({
+            metric: 'LCP',
+            status: 'NEEDS_IMPROVEMENT',
+            messageKey: 'recommendations.lcpLateResourceDiscovery',
+            messageParams: {
+                contribution: 20,
+                target: 10,
+                evidenceSamples: 80,
+                samples: 100,
+            },
+        })
     })
 
     it('loads and shows the CLS summary', async () => {

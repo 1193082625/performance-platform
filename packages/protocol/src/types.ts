@@ -406,6 +406,25 @@ export interface LcpDiagnosticResponse {
     }
 }
 
+export interface LcpDiagnosticFinding {
+    ruleId: 'lcp.late-resource-discovery'
+    ruleVersion: '1'
+    phase: 'resourceLoadDelay'
+    evidence: {
+        overallP75: number
+        phaseAverage: number
+        contribution: number
+        targetShare: number
+        sampleCount: number
+        evidenceSampleCount: number
+    }
+}
+
+export interface LcpDiagnosticAnalysisResponse
+    extends LcpDiagnosticResponse {
+    findings: LcpDiagnosticFinding[]
+}
+
 export type MemoryHealthStatus =
     'INSUFFICIENT_DATA' | 'NORMAL' | 'WARNING' | 'CRITICAL'
 

@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest'
 
-import type { LcpDiagnosticResponse } from './types'
+import type {
+    LcpDiagnosticAnalysisResponse,
+    LcpDiagnosticFinding,
+    LcpDiagnosticResponse,
+} from './types'
 
 describe('LcpDiagnosticResponse', () => {
     it('describes aggregated LCP phase evidence', () => {
@@ -38,11 +42,28 @@ describe('LcpDiagnosticResponse', () => {
                     p75: 420,
                 },
             },
-        } satisfies LcpDiagnosticResponse
+            findings: [
+                {
+                    ruleId: 'lcp.late-resource-discovery',
+                    ruleVersion: '1',
+                    phase: 'resourceLoadDelay',
+                    evidence: {
+                        overallP75: 2_900,
+                        phaseAverage: 280,
+                        contribution: 0.14,
+                        targetShare: 0.1,
+                        sampleCount: 120,
+                        evidenceSampleCount: 100,
+                    },
+                },
+            ],
+        } satisfies LcpDiagnosticAnalysisResponse
 
         expect(response.sampleCount).toBe(120)
         expect(response.evidenceSampleCount).toBe(100)
         expect(response.phases.timeToFirstByte.p75).toBe(850)
+        expect(response.findings).toHaveLength(1)
+        expect(response.findings[0]?.ruleVersion).toBe('1')
     })
 
     it('represents an empty diagnostic result', () => {
@@ -83,5 +104,25 @@ describe('LcpDiagnosticResponse', () => {
         } satisfies LcpDiagnosticResponse
 
         expect(emptyResponse.phases.resourceLoadDuration.p75).toBeNull()
+    })
+
+    it('describes a versioned LCP diagnostic finding', () => {
+        const finding = {
+            ruleId: 'lcp.late-resource-discovery',
+            ruleVersion: '1',
+            phase: 'resourceLoadDelay',
+            evidence: {
+                overallP75: 3_200,
+                phaseAverage: 600,
+                contribution: 0.2,
+                targetShare: 0.1,
+                sampleCount: 100,
+                evidenceSampleCount: 80,
+            },
+        } satisfies LcpDiagnosticFinding
+
+        expect(finding.ruleId).toBe('lcp.late-resource-discovery')
+        expect(finding.ruleVersion).toBe('1')
+        expect(finding.evidence.contribution).toBe(0.2)
     })
 })

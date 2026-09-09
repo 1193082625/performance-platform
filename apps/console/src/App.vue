@@ -102,6 +102,7 @@
                     selected: p75Mode === mode,
                     memory: mode === 'MEMORY',
                   }"
+                  :aria-pressed="p75Mode === mode"
                   @click="p75Mode = mode"
                 >
                   {{ mode }}
@@ -194,14 +195,21 @@ import {
 } from "vue";
 import { createPaintMetricsApi } from "./api/metrics.js";
 import { createMetricQueryApi } from "./api/metric-query.js";
+import { createLcpDiagnosticApi } from "./api/lcp-diagnostic.js";
 
 import { usePaintMetrics } from "./composables/use-paint-metrics.js";
 import { useMetricQuery } from "./composables/use-metric-query.js";
 import MetricsRangeSelector from "./components/MetricsRangeSelector.vue";
-import type { MetricsRange } from "./composables/metrics-range.js";
+import {
+  resolveMetricsRange,
+  type MetricsRange,
+} from "./composables/metrics-range.js";
 import MetricSummaryCard from "./components/MetricSummaryCard.vue";
 import { createMemoryHealthApi } from "./api/memory-health.js";
-import type { MemoryHealthAssessment } from "@performance-platform/protocol";
+import type {
+  LcpDiagnosticAnalysisResponse,
+  MemoryHealthAssessment,
+} from "@performance-platform/protocol";
 import {
   PAINT_METRIC_THRESHOLDS,
   WEB_VITAL_THRESHOLDS,
@@ -260,6 +268,30 @@ const metricQueryApi = createMetricQueryApi({
   baseUrl: window.location.origin,
   fetch: window.fetch.bind(window),
 });
+const lcpDiagnosticApi = createLcpDiagnosticApi({
+  baseUrl: window.location.origin,
+  fetch: window.fetch.bind(window),
+});
+const lcpDiagnostic = ref<LcpDiagnosticAnalysisResponse | null>(null);
+let latestLcpDiagnosticRequestId = 0;
+
+async function loadLcpDiagnosticRange(
+  range: MetricsRange = "24h",
+): Promise<void> {
+  const requestId = ++latestLcpDiagnosticRequestId;
+  const { from, to } = resolveMetricsRange(range, Date.now());
+
+  try {
+    const response = await lcpDiagnosticApi.query({ from, to });
+    if (requestId === latestLcpDiagnosticRequestId) {
+      lcpDiagnostic.value = response;
+    }
+  } catch {
+    if (requestId === latestLcpDiagnosticRequestId) {
+      lcpDiagnostic.value = null;
+    }
+  }
+}
 const memoryHealthApi = createMemoryHealthApi({
   baseUrl: window.location.origin,
   fetch: window.fetch.bind(window),
@@ -521,6 +553,7 @@ const recommendations = computed(() =>
     cls: clsData.value?.summary,
     inp: inpData.value?.summary,
     memoryHealth: memoryHealth.value,
+    lcpFindings: lcpDiagnostic.value?.findings,
   }),
 );
 
@@ -833,6 +866,7 @@ async function refreshDashboard(
     loadTotalHeapRange(range),
     loadHeapLimitRange(range),
     loadMemoryHealth(),
+    loadLcpDiagnosticRange(range),
   ]);
 }
 

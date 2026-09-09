@@ -172,7 +172,10 @@ test(
             await button.click()
             await expect(button).toHaveAttribute('aria-pressed', 'true')
             await expect(
-                page.getByTestId('metric-trend-chart'),
+                page.getByRole('img', {
+                    name: `${metric} P75 performance trend`,
+                    exact: true,
+                }),
             ).toBeVisible()
         }
 

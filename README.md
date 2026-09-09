@@ -28,6 +28,7 @@ Console 指标卡片、等级、趋势图和内存状态
 - V2 通用指标协议、批量校验和幂等事件写入
 - PostgreSQL 汇总、P50/P75/P90 和时间序列查询
 - Web Vitals 标准等级与通用趋势切换
+- 基于 LCP 四阶段证据的版本化诊断规则和精准优化建议
 - 内存利用率、持续增长和样本充足度健康评估
 - Docker Compose 一键部署及 Playwright 完整链路测试
 
@@ -103,6 +104,7 @@ corepack pnpm test:e2e
 | `POST /api/v2/events/batch` | 接收 V2 指标事件批次 |
 | `GET /api/v1/metrics/paint` | 查询兼容的 FP/FCP 聚合结果 |
 | `GET /api/v2/metrics?type=...` | 查询单个通用指标的摘要和趋势 |
+| `GET /api/v2/diagnostics/lcp` | 查询 LCP 四阶段证据和版本化诊断结论 |
 | `GET /api/v2/memory-health` | 查询服务端计算的内存健康状态 |
 | `GET /health` | 服务健康检查 |
 

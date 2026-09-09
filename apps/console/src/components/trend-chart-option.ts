@@ -164,6 +164,9 @@ export function buildTrendChartOption(
             const valuesByTime = new Map(
                 item.points.map((point) => [point.time, point.value])
             );
+            const valueCount = item.points.filter(
+                (point) => point.value !== null,
+            ).length;
 
             return {
                 id: item.key,
@@ -172,8 +175,8 @@ export function buildTrendChartOption(
                 data: times.map((time) => valuesByTime.get(time) ?? null),
                 connectNulls: false,
                 symbol: 'circle',
-                showSymbol: false,
-                symbolSize: 4,
+                showSymbol: valueCount === 1,
+                symbolSize: valueCount === 1 ? 7 : 4,
 
                 lineStyle: {
                     width: 1.6,

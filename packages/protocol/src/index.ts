@@ -39,7 +39,9 @@ export type {
     MemoryHealthSnapshot,
     MemoryHealthStatus,
     DiagnosticStats,
+    LcpDiagnosticAnalysisResponse,
     LcpDiagnosticResponse,
+    LcpDiagnosticFinding,
 } from './types.js'
 
 export {

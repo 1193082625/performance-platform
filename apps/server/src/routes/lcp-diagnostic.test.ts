@@ -2,7 +2,10 @@ import Fastify from 'fastify'
 
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
-import type { LcpDiagnosticResponse } from '@performance-platform/protocol'
+import type {
+    LcpDiagnosticAnalysisResponse,
+    LcpDiagnosticResponse,
+} from '@performance-platform/protocol'
 
 import type { LcpDiagnosticService } from '../services/lcp-diagnostic-service.js'
 
@@ -25,30 +28,49 @@ const RESPONSE: LcpDiagnosticResponse = {
         from: '2026-09-01T00:00:00.000Z',
         to: '2026-09-02T00:00:00.000Z',
     },
-    sampleCount: 10,
-    evidenceSampleCount: 8,
+    sampleCount: 100,
+    evidenceSampleCount: 80,
     overall: {
-        average: 2_000,
-        p75: 2_400,
+        average: 3_000,
+        p75: 3_200,
     },
     phases: {
         timeToFirstByte: {
-            average: 700,
-            p75: 850,
+            average: 900,
+            p75: 1_000,
         },
         resourceLoadDelay: {
-            average: 200,
-            p75: 300,
+            average: 600,
+            p75: 700,
         },
         resourceLoadDuration: {
-            average: 600,
-            p75: 750,
+            average: 1_100,
+            p75: 1_200,
         },
         elementRenderDelay: {
-            average: 300,
-            p75: 400,
+            average: 400,
+            p75: 500,
         },
     },
+}
+
+const ANALYSIS_RESPONSE: LcpDiagnosticAnalysisResponse = {
+    ...RESPONSE,
+    findings: [
+        {
+            ruleId: 'lcp.late-resource-discovery',
+            ruleVersion: '1',
+            phase: 'resourceLoadDelay',
+            evidence: {
+                overallP75: 3_200,
+                phaseAverage: 600,
+                contribution: 0.2,
+                targetShare: 0.1,
+                sampleCount: 100,
+                evidenceSampleCount: 80,
+            },
+        },
+    ],
 }
 
 describe('GET /api/v2/diagnostics/lcp', () => {
@@ -64,7 +86,7 @@ describe('GET /api/v2/diagnostics/lcp', () => {
     async function createTestApp() {
         const query = vi.fn<LcpDiagnosticService['query']>().mockResolvedValue({
             ok: true,
-            value: RESPONSE,
+            value: ANALYSIS_RESPONSE,
         })
 
         const app = Fastify()
@@ -95,7 +117,7 @@ describe('GET /api/v2/diagnostics/lcp', () => {
         })
 
         expect(response.statusCode).toBe(200)
-        expect(response.json()).toEqual(RESPONSE)
+        expect(response.json()).toEqual(ANALYSIS_RESPONSE)
 
         expect(query).toHaveBeenCalledWith({
             from: '2026-09-01T00:00:00.000Z',
@@ -207,7 +229,7 @@ describe('GET /api/v2/diagnostics/lcp', () => {
         })
 
         expect(response.statusCode).toBe(200)
-        expect(response.json()).toEqual(RESPONSE)
+        expect(response.json()).toEqual(ANALYSIS_RESPONSE)
 
         expect(queryLcpDiagnostics).toHaveBeenCalledWith({
             appId: 'demo-web',

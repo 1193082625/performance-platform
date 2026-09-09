@@ -1,6 +1,7 @@
 import {
   ratePaintMetric,
   rateWebVital,
+  type LcpDiagnosticFinding,
   type MemoryHealthAssessment,
   type MetricRating,
   type MetricStats,
@@ -17,6 +18,7 @@ export interface PerformanceRecommendation {
   metric: "FP" | "FCP" | "LCP" | "CLS" | "INP" | "MEMORY";
   status: RecommendationStatus;
   messageKey: string;
+  messageParams?: Record<string, number | string>;
 }
 
 interface RecommendationInput {
@@ -26,6 +28,7 @@ interface RecommendationInput {
   cls?: MetricStats;
   inp?: MetricStats;
   memoryHealth?: MemoryHealthAssessment | null;
+  lcpFindings?: LcpDiagnosticFinding[];
 }
 
 function recommendationStatus(
@@ -53,7 +56,28 @@ export function createPerformanceRecommendations(
 
   add("FP", input.fp, (value) => ratePaintMetric("web.paint.fp", value), "recommendations.fp");
   add("FCP", input.fcp, (value) => ratePaintMetric("web.paint.fcp", value), "recommendations.fcp");
-  add("LCP", input.lcp, (value) => rateWebVital("web.vital.lcp", value), "recommendations.lcp");
+  const lateDiscovery = input.lcpFindings?.find(
+    (finding) => finding.ruleId === "lcp.late-resource-discovery",
+  );
+  add(
+    "LCP",
+    input.lcp,
+    (value) => rateWebVital("web.vital.lcp", value),
+    lateDiscovery === undefined
+      ? "recommendations.lcp"
+      : "recommendations.lcpLateResourceDiscovery",
+  );
+  if (lateDiscovery !== undefined) {
+    const recommendation = recommendations.find((item) => item.metric === "LCP");
+    if (recommendation !== undefined) {
+      recommendation.messageParams = {
+        contribution: Math.round(lateDiscovery.evidence.contribution * 100),
+        target: Math.round(lateDiscovery.evidence.targetShare * 100),
+        evidenceSamples: lateDiscovery.evidence.evidenceSampleCount,
+        samples: lateDiscovery.evidence.sampleCount,
+      };
+    }
+  }
   add("CLS", input.cls, (value) => rateWebVital("web.vital.cls", value), "recommendations.cls");
   add("INP", input.inp, (value) => rateWebVital("web.vital.inp", value), "recommendations.inp");
 
