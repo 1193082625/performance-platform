@@ -59,6 +59,14 @@ const memoryEvent = {
     }
 } satisfies MetricEventV2
 
+function getLcpAttribution(event: MetricEventV2) {
+    if (event.type !== "web.vital.lcp") {
+      throw new Error("Expected an LCP event");
+    }
+  
+    return event.payload.attribution;
+}
+
 describe('MetricEventV2 type contract', () => {
     it('accepts valid metric and unit combinations', () => {
         expect(lcpEvent.payload.unit).toBe('ms')
@@ -101,5 +109,26 @@ describe('MetricEventV2 type contract', () => {
                 unit: 'ms'
             }
         }
+    })
+
+    it('accepts LCP attribution evidence', () => {
+        const metricEventWithAttribution: MetricEventV2 = {
+            ...lcpEvent,
+            payload: {
+                ...lcpEvent.payload,
+                attribution: {
+                    timeToFirstByte: 1_024,
+                    resourceLoadDelay: 300,
+                    resourceLoadDuration: 100,
+                    elementRenderDelay: 400,
+                    element: ".page",
+                    url: "https://example.com/hero.webp"
+                }
+            }
+        }
+
+        expect(
+            getLcpAttribution(metricEventWithAttribution)?.timeToFirstByte,
+        ).toBe(1_024);
     })
 })

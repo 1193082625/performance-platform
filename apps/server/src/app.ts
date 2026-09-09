@@ -10,78 +10,82 @@ import { createPaintMetricsService } from './services/paint-metrics-service.js'
 import { registerMetricsRoutes } from './routes/metrics.js'
 import { registerHealthRoutes } from './routes/health.js'
 import cors from '@fastify/cors'
-import {
-    createMetricEventIngestionService,
-} from './services/metric-event-ingestion-service.js'
+import { createMetricEventIngestionService } from './services/metric-event-ingestion-service.js'
 import type {
     EventRepository,
     MetricQueryRepository,
     MemoryHealthRepository,
+    LcpDiagnosticRepository,
 } from './repositories/event-repository.js'
 
-import {
-    createMetricQueryService,
-} from './services/metric-query-service.js'
+import { createMetricQueryService } from './services/metric-query-service.js'
 
-import {
-    registerMetricQueryRoutes,
-} from './routes/metric-query.js'
+import { registerMetricQueryRoutes } from './routes/metric-query.js'
 import { createMemoryHealthService } from './services/memory-health-service.js'
 import { registerMemoryHealthRoutes } from './routes/memory-health.js'
+
+import { createLcpDiagnosticService } from './services/lcp-diagnostic-service.js'
+
+import { registerLcpDiagnosticRoutes } from './routes/lcp-diagnostic.js'
 
 interface BuildAppOptions {
     eventRepository: EventRepository
     metricQueryRepository: MetricQueryRepository
     memoryHealthRepository?: MemoryHealthRepository
+    lcpDiagnosticRepository?: LcpDiagnosticRepository
     appId: string
     now: () => number
     corsOrigins?: string[]
     logLevel?: string
 }
 
-export function buildApp(
-    options: BuildAppOptions,
-): FastifyInstance {
+export function buildApp(options: BuildAppOptions): FastifyInstance {
     const app = Fastify({
         bodyLimit: 32 * 1024,
-        logger: options.logLevel ? {
-            level: options.logLevel
-        } : false
+        logger: options.logLevel
+            ? {
+                  level: options.logLevel,
+              }
+            : false,
     })
 
     // <FastifyError> 是在告诉 ts ，这个错误处理器处理的是 Fastify 框架错误
-    app.setErrorHandler<FastifyError>(
-        (error, request, reply) => {
-            switch(error.code) {
-                case 'FST_ERR_CTP_BODY_TOO_LARGE':
-                    return reply.status(413).send(
+    app.setErrorHandler<FastifyError>((error, request, reply) => {
+        switch (error.code) {
+            case 'FST_ERR_CTP_BODY_TOO_LARGE':
+                return reply
+                    .status(413)
+                    .send(
                         createApiErrorResponse(
                             'PAYLOAD_TOO_LARGE',
                             'request body must not exceed 32 KiB',
                             request.id,
-                        )
+                        ),
                     )
-                case 'FST_ERR_CTP_INVALID_JSON_BODY':
-                    return reply.status(400).send(
+            case 'FST_ERR_CTP_INVALID_JSON_BODY':
+                return reply
+                    .status(400)
+                    .send(
                         createApiErrorResponse(
                             'INVALID_JSON',
                             'request body must contain valid JSON',
                             request.id,
-                        )
+                        ),
                     )
-                case 'FST_ERR_CTP_INVALID_MEDIA_TYPE':
-                    return reply.status(415).send(
+            case 'FST_ERR_CTP_INVALID_MEDIA_TYPE':
+                return reply
+                    .status(415)
+                    .send(
                         createApiErrorResponse(
                             'UNSUPPORTED_MEDIA_TYPE',
                             'content-type must be application/json',
                             request.id,
-                        )
+                        ),
                     )
-                default:
-                    return reply.send(error)
-            }
+            default:
+                return reply.send(error)
         }
-    )
+    })
 
     const ingestionService = createEventIngestionService({
         repository: options.eventRepository,
@@ -109,34 +113,34 @@ export function buildApp(
 
     app.register(registerHealthRoutes)
 
-    app.register(
-        cors,
-        {
-            origin: options.corsOrigins || [],
-        }
-    )
+    app.register(cors, {
+        origin: options.corsOrigins || [],
+    })
 
-    app.register(
-        registerEventRoutes,
-        {
-            ingestionService,
-            metricIngestionService,
-        }
-    )
+    app.register(registerEventRoutes, {
+        ingestionService,
+        metricIngestionService,
+    })
 
-    app.register(
-        registerMetricsRoutes,
-        {
-            metricsService,
-        },
-    )
+    app.register(registerMetricsRoutes, {
+        metricsService,
+    })
 
-    app.register(
-        registerMetricQueryRoutes,
-        {
-            metricQueryService,
-        }
-    )
+    app.register(registerMetricQueryRoutes, {
+        metricQueryService,
+    })
+
+    if (options.lcpDiagnosticRepository !== undefined) {
+        const lcpDiagnosticService = createLcpDiagnosticService({
+            repository: options.lcpDiagnosticRepository,
+            appId: options.appId,
+            now: options.now,
+        })
+
+        app.register(registerLcpDiagnosticRoutes, {
+            lcpDiagnosticService,
+        })
+    }
 
     if (options.memoryHealthRepository !== undefined) {
         const memoryHealthService = createMemoryHealthService({

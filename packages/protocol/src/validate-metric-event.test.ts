@@ -870,4 +870,76 @@ describe('ValidateMetricEvent', () => {
             value: event,
         })
     })
+
+    it("accepts valid LCP attribution", () => {
+        const base = makeMetricEvent();
+      
+        const event = {
+          ...base,
+          payload: {
+            ...base.payload,
+            attribution: {
+              timeToFirstByte: 800,
+              resourceLoadDelay: 300,
+              resourceLoadDuration: 500,
+              elementRenderDelay: 200,
+              element: ".hero-image",
+              url: "https://example.com/hero.webp",
+            },
+          },
+        };
+      
+        expect(
+          validateMetricEvent(event, validationContext),
+        ).toEqual({
+          ok: true,
+          value: event,
+        });
+    });
+
+    it.each([
+        null,
+        [],
+        {
+          timeToFirstByte: -1,
+          resourceLoadDelay: 300,
+          resourceLoadDuration: 500,
+          elementRenderDelay: 200,
+        },
+        {
+          timeToFirstByte: Number.NaN,
+          resourceLoadDelay: 300,
+          resourceLoadDuration: 500,
+          elementRenderDelay: 200,
+        },
+        {
+          timeToFirstByte: 800,
+          resourceLoadDelay: "300",
+          resourceLoadDuration: 500,
+          elementRenderDelay: 200,
+        },
+        {
+          timeToFirstByte: 800,
+          resourceLoadDelay: 300,
+          resourceLoadDuration: 500,
+          // 缺少 elementRenderDelay
+        },
+      ])("rejects invalid LCP attribution %#", (attribution) => {
+        const base = makeMetricEvent();
+      
+        const event = {
+          ...base,
+          payload: {
+            ...base.payload,
+            attribution,
+          },
+        };
+      
+        expect(
+          validateMetricEvent(event, validationContext),
+        ).toEqual({
+          ok: false,
+          reason: "invalid_attribution",
+        });
+      });
 })

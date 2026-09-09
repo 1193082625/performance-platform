@@ -1,77 +1,89 @@
 // 环境
-export type Environment =
-    | 'development'
-    | 'test'
-    | 'staging'
-    | 'production'
+export type Environment = 'development' | 'test' | 'staging' | 'production'
 
 // 上报类型
-export type PaintMetric =
-    | 'web.paint.fp'
-    | 'web.paint.fcp'
+export type PaintMetric = 'web.paint.fp' | 'web.paint.fcp'
 
 type MetricMeasurement =
     | {
-        type:
-          | 'web.paint.fp'
-          | 'web.paint.fcp'
-          | 'web.vital.lcp'
-          | 'web.vital.inp'
-        payload: {
-          value: number
-          unit: 'ms'
-        }
+          type: 'web.paint.fp' | 'web.paint.fcp'
+          payload: {
+              value: number
+              unit: 'ms'
+          }
       }
     | {
-        type: 'web.vital.cls'
-        payload: {
-          value: number
-          unit: 'score'
-        }
+          type: 'web.vital.lcp'
+          payload: {
+              value: number
+              unit: 'ms'
+              attribution?: {
+                  timeToFirstByte: number
+                  resourceLoadDelay: number
+                  resourceLoadDuration: number
+                  elementRenderDelay: number
+                  element?: string
+                  url?: string
+              }
+          }
       }
     | {
-        type:
-          | 'web.memory.used_heap'
-          | 'web.memory.total_heap'
-          | 'web.memory.heap_limit'
-        payload: {
-          value: number
-          unit: 'byte'
-        }
-    }
-
-interface MetricEventBaseV2 {
-      schemaVersion: '2.0' // 事件协议版本
-      eventId: string   // 上报事件ID，用于幂等；必须是标准 UUID
-      timestamp: number // 决定当前指标最终值的原始观测发生时间，而不是 HTTP 上报时间
-      sampleRate: number // 事件产生时采用的会话采样率，范围 (0, 1]
-      metricVersion: string // 生成该指标值所采用的计算规则版本（指浏览器原始数据如何变成最终指标值）
-
-      application: {
-          id: string // 被监控应用稳定标识，1–64 字符
-          version: string // 业务发布版本，由构建/发布系统注入
-          environment: Environment // 开发、测试、预发或生产环境
+          type: 'web.vital.inp'
+          payload: {
+              value: number
+              unit: 'ms'
+          }
       }
-
-      runtime: {
-          platform: 'web'
-          sdk: {
-              name: string
-              version: string
+    | {
+          type: 'web.vital.cls'
+          payload: {
+              value: number
+              unit: 'score'
+          }
+      }
+    | {
+          type:
+              | 'web.memory.used_heap'
+              | 'web.memory.total_heap'
+              | 'web.memory.heap_limit'
+          payload: {
+              value: number
+              unit: 'byte'
           }
       }
 
-      session: {
-          sessionId: string // 标签页会话标识，1–128 字符
-          viewId: string // 本次页面加载标识，1–128 字符
-      }
+interface MetricEventBaseV2 {
+    schemaVersion: '2.0' // 事件协议版本
+    eventId: string // 上报事件ID，用于幂等；必须是标准 UUID
+    timestamp: number // 决定当前指标最终值的原始观测发生时间，而不是 HTTP 上报时间
+    sampleRate: number // 事件产生时采用的会话采样率，范围 (0, 1]
+    metricVersion: string // 生成该指标值所采用的计算规则版本（指浏览器原始数据如何变成最终指标值）
+
+    application: {
+        id: string // 被监控应用稳定标识，1–64 字符
+        version: string // 业务发布版本，由构建/发布系统注入
+        environment: Environment // 开发、测试、预发或生产环境
+    }
+
+    runtime: {
+        platform: 'web'
+        sdk: {
+            name: string
+            version: string
+        }
+    }
+
+    session: {
+        sessionId: string // 标签页会话标识，1–128 字符
+        viewId: string // 本次页面加载标识，1–128 字符
+    }
 }
 export type MetricEventV2 = MetricEventBaseV2 & MetricMeasurement
 
 // 上报内容
 export interface PaintEventV1 {
     schemaVersion: '1.0' // 事件协议版本
-    eventId: string   // 上报事件ID，用于幂等；必须是标准 UUID
+    eventId: string // 上报事件ID，用于幂等；必须是标准 UUID
     type: PaintMetric // 上报类型
     timestamp: number // 指标实际发生时间，Unix epoch 毫秒整数
 
@@ -118,17 +130,18 @@ export type DiscardReason =
     | 'invalid_unit'
     | 'invalid_sample_rate'
     | 'invalid_metric_version'
+    | 'invalid_attribution'
 
 // 上报内容校验结果
 export type ValidationResult<T> =
     | {
-        ok: true,
-        value: T
-    }
+          ok: true
+          value: T
+      }
     | {
-        ok: false,
-        reason: DiscardReason
-    }
+          ok: false
+          reason: DiscardReason
+      }
 
 // 校验事件时由服务端提供的可信上下文
 export interface PaintEventValidationContext {
@@ -159,13 +172,13 @@ export interface ValidatedMetricBatch {
 
 export type MetricBatchValidationResult =
     | {
-        ok: true
-        value: ValidatedMetricBatch
-    }
+          ok: true
+          value: ValidatedMetricBatch
+      }
     | {
-        ok: false
-        code: BatchErrorCode
-    }
+          ok: false
+          code: BatchErrorCode
+      }
 
 // 批量提交结果
 export interface BatchResponse {
@@ -212,25 +225,25 @@ export interface ValidatedPaintBatch {
 
 export type BatchValidationResult =
     | {
-        ok: true
-        value: ValidatedPaintBatch
-    }
+          ok: true
+          value: ValidatedPaintBatch
+      }
     | {
-        ok: false
-        code: BatchErrorCode
-    }
+          ok: false
+          code: BatchErrorCode
+      }
 
 // 表示时间序列的聚合力度
 export type MetricsInterval =
     | 'minute' // 每分钟一个数据点
-    | 'hour'   // 每小时一个数据点
-    | 'day'    // 每天一个数据点
+    | 'hour' // 每小时一个数据点
+    | 'day' // 每天一个数据点
 
 // 表示 URL 查询参数
 // 比如： GET /api/v1/metrics/paint?from=2026-08-23T00:00:00.000Z&to=2026-08-24T00:00:00.000Z&interval=hour
 export interface PaintMetricsQueryParams {
     from?: string // 时间
-    to?: string   // 时间
+    to?: string // 时间
     interval?: MetricsInterval
 }
 
@@ -269,15 +282,12 @@ export interface PaintMetricsData {
     series: PaintSeriesPoint[]
 }
 
-export type PaintScoreStatus =
-    | 'good'
-    | 'needs-improvement'
-    | 'poor'
+export type PaintScoreStatus = 'good' | 'needs-improvement' | 'poor'
 
 export interface PaintScore {
     value: number
     status: PaintScoreStatus
-    version: 'paint-v1',
+    version: 'paint-v1'
     components: {
         fp: number
         fcp: number
@@ -310,38 +320,35 @@ export interface MetricSeriesPoint {
 
 export type MetricDefinition =
     | {
-        type:
-            | 'web.paint.fp'
-            | 'web.paint.fcp'
-        unit: 'ms'
-        metricVersion: 'paint-v1'
-    }
+          type: 'web.paint.fp' | 'web.paint.fcp'
+          unit: 'ms'
+          metricVersion: 'paint-v1'
+      }
     | {
-        type: 'web.vital.lcp'
-        unit: 'ms'
-        metricVersion: 'lcp-v1'
-    }
+          type: 'web.vital.lcp'
+          unit: 'ms'
+          metricVersion: 'lcp-v1'
+      }
     | {
-        type: 'web.vital.cls'
-        unit: 'score'
-        metricVersion: 'cls-v1'
-    }
+          type: 'web.vital.cls'
+          unit: 'score'
+          metricVersion: 'cls-v1'
+      }
     | {
-        type: 'web.vital.inp'
-        unit: 'ms'
-        metricVersion: 'inp-v1'
-    }
+          type: 'web.vital.inp'
+          unit: 'ms'
+          metricVersion: 'inp-v1'
+      }
     | {
-        type:
-            | 'web.memory.used_heap'
-            | 'web.memory.total_heap'
-            | 'web.memory.heap_limit'
-        unit: 'byte'
-        metricVersion: 'memory-v1'
-    }
+          type:
+              | 'web.memory.used_heap'
+              | 'web.memory.total_heap'
+              | 'web.memory.heap_limit'
+          unit: 'byte'
+          metricVersion: 'memory-v1'
+      }
 
-export type WebMetric =
-    MetricDefinition['type']
+export type WebMetric = MetricDefinition['type']
 
 /**
  * Extract 表示从一个联合类型中筛选出符合条件的成员
@@ -350,16 +357,11 @@ export type WebMetric =
             | 'web.vital.cls'
             | 'web.vital.inp'
  */
-export type WebVitalMetric = Extract<
-    WebMetric,
-    `web.vital.${string}`
->
+export type WebVitalMetric = Extract<WebMetric, `web.vital.${string}`>
 
-export type MetricUnit =
-    MetricDefinition['unit']
+export type MetricUnit = MetricDefinition['unit']
 
-export type MetricVersion =
-    MetricDefinition['metricVersion']
+export type MetricVersion = MetricDefinition['metricVersion']
 
 export interface MetricQueryResponse {
     metric: MetricDefinition
@@ -374,16 +376,41 @@ export interface MetricQueryResponse {
     series: MetricSeriesPoint[]
 }
 
+export interface DiagnosticStats {
+    average: number | null
+    p75: number | null
+}
+
+export interface LcpDiagnosticResponse {
+    metric: {
+        type: 'web.vital.lcp'
+        unit: 'ms'
+        metricVersion: 'lcp-v1'
+    }
+
+    range: {
+        from: string
+        to: string
+    }
+
+    sampleCount: number
+    evidenceSampleCount: number
+
+    overall: DiagnosticStats
+
+    phases: {
+        timeToFirstByte: DiagnosticStats
+        resourceLoadDelay: DiagnosticStats
+        resourceLoadDuration: DiagnosticStats
+        elementRenderDelay: DiagnosticStats
+    }
+}
+
 export type MemoryHealthStatus =
-    | 'INSUFFICIENT_DATA'
-    | 'NORMAL'
-    | 'WARNING'
-    | 'CRITICAL'
+    'INSUFFICIENT_DATA' | 'NORMAL' | 'WARNING' | 'CRITICAL'
 
 export type MemoryHealthReason =
-    | 'HIGH_HEAP_PRESSURE'
-    | 'SUSTAINED_HEAP_GROWTH'
-    | 'INSUFFICIENT_SAMPLES'
+    'HIGH_HEAP_PRESSURE' | 'SUSTAINED_HEAP_GROWTH' | 'INSUFFICIENT_SAMPLES'
 
 export interface MemoryHealthSnapshot {
     observedAt: number

@@ -18,7 +18,8 @@ const MAX_PAST_AGE_MS = 30 * 24 * 60 * 60 * 1000
 const MAX_FUTURE_OFFSET_MS = 5 * 60 * 1000
 const MAX_BATCH_SIZE = 20
 
-const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+const UUID_PATTERN =
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
 // ReadonlySet<Environment> 约束集合中可以存放 Environment，且只读
 const ENVIRONMENTS: ReadonlySet<Environment> = new Set([
@@ -57,6 +58,13 @@ const METRIC_VERSIONS = {
 
 type SupportedMetric = keyof typeof METRIC_UNITS
 
+const LCP_ATTRIBUTION_DURATION_FIELDS = [
+    'timeToFirstByte',
+    'resourceLoadDelay',
+    'resourceLoadDuration',
+    'elementRenderDelay',
+] as const
+
 function isSupportedMetric(value: unknown): value is SupportedMetric {
     return typeof value === 'string' && Object.hasOwn(METRIC_UNITS, value)
 }
@@ -64,9 +72,39 @@ function isSupportedMetric(value: unknown): value is SupportedMetric {
 // 先把输入缩小为可安全读取属性的对象
 function isRecord(value: unknown): value is Record<string, unknown> {
     // 必须是对象，不为空，不是数组
-    return (
-        typeof value === 'object' && value !== null && !Array.isArray(value)
-    )
+    return typeof value === 'object' && value !== null && !Array.isArray(value)
+}
+
+// 校验 lcp 的 attribution
+function isValidLcpAttribution(value: unknown): boolean {
+    // 必须是普通对象
+    if (!isRecord(value)) {
+        return false
+    }
+
+    // 4个阶段耗时必须全部存在
+    for (const field of LCP_ATTRIBUTION_DURATION_FIELDS) {
+        const duration = value[field]
+
+        if (
+            typeof duration !== 'number' ||
+            !Number.isFinite(duration) ||
+            duration < 0 ||
+            duration >= MAX_DURATION_MS
+        ) {
+            return false
+        }
+    }
+
+    if (value.element !== undefined && !isBoundedString(value.element, 1_024)) {
+        return false
+    }
+
+    if (value.url !== undefined && !isBoundedString(value.url, 2_048)) {
+        return false
+    }
+
+    return true
 }
 
 // : value is string ，这叫做类型谓词 或 用户定义类型守卫
@@ -76,39 +114,31 @@ function isBoundedString(
     maximumLength: number,
 ): value is string {
     return (
-        typeof value === 'string' && value.trim().length > 0 && value.length <= maximumLength
+        typeof value === 'string' &&
+        value.trim().length > 0 &&
+        value.length <= maximumLength
     )
 }
 
-function invalid<T>(
-    reason: DiscardReason
-): ValidationResult<T> {
+function invalid<T>(reason: DiscardReason): ValidationResult<T> {
     return {
         ok: false,
         reason,
     }
 }
 
-function isValidEventTimestamp(
-    value: unknown,
-    now: number,
-): value is number {
+function isValidEventTimestamp(value: unknown, now: number): value is number {
     return (
-        typeof value === 'number'
-        && Number.isFinite(value)
-        && Number.isInteger(value)
-        && value >= now - MAX_PAST_AGE_MS
-        && value <= now + MAX_FUTURE_OFFSET_MS
+        typeof value === 'number' &&
+        Number.isFinite(value) &&
+        Number.isInteger(value) &&
+        value >= now - MAX_PAST_AGE_MS &&
+        value <= now + MAX_FUTURE_OFFSET_MS
     )
 }
 
-function isValidEventId(
-    value: unknown,
-): value is string {
-    return (
-        typeof value === 'string'
-        && UUID_PATTERN.test(value)
-    )
+function isValidEventId(value: unknown): value is string {
+    return typeof value === 'string' && UUID_PATTERN.test(value)
 }
 
 function getApplicationDiscardReason(
@@ -119,23 +149,20 @@ function getApplicationDiscardReason(
         return 'invalid_app_id'
     }
 
-    if (
-        !isBoundedString(value.id, 64)
-        || value.id !== expectedAppId
-    ) {
+    if (!isBoundedString(value.id, 64) || value.id !== expectedAppId) {
         return 'invalid_app_id'
     }
 
     if (
-        !isBoundedString(value.version, 64)
-        || value.version.toLowerCase() === 'latest'
+        !isBoundedString(value.version, 64) ||
+        value.version.toLowerCase() === 'latest'
     ) {
         return 'invalid_app_version'
     }
 
     if (
-        typeof value.environment !== 'string'
-        || !ENVIRONMENTS.has(value.environment as Environment)
+        typeof value.environment !== 'string' ||
+        !ENVIRONMENTS.has(value.environment as Environment)
     ) {
         return 'invalid_environment'
     }
@@ -143,9 +170,7 @@ function getApplicationDiscardReason(
     return undefined
 }
 
-function getRuntimeDiscardReason(
-    value: unknown,
-): DiscardReason | undefined {
+function getRuntimeDiscardReason(value: unknown): DiscardReason | undefined {
     if (!isRecord(value)) {
         return 'invalid_platform'
     }
@@ -163,8 +188,8 @@ function getRuntimeDiscardReason(
     }
 
     if (
-        !isBoundedString(value.sdk.name, 128)
-        || !isBoundedString(value.sdk.version, 64)
+        !isBoundedString(value.sdk.name, 128) ||
+        !isBoundedString(value.sdk.version, 64)
     ) {
         return 'invalid_sdk'
     }
@@ -172,9 +197,7 @@ function getRuntimeDiscardReason(
     return undefined
 }
 
-function getSessionDiscardReason(
-    value: unknown,
-): DiscardReason | undefined {
+function getSessionDiscardReason(value: unknown): DiscardReason | undefined {
     if (!isRecord(value)) {
         return 'invalid_session_id'
     }
@@ -194,7 +217,6 @@ export function validatePaintEvent(
     input: unknown,
     context: PaintEventValidationContext,
 ): ValidationResult<PaintEventV1> {
-
     if (!isRecord(input)) {
         return invalid('unsupported_schema_version')
     }
@@ -207,13 +229,14 @@ export function validatePaintEvent(
         return invalid('invalid_event_id')
     }
 
-    if (typeof input.type !== 'string' || !PAINT_METRICS.has(input.type as PaintMetric)) {
+    if (
+        typeof input.type !== 'string' ||
+        !PAINT_METRICS.has(input.type as PaintMetric)
+    ) {
         return invalid('unsupported_event_type')
     }
 
-    if (
-        !isValidEventTimestamp(input.timestamp, context.now)
-    ) {
+    if (!isValidEventTimestamp(input.timestamp, context.now)) {
         return invalid('invalid_timestamp')
     }
 
@@ -226,17 +249,13 @@ export function validatePaintEvent(
         return invalid(applicationReason)
     }
 
-    const runtimeReason = getRuntimeDiscardReason(
-        input.runtime,
-    )
+    const runtimeReason = getRuntimeDiscardReason(input.runtime)
 
     if (runtimeReason !== undefined) {
         return invalid(runtimeReason)
     }
 
-    const sessionReason = getSessionDiscardReason(
-        input.session,
-    )
+    const sessionReason = getSessionDiscardReason(input.session)
 
     if (sessionReason !== undefined) {
         return invalid(sessionReason)
@@ -247,10 +266,10 @@ export function validatePaintEvent(
     }
 
     if (
-        typeof input.payload.value !== 'number'
-        || !Number.isFinite(input.payload.value)
-        || input.payload.value < 0
-        || input.payload.value >= MAX_DURATION_MS
+        typeof input.payload.value !== 'number' ||
+        !Number.isFinite(input.payload.value) ||
+        input.payload.value < 0 ||
+        input.payload.value >= MAX_DURATION_MS
     ) {
         return invalid('invalid_value')
     }
@@ -267,51 +286,51 @@ export function validatePaintEvent(
 export function validatePaintBatch(
     input: unknown,
     context: PaintEventValidationContext,
-  ): BatchValidationResult {
+): BatchValidationResult {
     if (
-      !isRecord(input)
-      || !Array.isArray(input.events)
-      || input.events.length === 0
+        !isRecord(input) ||
+        !Array.isArray(input.events) ||
+        input.events.length === 0
     ) {
-      return {
-        ok: false,
-        code: 'INVALID_BATCH',
-      }
+        return {
+            ok: false,
+            code: 'INVALID_BATCH',
+        }
     }
-  
+
     if (input.events.length > MAX_BATCH_SIZE) {
-      return {
-        ok: false,
-        code: 'BATCH_TOO_LARGE',
-      }
+        return {
+            ok: false,
+            code: 'BATCH_TOO_LARGE',
+        }
     }
-  
+
     const acceptedEvents: PaintEventV1[] = []
     const reasons: Partial<Record<DiscardReason, number>> = {}
-  
+
     let discarded = 0
-  
+
     for (const event of input.events) {
-      const result = validatePaintEvent(event, context)
-  
-      if (result.ok) {
-        acceptedEvents.push(result.value)
-        continue
-      }
-  
-      discarded += 1
-  
-      const previousCount = reasons[result.reason] ?? 0
-      reasons[result.reason] = previousCount + 1
+        const result = validatePaintEvent(event, context)
+
+        if (result.ok) {
+            acceptedEvents.push(result.value)
+            continue
+        }
+
+        discarded += 1
+
+        const previousCount = reasons[result.reason] ?? 0
+        reasons[result.reason] = previousCount + 1
     }
-  
+
     return {
-      ok: true,
-      value: {
-        acceptedEvents,
-        discarded,
-        reasons,
-      },
+        ok: true,
+        value: {
+            acceptedEvents,
+            discarded,
+            reasons,
+        },
     }
 }
 
@@ -335,17 +354,15 @@ export function validateMetricEvent(
         return invalid('unsupported_event_type')
     }
 
-    if (
-        !isValidEventTimestamp(input.timestamp, context.now)
-    ) {
+    if (!isValidEventTimestamp(input.timestamp, context.now)) {
         return invalid('invalid_timestamp')
     }
 
-    if(
-        typeof input.sampleRate !== 'number'
-        || !Number.isFinite(input.sampleRate)
-        || input.sampleRate <= 0
-        || input.sampleRate > 1
+    if (
+        typeof input.sampleRate !== 'number' ||
+        !Number.isFinite(input.sampleRate) ||
+        input.sampleRate <= 0 ||
+        input.sampleRate > 1
     ) {
         return invalid('invalid_sample_rate')
     }
@@ -369,17 +386,13 @@ export function validateMetricEvent(
         return invalid(applicationReason)
     }
 
-    const runtimeReason = getRuntimeDiscardReason(
-        input.runtime,
-    )
+    const runtimeReason = getRuntimeDiscardReason(input.runtime)
 
     if (runtimeReason !== undefined) {
         return invalid(runtimeReason)
     }
 
-    const sessionReason = getSessionDiscardReason(
-        input.session,
-    )
+    const sessionReason = getSessionDiscardReason(input.session)
 
     if (sessionReason !== undefined) {
         return invalid(sessionReason)
@@ -392,9 +405,9 @@ export function validateMetricEvent(
     const metricValue = input.payload.value
 
     if (
-        typeof metricValue !== 'number'
-        || !Number.isFinite(metricValue)
-        || metricValue < 0
+        typeof metricValue !== 'number' ||
+        !Number.isFinite(metricValue) ||
+        metricValue < 0
     ) {
         return invalid('invalid_value')
     }
@@ -413,6 +426,14 @@ export function validateMetricEvent(
         return invalid('invalid_value')
     }
 
+    if (
+        input.type === 'web.vital.lcp' &&
+        Object.hasOwn(input.payload, 'attribution') &&
+        !isValidLcpAttribution(input.payload.attribution)
+    ) {
+        return invalid('invalid_attribution')
+    }
+
     return {
         ok: true,
         value: input as unknown as MetricEventV2,
@@ -428,9 +449,9 @@ export function validateMetricBatch(
     let discarded = 0
 
     if (
-        !isRecord(input)
-        || !Array.isArray(input.events)
-        || input.events.length === 0
+        !isRecord(input) ||
+        !Array.isArray(input.events) ||
+        input.events.length === 0
     ) {
         return {
             ok: false,

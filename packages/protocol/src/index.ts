@@ -25,7 +25,6 @@ export type {
     BatchRequestV2,
     MetricBatchValidationResult,
     ValidatedMetricBatch,
-
     MetricDefinition,
     MetricQueryParams,
     MetricQueryResponse,
@@ -39,6 +38,8 @@ export type {
     MemoryHealthReason,
     MemoryHealthSnapshot,
     MemoryHealthStatus,
+    DiagnosticStats,
+    LcpDiagnosticResponse,
 } from './types.js'
 
 export {

@@ -1,26 +1,29 @@
 {
-  "name": "performance-platform",
-  "version": "0.2.0",
-  "private": true,
-  "type": "module",
-  "description": "Self-hosted application performance monitoring platform",
-  "license": "MIT",
-  "engines": {
-    "node": ">=24.19.0 <25",
-    "pnpm": ">=10.34.5 <11"
-  },
-  "packageManager": "pnpm@10.34.5",
-  "scripts": {
-    "dev": "pnpm -r --parallel dev",
-    "build": "pnpm -r build",
-    "typecheck": "pnpm -r typecheck",
-    "test": "vitest run --passWithNoTests",
-    "test:watch": "vitest",
-    "test:e2e": "playwright test"
-  },
-  "author": "echo",
-  "devDependencies": {
-    "@playwright/test": "^1.62.1",
-    "vitest": "^4.1.11"
-  }
+    "name": "performance-platform",
+    "version": "0.2.0",
+    "private": true,
+    "type": "module",
+    "description": "Self-hosted application performance monitoring platform",
+    "license": "MIT",
+    "engines": {
+        "node": ">=24.19.0 <25",
+        "pnpm": ">=10.34.5 <11"
+    },
+    "packageManager": "pnpm@10.34.5",
+    "scripts": {
+        "dev": "pnpm -r --parallel dev",
+        "build": "pnpm -r build",
+        "typecheck": "pnpm -r typecheck",
+        "test": "vitest run --passWithNoTests",
+        "test:watch": "vitest",
+        "test:e2e": "playwright test",
+        "format": "prettier --write .",
+        "format:check": "prettier --check ."
+    },
+    "author": "echo",
+    "devDependencies": {
+        "@playwright/test": "^1.62.1",
+        "prettier": "^3.9.6",
+        "vitest": "^4.1.11"
+    }
 }

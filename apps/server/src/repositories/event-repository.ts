@@ -9,7 +9,8 @@ import type {
     MetricDefinition,
     MetricQueryResponse,
     MemoryHealthSnapshot,
-} from "@performance-platform/protocol"
+    LcpDiagnosticResponse,
+} from '@performance-platform/protocol'
 
 export interface PaintMetricsQuery {
     appId: string
@@ -18,32 +19,32 @@ export interface PaintMetricsQuery {
     interval: MetricsInterval
 }
 
-export type StorableMetricEvent =
-    | PaintEventV1
-    | MetricEventV2
+export interface LcpDiagnosticRepository {
+    queryLcpDiagnostics(input: {
+        appId: string
+        from: Date
+        to: Date
+    }): Promise<LcpDiagnosticResponse>
+}
+
+export type StorableMetricEvent = PaintEventV1 | MetricEventV2
 
 export interface EventRepository {
-    insertBatch(
-        events: readonly StorableMetricEvent[],
-    ): Promise<void>
+    insertBatch(events: readonly StorableMetricEvent[]): Promise<void>
 
-    queryPaintMetrics(
-        query: PaintMetricsQuery,
-    ): Promise<PaintMetricsData>
+    queryPaintMetrics(query: PaintMetricsQuery): Promise<PaintMetricsData>
 }
 
 export interface MetricQuery {
     appId: string
-    metric: MetricDefinition,
-    from: Date,
+    metric: MetricDefinition
+    from: Date
     to: Date
     interval: MetricsInterval
 }
 
 export interface MetricQueryRepository {
-    queryMetric(
-        query: MetricQuery
-    ): Promise<MetricQueryResponse>
+    queryMetric(query: MetricQuery): Promise<MetricQueryResponse>
 }
 
 export interface MemoryHealthRepository {

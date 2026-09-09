@@ -1,6 +1,11 @@
 import type { Pool } from 'pg'
 
-import type { EventRepository, MemoryHealthRepository, MetricQueryRepository } from './event-repository.js'
+import type {
+    EventRepository,
+    MemoryHealthRepository,
+    MetricQueryRepository,
+    LcpDiagnosticRepository,
+} from './event-repository.js'
 import type {
     MetricSeriesPoint,
     MetricStats,
@@ -33,8 +38,7 @@ interface MetricSummaryRow {
     p90: number | null
 }
 
-interface MetricSeriesRow
-    extends MetricSummaryRow {
+interface MetricSeriesRow extends MetricSummaryRow {
     bucket_time: Date
 }
 
@@ -44,9 +48,27 @@ interface MemorySnapshotRow {
     heap_limit: number
 }
 
-function getIntervalDuration(
-    interval: MetricsInterval,
-): number {
+interface LcpDiagnosticRow {
+    sample_count: string
+    evidence_sample_count: string
+
+    overall_average: number | null
+    overall_p75: number | null
+
+    ttfb_average: number | null
+    ttfb_p75: number | null
+
+    load_delay_average: number | null
+    load_delay_p75: number | null
+
+    load_duration_average: number | null
+    load_duration_p75: number | null
+
+    render_delay_average: number | null
+    render_delay_p75: number | null
+}
+
+function getIntervalDuration(interval: MetricsInterval): number {
     switch (interval) {
         case 'minute':
             return 60 * 1_000
@@ -58,16 +80,12 @@ function getIntervalDuration(
             return 24 * 60 * 60 * 1_000
 
         default:
-            throw new Error(
-                `Unsupported metrics interval: ${String(interval)}`,
-            )
+            throw new Error(`Unsupported metrics interval: ${String(interval)}`)
     }
 }
 
-function getIntervalSql (
-    interval: MetricsInterval
-): string {
-    switch(interval) {
+function getIntervalSql(interval: MetricsInterval): string {
+    switch (interval) {
         case 'minute':
             return "INTERVAL '1 minute'"
         case 'hour':
@@ -76,9 +94,7 @@ function getIntervalSql (
             return "INTERVAL '1 day'"
 
         default:
-            throw new Error (
-                `Unsupported metrics interval: ${String(interval)}`
-            )
+            throw new Error(`Unsupported metrics interval: ${String(interval)}`)
     }
 }
 
@@ -92,7 +108,12 @@ function emptyStats(): MetricStats {
     }
 }
 
-export function createPostgresEventRepository(pool: Pool): EventRepository & MetricQueryRepository & MemoryHealthRepository {
+export function createPostgresEventRepository(
+    pool: Pool,
+): EventRepository &
+    MetricQueryRepository &
+    MemoryHealthRepository &
+    LcpDiagnosticRepository {
     return {
         async insertBatch(events) {
             if (events.length === 0) return
@@ -102,17 +123,20 @@ export function createPostgresEventRepository(pool: Pool): EventRepository & Met
             try {
                 await client.query('BEGIN')
 
-                for(const event of events) {
-
+                for (const event of events) {
                     const sampleRate =
-                        event.schemaVersion === '2.0'
-                        ? event.sampleRate
-                        : 1
+                        event.schemaVersion === '2.0' ? event.sampleRate : 1
 
                     const metricVersion =
                         event.schemaVersion === '2.0'
-                        ? event.metricVersion
-                        : 'paint-v1'
+                            ? event.metricVersion
+                            : 'paint-v1'
+
+                    const metricAttribution =
+                        event.schemaVersion === '2.0' &&
+                        event.type === 'web.vital.lcp'
+                            ? (event.payload.attribution ?? null)
+                            : null
 
                     // 使用占位符存储，这样可以防止 SQL 注入
                     // ON CONFLICT (event_id) DO NOTHING 表示 重复 event_id 不报错、不插入第二行，实现幂等性
@@ -134,7 +158,8 @@ export function createPostgresEventRepository(pool: Pool): EventRepository & Met
                                 metric_value,
                                 metric_unit,
                                 sample_rate,
-                                metric_version
+                                metric_version,
+                                metric_attribution
                             )
                             VALUES (
                                 $1,
@@ -152,7 +177,8 @@ export function createPostgresEventRepository(pool: Pool): EventRepository & Met
                                 $13,
                                 $14,
                                 $15,
-                                $16
+                                $16,
+                                $17
                             )
                             ON CONFLICT (event_id)
                             DO NOTHING
@@ -174,6 +200,7 @@ export function createPostgresEventRepository(pool: Pool): EventRepository & Met
                             event.payload.unit,
                             sampleRate,
                             metricVersion,
+                            metricAttribution,
                         ],
                     )
                 }
@@ -260,19 +287,13 @@ export function createPostgresEventRepository(pool: Pool): EventRepository & Met
                 WHERE app_id = $1
                     AND event_time >= $2
                     AND event_time < $3`,
-                [
-                    query.appId,
-                    query.from,
-                    query.to,
-                ],
+                [query.appId, query.from, query.to],
             )
 
             const row = result.rows[0]
 
             if (row === undefined) {
-                throw new Error(
-                    'Statistics query returned no row',
-                )
+                throw new Error('Statistics query returned no row')
             }
 
             const summary = {
@@ -363,11 +384,7 @@ export function createPostgresEventRepository(pool: Pool): EventRepository & Met
 
                 GROUP BY bucket_time
                 ORDER BY bucket_time`,
-                [
-                    query.appId,
-                    query.from,
-                    query.to,
-                ]
+                [query.appId, query.from, query.to],
             )
 
             // 把数据库结果做成索引
@@ -375,7 +392,7 @@ export function createPostgresEventRepository(pool: Pool): EventRepository & Met
                 seriesResult.rows.map((seriesRow) => [
                     seriesRow.bucket_time.toISOString(),
                     seriesRow,
-                ])
+                ]),
             )
 
             const intervalDuration = getIntervalDuration(query.interval)
@@ -391,26 +408,28 @@ export function createPostgresEventRepository(pool: Pool): EventRepository & Met
                 const bucketTime = new Date(time).toISOString()
                 const bucketRow = rowsByTime.get(bucketTime)
                 series.push({
-                    time:bucketTime,
-                    fp: bucketRow === undefined
-                        ? emptyStats()
-                        : {
-                            count: Number(bucketRow.fp_count),
-                            average: bucketRow.fp_average,
-                            p50: bucketRow.fp_p50,
-                            p75: bucketRow.fp_p75,
-                            p90: bucketRow.fp_p90,
-                        },
+                    time: bucketTime,
+                    fp:
+                        bucketRow === undefined
+                            ? emptyStats()
+                            : {
+                                  count: Number(bucketRow.fp_count),
+                                  average: bucketRow.fp_average,
+                                  p50: bucketRow.fp_p50,
+                                  p75: bucketRow.fp_p75,
+                                  p90: bucketRow.fp_p90,
+                              },
 
-                    fcp: bucketRow === undefined
-                        ? emptyStats()
-                        : {
-                            count: Number(bucketRow.fcp_count),
-                            average: bucketRow.fcp_average,
-                            p50: bucketRow.fcp_p50,
-                            p75: bucketRow.fcp_p75,
-                            p90: bucketRow.fcp_p90,
-                        },
+                    fcp:
+                        bucketRow === undefined
+                            ? emptyStats()
+                            : {
+                                  count: Number(bucketRow.fcp_count),
+                                  average: bucketRow.fcp_average,
+                                  p50: bucketRow.fcp_p50,
+                                  p75: bucketRow.fcp_p75,
+                                  p90: bucketRow.fcp_p90,
+                              },
                 })
             }
 
@@ -434,9 +453,8 @@ export function createPostgresEventRepository(pool: Pool): EventRepository & Met
                 query.metric.metricVersion,
             ]
 
-            const summaryResult =
-                await pool.query<MetricSummaryRow>(
-                    `SELECT
+            const summaryResult = await pool.query<MetricSummaryRow>(
+                `SELECT
                         count(*) AS count,
                         avg(metric_value) AS average,
 
@@ -461,16 +479,13 @@ export function createPostgresEventRepository(pool: Pool): EventRepository & Met
                         AND event_type = $4
                         AND metric_unit = $5
                         AND metric_version = $6`,
-                    values,
-                )
+                values,
+            )
 
-            const summaryRow =
-                summaryResult.rows[0]
+            const summaryRow = summaryResult.rows[0]
 
             if (summaryRow === undefined) {
-                throw new Error(
-                    'Metric statistics query returned no row',
-                )
+                throw new Error('Metric statistics query returned no row')
             }
 
             const summary: MetricStats = {
@@ -481,12 +496,10 @@ export function createPostgresEventRepository(pool: Pool): EventRepository & Met
                 p90: summaryRow.p90,
             }
 
-            const intervalSql =
-                getIntervalSql(query.interval)
+            const intervalSql = getIntervalSql(query.interval)
 
-            const seriesResult =
-                await pool.query<MetricSeriesRow>(
-                    `SELECT
+            const seriesResult = await pool.query<MetricSeriesRow>(
+                `SELECT
                         date_bin(
                             ${intervalSql},
                             event_time,
@@ -521,8 +534,8 @@ export function createPostgresEventRepository(pool: Pool): EventRepository & Met
 
                     GROUP BY bucket_time
                     ORDER BY bucket_time`,
-                    values,
-                )
+                values,
+            )
 
             const rowsByTime = new Map(
                 seriesResult.rows.map((row) => [
@@ -531,8 +544,7 @@ export function createPostgresEventRepository(pool: Pool): EventRepository & Met
                 ]),
             )
 
-            const intervalDuration =
-                getIntervalDuration(query.interval)
+            const intervalDuration = getIntervalDuration(query.interval)
 
             const series: MetricSeriesPoint[] = []
 
@@ -541,24 +553,23 @@ export function createPostgresEventRepository(pool: Pool): EventRepository & Met
                 time < query.to.getTime();
                 time += intervalDuration
             ) {
-                const bucketTime =
-                    new Date(time).toISOString()
+                const bucketTime = new Date(time).toISOString()
 
-                const row =
-                    rowsByTime.get(bucketTime)
+                const row = rowsByTime.get(bucketTime)
 
                 series.push({
                     time: bucketTime,
 
-                    stats: row === undefined
-                        ? emptyStats()
-                        : {
-                            count: Number(row.count),
-                            average: row.average,
-                            p50: row.p50,
-                            p75: row.p75,
-                            p90: row.p90,
-                        },
+                    stats:
+                        row === undefined
+                            ? emptyStats()
+                            : {
+                                  count: Number(row.count),
+                                  average: row.average,
+                                  p50: row.p50,
+                                  p75: row.p75,
+                                  p90: row.p90,
+                              },
                 })
             }
 
@@ -615,11 +626,134 @@ export function createPostgresEventRepository(pool: Pool): EventRepository & Met
                 [query.appId, query.from, query.to],
             )
 
-            return result.rows.map(row => ({
+            return result.rows.map((row) => ({
                 observedAt: row.event_time.getTime(),
                 usedHeap: row.used_heap,
                 heapLimit: row.heap_limit,
             }))
+        },
+        async queryLcpDiagnostics(input) {
+            const result = await pool.query<LcpDiagnosticRow>(
+                `
+                SELECT
+                    COUNT(*) AS sample_count,
+                    COUNT(metric_attribution)
+                        AS evidence_sample_count,
+
+                    AVG(metric_value)
+                        AS overall_average,
+
+                    PERCENTILE_CONT(0.75)
+                    WITHIN GROUP (
+                        ORDER BY metric_value
+                    ) AS overall_p75,
+
+                    AVG(
+                        (metric_attribution
+                            ->> 'timeToFirstByte')
+                            ::DOUBLE PRECISION
+                    ) AS ttfb_average,
+
+                    PERCENTILE_CONT(0.75)
+                    WITHIN GROUP (
+                        ORDER BY (
+                            metric_attribution
+                                ->> 'timeToFirstByte'
+                        )::DOUBLE PRECISION
+                    ) AS ttfb_p75,
+
+                    AVG(
+                        (metric_attribution
+                            ->> 'resourceLoadDelay')
+                            ::DOUBLE PRECISION
+                    ) AS load_delay_average,
+
+                    PERCENTILE_CONT(0.75)
+                    WITHIN GROUP (
+                        ORDER BY (
+                            metric_attribution
+                                ->> 'resourceLoadDelay'
+                        )::DOUBLE PRECISION
+                    ) AS load_delay_p75,
+
+                    AVG(
+                        (metric_attribution
+                            ->> 'resourceLoadDuration')
+                            ::DOUBLE PRECISION
+                    ) AS load_duration_average,
+
+                    PERCENTILE_CONT(0.75)
+                    WITHIN GROUP (
+                        ORDER BY (
+                            metric_attribution
+                                ->> 'resourceLoadDuration'
+                        )::DOUBLE PRECISION
+                    ) AS load_duration_p75,
+
+                    AVG(
+                        (metric_attribution
+                            ->> 'elementRenderDelay')
+                            ::DOUBLE PRECISION
+                    ) AS render_delay_average,
+
+                    PERCENTILE_CONT(0.75)
+                    WITHIN GROUP (
+                        ORDER BY (
+                            metric_attribution
+                                ->> 'elementRenderDelay'
+                        )::DOUBLE PRECISION
+                    ) AS render_delay_p75
+
+                FROM metric_events
+                WHERE app_id = $1
+                    AND event_time >= $2
+                    AND event_time < $3
+                    AND event_type = 'web.vital.lcp'
+                `,
+                [input.appId, input.from, input.to],
+            )
+
+            const row = result.rows[0]
+
+            if (row === undefined) {
+                throw new Error('LCP diagnostic query returned no row')
+            }
+
+            return {
+                metric: {
+                    type: 'web.vital.lcp',
+                    unit: 'ms',
+                    metricVersion: 'lcp-v1',
+                },
+                range: {
+                    from: input.from.toISOString(),
+                    to: input.to.toISOString(),
+                },
+                sampleCount: Number(row.sample_count),
+                evidenceSampleCount: Number(row.evidence_sample_count),
+                overall: {
+                    average: row.overall_average,
+                    p75: row.overall_p75,
+                },
+                phases: {
+                    timeToFirstByte: {
+                        average: row.ttfb_average,
+                        p75: row.ttfb_p75,
+                    },
+                    resourceLoadDelay: {
+                        average: row.load_delay_average,
+                        p75: row.load_delay_p75,
+                    },
+                    resourceLoadDuration: {
+                        average: row.load_duration_average,
+                        p75: row.load_duration_p75,
+                    },
+                    elementRenderDelay: {
+                        average: row.render_delay_average,
+                        p75: row.render_delay_p75,
+                    },
+                },
+            }
         },
     }
 }

@@ -1,15 +1,15 @@
-import type { LcpCollector, LcpCollectorOptions, LcpMetricLike } from "./types/lcpCollector.type";
+import type {
+    LcpCollector,
+    LcpCollectorOptions,
+    LcpMetricLike,
+} from './types/lcpCollector.type'
 
-export function createLcpCollector(
-    options: LcpCollectorOptions
-): LcpCollector {
+export function createLcpCollector(options: LcpCollectorOptions): LcpCollector {
     let started = false
-    let destroyed= false
+    let destroyed = false
     let reported = false
 
-    const handleMetric = (
-        metric: LcpMetricLike
-    ): void => {
+    const handleMetric = (metric: LcpMetricLike): void => {
         if (destroyed || reported) {
             return
         }
@@ -27,9 +27,14 @@ export function createLcpCollector(
                 occurredAt: Math.round(options.timeOrigin + metric.value),
                 metricVersion: 'lcp-v1',
                 payload: {
-                    value:  metric.value,
-                    unit: 'ms'
-                }
+                    value: metric.value,
+                    unit: 'ms',
+                    ...(metric.attribution === undefined
+                        ? {}
+                        : {
+                              attribution: metric.attribution,
+                          }),
+                },
             })
         } catch {
             // 指标消费者异常不能影响宿主页面
@@ -61,6 +66,6 @@ export function createLcpCollector(
 
     return {
         start,
-        destroy
+        destroy,
     }
 }

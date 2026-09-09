@@ -1,23 +1,17 @@
-import {
-    describe,
-    it,
-    expect,
-    afterAll,
-    beforeEach,
-} from 'vitest'
+import { describe, it, expect, afterAll, beforeEach } from 'vitest'
 
 import type {
     PaintEventV1,
     MetricEventV2,
 } from '@performance-platform/protocol'
 
-import {
-    createDatabasePool
-} from '../db/pool.js'
+import { createDatabasePool } from '../db/pool.js'
 
-import {
-    createPostgresEventRepository,
-} from './postgres-event-repository.js'
+import { createPostgresEventRepository } from './postgres-event-repository.js'
+
+type LcpEvent = Extract<MetricEventV2, { type: 'web.vital.lcp' }>
+
+type LcpAttribution = NonNullable<LcpEvent['payload']['attribution']>
 
 const TEST_DATABASE_URL =
     'postgresql://postgres:postgres@localhost:5433/performance_platform_test'
@@ -38,8 +32,7 @@ const EMPTY_STATS = {
 
 const EVENT: PaintEventV1 = {
     schemaVersion: '1.0',
-    eventId:
-        '7ae498ca-1dc3-4cf7-be84-67e3c8cd2e1a',
+    eventId: '7ae498ca-1dc3-4cf7-be84-67e3c8cd2e1a',
     type: 'web.paint.fcp',
     timestamp: EVENT_TIMESTAMP,
 
@@ -69,19 +62,14 @@ const EVENT: PaintEventV1 = {
 }
 
 describe('PostgresEventRepository', () => {
-    const pool = createDatabasePool(
-        TEST_DATABASE_URL,
-    )
+    const pool = createDatabasePool(TEST_DATABASE_URL)
 
-    const repository =
-        createPostgresEventRepository(pool)
+    const repository = createPostgresEventRepository(pool)
 
     beforeEach(async () => {
         // TRUNCATE 会在每个测试前清空表，确保测试互不影响
         // RESTART IDENTITY 会把自增id重置
-        await pool.query(
-            'TRUNCATE TABLE metric_events RESTART IDENTITY',
-        )
+        await pool.query('TRUNCATE TABLE metric_events RESTART IDENTITY')
     })
 
     afterAll(async () => {
@@ -89,9 +77,7 @@ describe('PostgresEventRepository', () => {
     })
 
     it('inserts a paint event', async () => {
-        await repository.insertBatch([
-            EVENT,
-        ])
+        await repository.insertBatch([EVENT])
 
         const result = await pool.query<{
             event_id: string
@@ -120,42 +106,38 @@ describe('PostgresEventRepository', () => {
         expect(result.rows).toEqual([
             {
                 event_id: EVENT.eventId,
-                schema_version:
-                    EVENT.schemaVersion,
+                schema_version: EVENT.schemaVersion,
                 app_id: EVENT.application.id,
                 event_type: EVENT.type,
-                event_time: new Date(
-                    EVENT.timestamp,
-                ),
+                event_time: new Date(EVENT.timestamp),
                 metric_value: EVENT.payload.value,
                 metric_unit: EVENT.payload.unit,
                 sample_rate: 1,
                 metric_version: 'paint-v1',
-            }
+            },
         ])
     })
 
     it('treats duplicate event IDs as idempotent', async () => {
         await repository.insertBatch([EVENT])
 
-        await expect(
-            repository.insertBatch([EVENT])
-        ).resolves.toBeUndefined()
+        await expect(repository.insertBatch([EVENT])).resolves.toBeUndefined()
 
         const result = await pool.query<{
             count: string
-        }>(`
+        }>(
+            `
             SELECT count(*) AS count
             FROM metric_events
             WHERE event_id = $1
-        `, [
-            EVENT.eventId
-        ])
+        `,
+            [EVENT.eventId],
+        )
 
         expect(result.rows).toEqual([
             {
-                count: '1'
-            }
+                count: '1',
+            },
         ])
     })
 
@@ -179,9 +161,7 @@ describe('PostgresEventRepository', () => {
             },
         }
 
-        await repository.insertBatch([
-            fpEvent, fcpEvent
-        ])
+        await repository.insertBatch([fpEvent, fcpEvent])
         const result = await pool.query<{
             event_type: string
             metric_value: number
@@ -232,13 +212,12 @@ describe('PostgresEventRepository', () => {
             ),
         ])
 
-        const result =
-            await repository.queryPaintMetrics({
-                appId: 'demo-web',
-                from: QUERY_FROM,
-                to: QUERY_TO,
-                interval: 'hour',
-            })
+        const result = await repository.queryPaintMetrics({
+            appId: 'demo-web',
+            from: QUERY_FROM,
+            to: QUERY_TO,
+            interval: 'hour',
+        })
 
         expect(result.summary.fcp.count).toBe(2)
     })
@@ -247,8 +226,7 @@ describe('PostgresEventRepository', () => {
         const invalidEvent: PaintEventV1 = {
             ...EVENT,
 
-            eventId:
-                '178714a8-1cd5-4900-baf4-4d8761451806',
+            eventId: '178714a8-1cd5-4900-baf4-4d8761451806',
 
             payload: {
                 ...EVENT.payload,
@@ -257,10 +235,7 @@ describe('PostgresEventRepository', () => {
         }
 
         await expect(
-            repository.insertBatch([
-                EVENT,
-                invalidEvent,
-            ]),
+            repository.insertBatch([EVENT, invalidEvent]),
         ).rejects.toThrow()
 
         const result = await pool.query<{
@@ -278,13 +253,12 @@ describe('PostgresEventRepository', () => {
     })
 
     it('returns empty statistics and fills empty time buckets', async () => {
-        const result =
-            await repository.queryPaintMetrics({
-                appId: 'demo-web',
-                from: QUERY_FROM,
-                to: QUERY_TO,
-                interval: 'hour',
-            })
+        const result = await repository.queryPaintMetrics({
+            appId: 'demo-web',
+            from: QUERY_FROM,
+            to: QUERY_TO,
+            interval: 'hour',
+        })
 
         expect(result).toEqual({
             range: {
@@ -300,8 +274,7 @@ describe('PostgresEventRepository', () => {
 
             series: [
                 {
-                    time:
-                        QUERY_FROM.toISOString(),
+                    time: QUERY_FROM.toISOString(),
                     fp: EMPTY_STATS,
                     fcp: EMPTY_STATS,
                 },
@@ -310,17 +283,14 @@ describe('PostgresEventRepository', () => {
     })
 
     it('aggregates an event into its time bucket', async () => {
-        await repository.insertBatch([
-            EVENT,
-        ])
+        await repository.insertBatch([EVENT])
 
-        const result =
-            await repository.queryPaintMetrics({
-                appId: 'demo-web',
-                from: QUERY_FROM,
-                to: QUERY_TO,
-                interval: 'hour',
-            })
+        const result = await repository.queryPaintMetrics({
+            appId: 'demo-web',
+            from: QUERY_FROM,
+            to: QUERY_TO,
+            interval: 'hour',
+        })
 
         expect(result.series).toEqual([
             {
@@ -338,39 +308,32 @@ describe('PostgresEventRepository', () => {
     })
 
     it('calculates statistics for a known dataset', async () => {
-        const values = [
-            100,
-            200,
-            300,
-            400,
-        ]
+        const values = [100, 200, 300, 400]
 
-        const events: PaintEventV1[] =
-            values.map((value, index) => ({
-                ...EVENT,
+        const events: PaintEventV1[] = values.map((value, index) => ({
+            ...EVENT,
 
-                eventId:
-                    `00000000-0000-4000-8000-${String(index + 1)
-                        .padStart(12, '0')}`,
+            eventId: `00000000-0000-4000-8000-${String(index + 1).padStart(
+                12,
+                '0',
+            )}`,
 
-                timestamp:
-                    QUERY_FROM.getTime() + 1_000,
+            timestamp: QUERY_FROM.getTime() + 1_000,
 
-                payload: {
-                    value,
-                    unit: 'ms',
-                },
-            }))
+            payload: {
+                value,
+                unit: 'ms',
+            },
+        }))
 
         await repository.insertBatch(events)
 
-        const result =
-            await repository.queryPaintMetrics({
-                appId: 'demo-web',
-                from: QUERY_FROM,
-                to: QUERY_TO,
-                interval: 'hour',
-            })
+        const result = await repository.queryPaintMetrics({
+            appId: 'demo-web',
+            from: QUERY_FROM,
+            to: QUERY_TO,
+            interval: 'hour',
+        })
 
         expect(result.summary.fcp).toEqual({
             count: 4,
@@ -385,8 +348,7 @@ describe('PostgresEventRepository', () => {
         const event: MetricEventV2 = {
             schemaVersion: '2.0',
 
-            eventId:
-                '20000000-0000-4000-8000-000000000001',
+            eventId: '20000000-0000-4000-8000-000000000001',
 
             type: 'web.vital.lcp',
             timestamp: EVENT_TIMESTAMP,
@@ -418,9 +380,7 @@ describe('PostgresEventRepository', () => {
             },
         }
 
-        await repository.insertBatch([
-            event,
-        ])
+        await repository.insertBatch([event])
 
         const result = await pool.query<{
             schema_version: string
@@ -429,7 +389,8 @@ describe('PostgresEventRepository', () => {
             metric_unit: string
             sample_rate: number
             metric_version: string
-        }>(`
+        }>(
+            `
             SELECT
                 schema_version,
                 event_type,
@@ -439,9 +400,9 @@ describe('PostgresEventRepository', () => {
                 metric_version
             FROM metric_events
             WHERE event_id = $1
-        `, [
-            event.eventId,
-        ])
+        `,
+            [event.eventId],
+        )
 
         expect(result.rows).toEqual([
             {
@@ -459,12 +420,10 @@ describe('PostgresEventRepository', () => {
         const event: MetricEventV2 = {
             schemaVersion: '2.0',
 
-            eventId:
-                '30000000-0000-4000-8000-000000000001',
+            eventId: '30000000-0000-4000-8000-000000000001',
 
             type: 'web.vital.lcp',
-            timestamp:
-                QUERY_FROM.getTime() + 1_000,
+            timestamp: QUERY_FROM.getTime() + 1_000,
 
             sampleRate: 1,
             metricVersion: 'lcp-v1',
@@ -487,25 +446,21 @@ describe('PostgresEventRepository', () => {
             },
         }
 
-        await repository.insertBatch([
-            EVENT,
-            event,
-        ])
+        await repository.insertBatch([EVENT, event])
 
-        const result =
-            await repository.queryMetric({
-                appId: 'demo-web',
+        const result = await repository.queryMetric({
+            appId: 'demo-web',
 
-                metric: {
-                    type: 'web.vital.lcp',
-                    unit: 'ms',
-                    metricVersion: 'lcp-v1',
-                },
+            metric: {
+                type: 'web.vital.lcp',
+                unit: 'ms',
+                metricVersion: 'lcp-v1',
+            },
 
-                from: QUERY_FROM,
-                to: QUERY_TO,
-                interval: 'hour',
-            })
+            from: QUERY_FROM,
+            to: QUERY_TO,
+            interval: 'hour',
+        })
 
         expect(result).toEqual({
             metric: {
@@ -566,10 +521,7 @@ describe('PostgresEventRepository', () => {
             },
         }
 
-        await repository.insertBatch([
-            EVENT,
-            clsEvent,
-        ])
+        await repository.insertBatch([EVENT, clsEvent])
 
         const result = await repository.queryMetric({
             appId: 'demo-web',
@@ -626,10 +578,7 @@ describe('PostgresEventRepository', () => {
             },
         }
 
-        await repository.insertBatch([
-            EVENT,
-            inpEvent,
-        ])
+        await repository.insertBatch([EVENT, inpEvent])
 
         const result = await repository.queryMetric({
             appId: 'demo-web',
@@ -664,24 +613,21 @@ describe('PostgresEventRepository', () => {
     })
 
     it('returns empty generic metric statistics and fills time buckets', async () => {
-        const result =
-            await repository.queryMetric({
-                appId: 'demo-web',
+        const result = await repository.queryMetric({
+            appId: 'demo-web',
 
-                metric: {
-                    type: 'web.vital.lcp',
-                    unit: 'ms',
-                    metricVersion: 'lcp-v1',
-                },
+            metric: {
+                type: 'web.vital.lcp',
+                unit: 'ms',
+                metricVersion: 'lcp-v1',
+            },
 
-                from: QUERY_FROM,
-                to: QUERY_TO,
-                interval: 'hour',
-            })
+            from: QUERY_FROM,
+            to: QUERY_TO,
+            interval: 'hour',
+        })
 
-        expect(result.summary).toEqual(
-            EMPTY_STATS,
-        )
+        expect(result.summary).toEqual(EMPTY_STATS)
 
         expect(result.series).toEqual([
             {
@@ -735,18 +681,194 @@ describe('PostgresEventRepository', () => {
 
         await repository.insertBatch(events)
 
-        const snapshots = await repository
-            .queryLatestViewMemorySnapshots({
-                appId: 'demo-web',
-                from: new Date(EVENT_TIMESTAMP),
-                to: new Date(timestamps.at(-1)! + 1),
-            })
+        const snapshots = await repository.queryLatestViewMemorySnapshots({
+            appId: 'demo-web',
+            from: new Date(EVENT_TIMESTAMP),
+            to: new Date(timestamps.at(-1)! + 1),
+        })
 
         expect(snapshots).toHaveLength(6)
         expect(snapshots.at(-1)).toEqual({
             observedAt: timestamps.at(-1),
             usedHeap: 150 * 1024 ** 2,
             heapLimit: 1024 * 1024 ** 2,
+        })
+    })
+
+    it('stores LCP attribution', async () => {
+        const attribution = {
+            timeToFirstByte: 800,
+            resourceLoadDelay: 300,
+            resourceLoadDuration: 900,
+            elementRenderDelay: 300,
+            element: '.hero-image',
+            url: 'https://example.com/hero.webp',
+        }
+
+        const event: MetricEventV2 = {
+            schemaVersion: '2.0',
+            eventId: '40000000-0000-4000-8000-000000000001',
+            type: 'web.vital.lcp',
+            timestamp: EVENT_TIMESTAMP,
+            sampleRate: 1,
+            metricVersion: 'lcp-v1',
+
+            application: {
+                ...EVENT.application,
+                version: '0.2.0',
+            },
+
+            runtime: {
+                ...EVENT.runtime,
+                sdk: {
+                    ...EVENT.runtime.sdk,
+                    version: '0.2.0',
+                },
+            },
+
+            session: {
+                ...EVENT.session,
+                viewId: 'view-lcp-attribution-1',
+            },
+
+            payload: {
+                value: 2_300,
+                unit: 'ms',
+                attribution,
+            },
+        }
+
+        await repository.insertBatch([event])
+
+        const result = await pool.query<{
+            metric_attribution: typeof attribution
+        }>(
+            `
+                SELECT metric_attribution
+                FROM metric_events
+                WHERE event_id = $1
+            `,
+            [event.eventId],
+        )
+
+        expect(result.rows).toEqual([
+            {
+                metric_attribution: attribution,
+            },
+        ])
+    })
+
+    it('aggregates LCP diagnostic evidence', async () => {
+        const firstAttribution: LcpAttribution = {
+            timeToFirstByte: 600,
+            resourceLoadDelay: 100,
+            resourceLoadDuration: 700,
+            elementRenderDelay: 200,
+        }
+
+        const firstEvent: MetricEventV2 = {
+            schemaVersion: '2.0',
+            eventId: '50000000-0000-4000-8000-000000000001',
+            type: 'web.vital.lcp',
+            timestamp: QUERY_FROM.getTime() + 1_000,
+            sampleRate: 1,
+            metricVersion: 'lcp-v1',
+            application: {
+                ...EVENT.application,
+                version: '0.2.0',
+            },
+            runtime: EVENT.runtime,
+            session: {
+                ...EVENT.session,
+                viewId: 'diagnostic-view-1',
+            },
+            payload: {
+                value: 1_600,
+                unit: 'ms',
+                attribution: firstAttribution,
+            },
+        }
+
+        const secondEvent: MetricEventV2 = {
+            ...firstEvent,
+            eventId: '50000000-0000-4000-8000-000000000002',
+            timestamp: QUERY_FROM.getTime() + 2_000,
+            session: {
+                ...firstEvent.session,
+                viewId: 'diagnostic-view-2',
+            },
+            payload: {
+                value: 2_600,
+                unit: 'ms',
+                attribution: {
+                    timeToFirstByte: 1_000,
+                    resourceLoadDelay: 300,
+                    resourceLoadDuration: 900,
+                    elementRenderDelay: 400,
+                },
+            },
+        }
+
+        const eventWithoutEvidence: MetricEventV2 = {
+            ...firstEvent,
+            eventId: '50000000-0000-4000-8000-000000000003',
+            timestamp: QUERY_FROM.getTime() + 3_000,
+            session: {
+                ...firstEvent.session,
+                viewId: 'diagnostic-view-3',
+            },
+            payload: {
+                value: 1_800,
+                unit: 'ms',
+            },
+        }
+
+        await repository.insertBatch([
+            firstEvent,
+            secondEvent,
+            eventWithoutEvidence,
+        ])
+
+        const result = await repository.queryLcpDiagnostics({
+            appId: 'demo-web',
+            from: QUERY_FROM,
+            to: QUERY_TO,
+        })
+
+        expect(result).toEqual({
+            metric: {
+                type: 'web.vital.lcp',
+                unit: 'ms',
+                metricVersion: 'lcp-v1',
+            },
+            range: {
+                from: QUERY_FROM.toISOString(),
+                to: QUERY_TO.toISOString(),
+            },
+            sampleCount: 3,
+            evidenceSampleCount: 2,
+            overall: {
+                average: 2_000,
+                p75: 2_200,
+            },
+            phases: {
+                timeToFirstByte: {
+                    average: 800,
+                    p75: 900,
+                },
+                resourceLoadDelay: {
+                    average: 200,
+                    p75: 250,
+                },
+                resourceLoadDuration: {
+                    average: 800,
+                    p75: 850,
+                },
+                elementRenderDelay: {
+                    average: 300,
+                    p75: 350,
+                },
+            },
         })
     })
 })

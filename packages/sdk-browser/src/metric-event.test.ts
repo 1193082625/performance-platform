@@ -1,20 +1,10 @@
-import {
-    describe,
-    it,
-    expect
-} from 'vitest'
+import { describe, it, expect } from 'vitest'
 
-import type {
-    MetricSample
-} from './types/metricSample.type.js'
+import type { MetricSample } from './types/metricSample.type.js'
 
-import type {
-    MetricEventContext
-} from './types/paintMonitor.type'
+import type { MetricEventContext } from './types/paintMonitor.type'
 
-import {
-    createMetricEvent
-} from './metric-event'
+import { createMetricEvent } from './metric-event'
 
 const sample = {
     type: 'web.vital.lcp',
@@ -23,7 +13,15 @@ const sample = {
     payload: {
         value: 2300,
         unit: 'ms',
-    }
+        attribution: {
+            timeToFirstByte: 800,
+            resourceLoadDelay: 300,
+            resourceLoadDuration: 900,
+            elementRenderDelay: 300,
+            element: '.hero-image',
+            url: 'https://example.com/hero.webp',
+        },
+    },
 } satisfies MetricSample
 
 const context: MetricEventContext = {
@@ -59,25 +57,29 @@ describe('createMetricEvent', () => {
                 platform: 'web',
 
                 sdk: {
-                    name:
-                        '@performance-platform/browser',
+                    name: '@performance-platform/browser',
 
-                    version:
-                        '0.2.0',
+                    version: '0.2.0',
                 },
             },
 
             session: {
-                sessionId:
-                    'session-test-1',
+                sessionId: 'session-test-1',
 
-                viewId:
-                    'view-test-1',
+                viewId: 'view-test-1',
             },
 
             payload: {
                 value: 2300,
                 unit: 'ms',
+                attribution: {
+                    timeToFirstByte: 800,
+                    resourceLoadDelay: 300,
+                    resourceLoadDuration: 900,
+                    elementRenderDelay: 300,
+                    element: '.hero-image',
+                    url: 'https://example.com/hero.webp',
+                },
             },
         })
     })
@@ -88,7 +90,7 @@ describe('createMetricEvent', () => {
                 type: 'web.paint.fcp',
                 occurredAt: 1_000_260,
                 metricVersion: 'paint-v1',
-    
+
                 payload: {
                     value: 260,
                     unit: 'ms',
@@ -96,14 +98,14 @@ describe('createMetricEvent', () => {
             },
             context,
         )
-    
+
         expect(event).toMatchObject({
             schemaVersion: '2.0',
             type: 'web.paint.fcp',
             timestamp: 1_000_260,
             sampleRate: 0.5,
             metricVersion: 'paint-v1',
-    
+
             payload: {
                 value: 260,
                 unit: 'ms',
