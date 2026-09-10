@@ -2,6 +2,7 @@ import {
   ratePaintMetric,
   rateWebVital,
   type ClsDiagnosticFinding,
+  type InpDiagnosticFinding,
   type LcpDiagnosticFinding,
   type MemoryHealthAssessment,
   type MetricRating,
@@ -29,6 +30,7 @@ interface RecommendationInput {
   cls?: MetricStats;
   clsFindings?: ClsDiagnosticFinding[];
   inp?: MetricStats;
+  inpFindings?: InpDiagnosticFinding[];
   memoryHealth?: MemoryHealthAssessment | null;
   lcpFindings?: LcpDiagnosticFinding[];
 }
@@ -121,6 +123,40 @@ export function createPerformanceRecommendations(
     }
   }
   add("INP", input.inp, (value) => rateWebVital("web.vital.inp", value), "recommendations.inp");
+  const inpPriority = {
+    "inp.repeated-interaction-target": 4,
+    "inp.slow-event-handler": 3,
+    "inp.high-input-delay": 2,
+    "inp.high-presentation-delay": 1,
+  } as const;
+  const primaryInpFinding = input.inpFindings
+    ?.slice()
+    .sort((left, right) => inpPriority[right.ruleId] - inpPriority[left.ruleId])[0];
+  if (primaryInpFinding !== undefined) {
+    const recommendation = recommendations.find((item) => item.metric === "INP");
+    if (recommendation !== undefined) {
+      recommendation.messageKey = {
+        "inp.high-input-delay": "recommendations.inpHighInputDelay",
+        "inp.slow-event-handler": "recommendations.inpSlowEventHandler",
+        "inp.high-presentation-delay": "recommendations.inpHighPresentationDelay",
+        "inp.repeated-interaction-target": "recommendations.inpRepeatedInteractionTarget",
+      }[primaryInpFinding.ruleId];
+      recommendation.messageParams = {
+        evidenceSamples: primaryInpFinding.evidence.evidenceSampleCount,
+        samples: primaryInpFinding.evidence.sampleCount,
+        ...(primaryInpFinding.ruleId === "inp.repeated-interaction-target"
+          ? {
+              target: primaryInpFinding.target,
+              affectedSamples: primaryInpFinding.evidence.affectedSampleCount,
+              share: Math.round(primaryInpFinding.evidence.share * 100),
+            }
+          : {
+              phaseAverage: Math.round(primaryInpFinding.evidence.phaseAverage),
+              contribution: Math.round(primaryInpFinding.evidence.contribution * 100),
+            }),
+      };
+    }
+  }
 
   const memoryStatus = input.memoryHealth?.status;
   if (memoryStatus === "WARNING" || memoryStatus === "CRITICAL") {

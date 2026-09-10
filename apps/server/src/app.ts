@@ -17,6 +17,7 @@ import type {
     MemoryHealthRepository,
     LcpDiagnosticRepository,
     ClsDiagnosticRepository,
+    InpDiagnosticRepository,
 } from './repositories/event-repository.js'
 
 import { createMetricQueryService } from './services/metric-query-service.js'
@@ -30,6 +31,8 @@ import { createLcpDiagnosticService } from './services/lcp-diagnostic-service.js
 import { registerLcpDiagnosticRoutes } from './routes/lcp-diagnostic.js'
 import { createClsDiagnosticService } from './services/cls-diagnostic-service.js'
 import { registerClsDiagnosticRoutes } from './routes/cls-diagnostic.js'
+import { createInpDiagnosticService } from './services/inp-diagnostic-service.js'
+import { registerInpDiagnosticRoutes } from './routes/inp-diagnostic.js'
 
 interface BuildAppOptions {
     eventRepository: EventRepository
@@ -37,6 +40,7 @@ interface BuildAppOptions {
     memoryHealthRepository?: MemoryHealthRepository
     lcpDiagnosticRepository?: LcpDiagnosticRepository
     clsDiagnosticRepository?: ClsDiagnosticRepository
+    inpDiagnosticRepository?: InpDiagnosticRepository
     appId: string
     now: () => number
     corsOrigins?: string[]
@@ -155,6 +159,18 @@ export function buildApp(options: BuildAppOptions): FastifyInstance {
 
         app.register(registerClsDiagnosticRoutes, {
             clsDiagnosticService,
+        })
+    }
+
+    if (options.inpDiagnosticRepository !== undefined) {
+        const inpDiagnosticService = createInpDiagnosticService({
+            repository: options.inpDiagnosticRepository,
+            appId: options.appId,
+            now: options.now,
+        })
+
+        app.register(registerInpDiagnosticRoutes, {
+            inpDiagnosticService,
         })
     }
 

@@ -46,6 +46,9 @@ export type {
     ClsDiagnosticResponse,
     ClsDiagnosticFinding,
     LayoutShiftRect,
+    InpDiagnosticAnalysisResponse,
+    InpDiagnosticResponse,
+    InpDiagnosticFinding,
 } from './types.js'
 
 export {

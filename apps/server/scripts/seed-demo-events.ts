@@ -9,6 +9,7 @@ import type {
 
 import { createLcpDemoCohorts } from './lcp-demo-scenarios.js'
 import { createClsDemoCohorts } from './cls-demo-scenarios.js'
+import { createInpDemoCohorts } from './inp-demo-scenarios.js'
 
 const endpoint =
     process.env.EVENTS_ENDPOINT
@@ -113,7 +114,10 @@ const lcpEvents = createLcpDemoCohorts(now).flatMap(
 const clsEvents = createClsDemoCohorts(now).flatMap(
     (cohort) => cohort.events,
 )
-const events = [...v2PaintEvents, ...lcpEvents, ...clsEvents]
+const inpEvents = createInpDemoCohorts(now).flatMap(
+    (cohort) => cohort.events,
+)
+const events = [...v2PaintEvents, ...lcpEvents, ...clsEvents, ...inpEvents]
 
 for (
     let index = 0;
@@ -147,5 +151,5 @@ for (
 }
 
 console.log(
-    `Seeded ${v2PaintEvents.length} paint events, ${lcpEvents.length} LCP diagnostic events, and ${clsEvents.length} CLS diagnostic events`,
+    `Seeded ${v2PaintEvents.length} paint events, ${lcpEvents.length} LCP diagnostic events, ${clsEvents.length} CLS diagnostic events, and ${inpEvents.length} INP diagnostic events`,
 )

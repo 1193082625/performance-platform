@@ -2,6 +2,7 @@ import { expect, test } from '@playwright/test'
 import type { APIRequestContext } from '@playwright/test'
 import type {
     ClsDiagnosticAnalysisResponse,
+    InpDiagnosticAnalysisResponse,
     LcpDiagnosticAnalysisResponse,
     MetricEventV2,
 } from '@performance-platform/protocol'
@@ -12,6 +13,9 @@ import {
 import {
     createClsDemoCohorts,
 } from '../../apps/server/scripts/cls-demo-scenarios.js'
+import {
+    createInpDemoCohorts,
+} from '../../apps/server/scripts/inp-demo-scenarios.js'
 
 const CONSOLE_BASE_URL =
     process.env.CONSOLE_BASE_URL
@@ -104,6 +108,22 @@ async function queryClsDiagnostic(
     expect(response.ok()).toBe(true)
 
     return response.json() as Promise<ClsDiagnosticAnalysisResponse>
+}
+
+async function queryInpDiagnostic(
+    request: APIRequestContext,
+    from: number,
+    to: number,
+): Promise<InpDiagnosticAnalysisResponse> {
+    const search = new URLSearchParams({
+        from: new Date(from).toISOString(),
+        to: new Date(to).toISOString(),
+    })
+    const response = await request.get(
+        `${CONSOLE_BASE_URL}/api/v2/diagnostics/inp?${search.toString()}`,
+    )
+    expect(response.ok()).toBe(true)
+    return response.json() as Promise<InpDiagnosticAnalysisResponse>
 }
 
 async function queryPaintCounts(
@@ -343,6 +363,43 @@ test(
         await recommendationButton.click()
         await expect(page.getByRole('note')).toContainText(
             'The element .promo-banner is the largest layout-shift source',
+        )
+    },
+)
+
+test(
+    'diagnoses INP phases and displays the repeated target recommendation',
+    async ({ page, request }) => {
+        const cohorts = createInpDemoCohorts(Date.now() - 60_000)
+
+        await ingestEvents(
+            request,
+            cohorts.flatMap((cohort) => cohort.events),
+        )
+
+        for (const cohort of cohorts) {
+            const diagnostic = await queryInpDiagnostic(
+                request,
+                cohort.timestamp - 1,
+                cohort.timestamp + 1,
+            )
+            expect(diagnostic.sampleCount).toBe(cohort.scenario.sampleCount)
+            expect(diagnostic.evidenceSampleCount).toBe(
+                cohort.scenario.sampleCount,
+            )
+            expect(diagnostic.findings.map((finding) => finding.ruleId)).toEqual(
+                cohort.scenario.expectedRuleIds,
+            )
+        }
+
+        await page.goto(CONSOLE_BASE_URL)
+        const recommendationButton = page.locator(
+            'summary[aria-label="Show optimization recommendation for INP"]',
+        )
+        await expect(recommendationButton).toBeVisible()
+        await recommendationButton.click()
+        await expect(page.getByRole('note')).toContainText(
+            'The element #inp-demo appears in',
         )
     },
 )

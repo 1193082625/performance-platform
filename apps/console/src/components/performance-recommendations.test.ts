@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import type { InpDiagnosticFinding } from "@performance-platform/protocol";
 
 import { createPerformanceRecommendations } from "./performance-recommendations.js";
 
@@ -179,6 +180,83 @@ describe("createPerformanceRecommendations", () => {
         lcp: stats(2_500),
       }),
     ).toEqual([]);
+  });
+
+  it("prioritizes a repeated INP target and includes its evidence", () => {
+    const [recommendation] = createPerformanceRecommendations({
+      inp: stats(280),
+      inpFindings: [
+        {
+          ruleId: "inp.slow-event-handler",
+          ruleVersion: "1",
+          phase: "processingDuration",
+          evidence: {
+            overallP75: 280,
+            phaseAverage: 140,
+            contribution: 0.54,
+            sampleCount: 100,
+            evidenceSampleCount: 80,
+          },
+        },
+        {
+          ruleId: "inp.repeated-interaction-target",
+          ruleVersion: "1",
+          target: "#checkout",
+          evidence: {
+            overallP75: 280,
+            sampleCount: 100,
+            evidenceSampleCount: 80,
+            affectedSampleCount: 32,
+            share: 0.4,
+          },
+        },
+      ],
+    });
+
+    expect(recommendation).toEqual({
+      metric: "INP",
+      status: "NEEDS_IMPROVEMENT",
+      messageKey: "recommendations.inpRepeatedInteractionTarget",
+      messageParams: {
+        target: "#checkout",
+        affectedSamples: 32,
+        evidenceSamples: 80,
+        samples: 100,
+        share: 40,
+      },
+    });
+  });
+
+  it.each([
+    ["inp.high-input-delay", "inputDelay", "recommendations.inpHighInputDelay"],
+    ["inp.slow-event-handler", "processingDuration", "recommendations.inpSlowEventHandler"],
+    ["inp.high-presentation-delay", "presentationDelay", "recommendations.inpHighPresentationDelay"],
+  ] as const)("maps %s to precise INP advice", (ruleId, phase, messageKey) => {
+    const [recommendation] = createPerformanceRecommendations({
+      inp: stats(280),
+      inpFindings: [{
+        ruleId,
+        ruleVersion: "1",
+        phase,
+        evidence: {
+          overallP75: 280,
+          phaseAverage: 140.4,
+          contribution: 0.536,
+          sampleCount: 100,
+          evidenceSampleCount: 80,
+        },
+      } as InpDiagnosticFinding],
+    });
+
+    expect(recommendation).toMatchObject({
+      messageKey,
+      messageParams: {
+        phaseAverage: 140,
+        contribution: 54,
+        evidenceSamples: 80,
+        samples: 100,
+      },
+    });
   });
 
   it("prioritizes a repeated CLS target and includes its evidence", () => {

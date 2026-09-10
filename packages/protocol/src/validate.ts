@@ -74,6 +74,19 @@ const CLS_LOAD_STATES = new Set([
 
 const LAYOUT_SHIFT_RECT_FIELDS = ['x', 'y', 'width', 'height'] as const
 
+const INP_ATTRIBUTION_DURATION_FIELDS = [
+    'inputDelay',
+    'processingDuration',
+    'presentationDelay',
+] as const
+
+const INP_OPTIONAL_DURATION_FIELDS = [
+    'interactionTime',
+    'totalScriptDuration',
+    'totalStyleAndLayoutDuration',
+    'totalPaintDuration',
+] as const
+
 function isSupportedMetric(value: unknown): value is SupportedMetric {
     return typeof value === 'string' && Object.hasOwn(METRIC_UNITS, value)
 }
@@ -158,6 +171,48 @@ function isValidClsAttribution(value: unknown): boolean {
     }
 
     return true
+}
+
+function isValidInpDuration(value: unknown): boolean {
+    return (
+        typeof value === 'number' &&
+        Number.isFinite(value) &&
+        value >= 0 &&
+        value < MAX_DURATION_MS
+    )
+}
+
+function isValidInpAttribution(value: unknown): boolean {
+    if (!isRecord(value)) return false
+
+    if (
+        !INP_ATTRIBUTION_DURATION_FIELDS.every((field) =>
+            isValidInpDuration(value[field]),
+        ) ||
+        !CLS_LOAD_STATES.has(value.loadState as string)
+    ) {
+        return false
+    }
+
+    if (
+        value.interactionType !== undefined &&
+        value.interactionType !== 'pointer' &&
+        value.interactionType !== 'keyboard'
+    ) {
+        return false
+    }
+
+    if (
+        value.interactionTarget !== undefined &&
+        !isBoundedString(value.interactionTarget, 1_024)
+    ) {
+        return false
+    }
+
+    return INP_OPTIONAL_DURATION_FIELDS.every(
+        (field) =>
+            value[field] === undefined || isValidInpDuration(value[field]),
+    )
 }
 
 // : value is string ，这叫做类型谓词 或 用户定义类型守卫
@@ -491,6 +546,14 @@ export function validateMetricEvent(
         input.type === 'web.vital.cls' &&
         Object.hasOwn(input.payload, 'attribution') &&
         !isValidClsAttribution(input.payload.attribution)
+    ) {
+        return invalid('invalid_attribution')
+    }
+
+    if (
+        input.type === 'web.vital.inp' &&
+        Object.hasOwn(input.payload, 'attribution') &&
+        !isValidInpAttribution(input.payload.attribution)
     ) {
         return invalid('invalid_attribution')
     }

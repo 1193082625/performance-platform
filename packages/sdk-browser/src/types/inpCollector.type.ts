@@ -5,7 +5,12 @@ import type {
 export interface InpMetricLike {
     value: number
     interactionStartTime: number
+    attribution?: InpAttributionLike
 }
+
+type InpAttributionLike = NonNullable<
+    InpSample['payload']['attribution']
+>
 
 export type ObserveInp = (
     callback: (

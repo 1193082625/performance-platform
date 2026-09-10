@@ -55,6 +55,14 @@ describe('createInpCollector', () => {
         emit({
             value: 248.4,
             interactionStartTime: 2_300.4,
+            attribution: {
+                inputDelay: 48,
+                processingDuration: 150,
+                presentationDelay: 50.4,
+                loadState: 'complete',
+                interactionType: 'pointer',
+                interactionTarget: '#checkout',
+            },
         })
 
         expect(onSample).toHaveBeenCalledWith({
@@ -64,6 +72,14 @@ describe('createInpCollector', () => {
             payload: {
                 value: 248.4,
                 unit: 'ms',
+                attribution: {
+                    inputDelay: 48,
+                    processingDuration: 150,
+                    presentationDelay: 50.4,
+                    loadState: 'complete',
+                    interactionType: 'pointer',
+                    interactionTarget: '#checkout',
+                },
             },
         })
     })

@@ -150,4 +150,26 @@ describe('MetricEventV2 type contract', () => {
 
         expect(event.payload.attribution?.largestShiftValue).toBe(0.14)
     })
+
+    it('accepts INP attribution evidence', () => {
+        const event: MetricEventV2 = {
+            ...baseEvent,
+            type: 'web.vital.inp',
+            metricVersion: 'inp-v1',
+            payload: {
+                value: 320,
+                unit: 'ms',
+                attribution: {
+                    inputDelay: 80,
+                    processingDuration: 180,
+                    presentationDelay: 60,
+                    loadState: 'complete',
+                    interactionType: 'pointer',
+                    interactionTarget: '#checkout',
+                },
+            },
+        }
+
+        expect(event.payload.attribution?.processingDuration).toBe(180)
+    })
 })

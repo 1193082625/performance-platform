@@ -5,6 +5,7 @@ const webVitalsMocks = vi.hoisted(() => ({
     plainOnLcp: vi.fn(),
     attributedOnLcp: vi.fn(),
     attributedOnCls: vi.fn(),
+    attributedOnInp: vi.fn(),
 }))
 
 // 创建两个 Mock 函数，模拟两个不同的模块入口
@@ -21,9 +22,14 @@ vi.mock('web-vitals/attribution/onCLS.js', () => ({
     onCLS: webVitalsMocks.attributedOnCls,
 }))
 
+vi.mock('web-vitals/attribution/onINP.js', () => ({
+    onINP: webVitalsMocks.attributedOnInp,
+}))
+
 import {
     observeClsWithWebVitals,
     observeLcpWithWebVitals,
+    observeInpWithWebVitals,
 } from './web-vitals-adapter'
 
 describe('observeLcpWithWebVitals', () => {
@@ -64,6 +70,54 @@ describe('observeLcpWithWebVitals', () => {
                 elementRenderDelay: 300,
                 element: '.hero-image',
                 url: 'https://example.com/hero.webp',
+            },
+        })
+    })
+})
+
+describe('observeInpWithWebVitals', () => {
+    beforeEach(() => {
+        vi.clearAllMocks()
+    })
+
+    it('maps attributed web-vitals INP data', () => {
+        webVitalsMocks.attributedOnInp.mockImplementationOnce((callback) => {
+            callback({
+                value: 320,
+                entries: [{ startTime: 2_400 }],
+                attribution: {
+                    inputDelay: 80,
+                    processingDuration: 180,
+                    presentationDelay: 60,
+                    loadState: 'complete',
+                    interactionType: 'pointer',
+                    interactionTarget: '#checkout',
+                    interactionTime: 2_400,
+                    totalScriptDuration: 150,
+                    totalStyleAndLayoutDuration: 20,
+                    totalPaintDuration: 30,
+                },
+            })
+        })
+
+        const callback = vi.fn()
+
+        observeInpWithWebVitals(callback)
+
+        expect(callback).toHaveBeenCalledWith({
+            value: 320,
+            interactionStartTime: 2_400,
+            attribution: {
+                inputDelay: 80,
+                processingDuration: 180,
+                presentationDelay: 60,
+                loadState: 'complete',
+                interactionType: 'pointer',
+                interactionTarget: '#checkout',
+                interactionTime: 2_400,
+                totalScriptDuration: 150,
+                totalStyleAndLayoutDuration: 20,
+                totalPaintDuration: 30,
             },
         })
     })

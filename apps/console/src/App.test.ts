@@ -208,11 +208,11 @@ describe('App', () => {
         await sevenDayButton!.trigger('click')
         await flushPromises()
     
-        expect(fetchMock).toHaveBeenCalledTimes(20)
+        expect(fetchMock).toHaveBeenCalledTimes(22)
     
         const requestUrl = new URL(
             String(
-                fetchMock.mock.calls[10]?.[0],
+                fetchMock.mock.calls[11]?.[0],
             ),
         )
     
@@ -419,7 +419,7 @@ describe('App', () => {
 
         await flushPromises()
 
-        expect(fetchMock).toHaveBeenCalledTimes(10)
+        expect(fetchMock).toHaveBeenCalledTimes(11)
 
         for (const expected of [
             {
@@ -484,7 +484,7 @@ describe('App', () => {
             );
           }
           
-        expect(fetchMock).toHaveBeenCalledTimes(10)
+        expect(fetchMock).toHaveBeenCalledTimes(11)
     })
     it('shows the dashboard title, selected window, and total samples', async () => {
         const fetchMock = vi.fn()
@@ -602,11 +602,11 @@ describe('App', () => {
         const wrapper = mount(App)
         await flushPromises()
 
-        expect(fetchMock).toHaveBeenCalledTimes(10)
+        expect(fetchMock).toHaveBeenCalledTimes(11)
 
         await vi.advanceTimersByTimeAsync(30_000)
         await flushPromises()
-        expect(fetchMock).toHaveBeenCalledTimes(20)
+        expect(fetchMock).toHaveBeenCalledTimes(22)
 
         const liveButton = wrapper.get('.live-badge')
         await liveButton.trigger('click')
@@ -614,12 +614,12 @@ describe('App', () => {
 
         await vi.advanceTimersByTimeAsync(60_000)
         await flushPromises()
-        expect(fetchMock).toHaveBeenCalledTimes(20)
+        expect(fetchMock).toHaveBeenCalledTimes(22)
 
         await liveButton.trigger('click')
         await flushPromises()
         expect(liveButton.text()).toContain('LIVE')
-        expect(fetchMock).toHaveBeenCalledTimes(30)
+        expect(fetchMock).toHaveBeenCalledTimes(33)
 
         wrapper.unmount()
     })
@@ -880,6 +880,90 @@ describe('App', () => {
                 evidenceSamples: 80,
                 samples: 100,
                 share: 40,
+            },
+        })
+    })
+
+    it('passes evidence-backed INP advice to the metric card', async () => {
+        const inpResponse = {
+            metric: {
+                type: 'web.vital.inp',
+                unit: 'ms',
+                metricVersion: 'inp-v1',
+            },
+            range: METRICS_RESPONSE.range,
+            summary: {
+                count: 100,
+                average: 260,
+                p50: 240,
+                p75: 280,
+                p90: 340,
+            },
+            series: [],
+        }
+        const diagnosticResponse = {
+            metric: inpResponse.metric,
+            range: {
+                from: METRICS_RESPONSE.range.from,
+                to: METRICS_RESPONSE.range.to,
+            },
+            sampleCount: 100,
+            evidenceSampleCount: 80,
+            overall: { average: 260, p75: 280 },
+            phases: {
+                inputDelay: { average: 40, p75: 50 },
+                processingDuration: { average: 140, p75: 160 },
+                presentationDelay: { average: 80, p75: 90 },
+            },
+            dominantTarget: null,
+            findings: [{
+                ruleId: 'inp.slow-event-handler',
+                ruleVersion: '1',
+                phase: 'processingDuration',
+                evidence: {
+                    overallP75: 280,
+                    phaseAverage: 140,
+                    contribution: 140 / 260,
+                    sampleCount: 100,
+                    evidenceSampleCount: 80,
+                },
+            }],
+        }
+        const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+            const url = new URL(String(input))
+            return {
+                ok: true,
+                json: async () => {
+                    if (url.pathname === '/api/v2/diagnostics/inp') {
+                        return diagnosticResponse
+                    }
+                    if (
+                        url.pathname === '/api/v2/metrics' &&
+                        url.searchParams.get('type') === 'web.vital.inp'
+                    ) {
+                        return inpResponse
+                    }
+                    return METRICS_RESPONSE
+                },
+            }
+        })
+
+        vi.stubGlobal('fetch', fetchMock)
+        const wrapper = mount(App)
+        await flushPromises()
+
+        const inpCard = wrapper
+            .findAllComponents(MetricSummaryCard)
+            .find((card) => card.props('metric').name === 'INP')
+        expect(inpCard?.props('recommendation')).toEqual({
+            metric: 'INP',
+            status: 'NEEDS_IMPROVEMENT',
+            messageKey: 'recommendations.inpSlowEventHandler',
+            messageParams: {
+                phaseAverage: 140,
+                contribution: 54,
+                evidenceSamples: 80,
+                samples: 100,
             },
         })
     })

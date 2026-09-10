@@ -32,6 +32,22 @@ type MetricMeasurement =
           payload: {
               value: number
               unit: 'ms'
+              attribution?: {
+                  inputDelay: number
+                  processingDuration: number
+                  presentationDelay: number
+                  loadState:
+                      | 'loading'
+                      | 'dom-interactive'
+                      | 'dom-content-loaded'
+                      | 'complete'
+                  interactionType?: 'pointer' | 'keyboard'
+                  interactionTarget?: string
+                  interactionTime?: number
+                  totalScriptDuration?: number
+                  totalStyleAndLayoutDuration?: number
+                  totalPaintDuration?: number
+              }
           }
       }
     | {
@@ -511,6 +527,75 @@ export type ClsDiagnosticFinding = {
 export interface ClsDiagnosticAnalysisResponse
     extends ClsDiagnosticResponse {
     findings: ClsDiagnosticFinding[]
+}
+
+export interface InpDiagnosticResponse {
+    metric: {
+        type: 'web.vital.inp'
+        unit: 'ms'
+        metricVersion: 'inp-v1'
+    }
+    range: { from: string; to: string }
+    sampleCount: number
+    evidenceSampleCount: number
+    overall: DiagnosticStats
+    phases: {
+        inputDelay: DiagnosticStats
+        processingDuration: DiagnosticStats
+        presentationDelay: DiagnosticStats
+    }
+    dominantTarget: {
+        selector: string
+        count: number
+        share: number
+    } | null
+}
+
+interface InpPhaseFindingEvidence {
+    overallP75: number
+    phaseAverage: number
+    contribution: number
+    sampleCount: number
+    evidenceSampleCount: number
+}
+
+interface InpTargetFindingEvidence {
+    overallP75: number
+    sampleCount: number
+    evidenceSampleCount: number
+    affectedSampleCount: number
+    share: number
+}
+
+export type InpDiagnosticFinding =
+    | {
+          ruleVersion: '1'
+          ruleId: 'inp.high-input-delay'
+          phase: 'inputDelay'
+          evidence: InpPhaseFindingEvidence
+      }
+    | {
+          ruleVersion: '1'
+          ruleId: 'inp.slow-event-handler'
+          phase: 'processingDuration'
+          evidence: InpPhaseFindingEvidence
+      }
+    | {
+          ruleVersion: '1'
+          ruleId: 'inp.high-presentation-delay'
+          phase: 'presentationDelay'
+          evidence: InpPhaseFindingEvidence
+      }
+    | {
+          ruleVersion: '1'
+          ruleId: 'inp.repeated-interaction-target'
+          target: string
+          evidence: InpTargetFindingEvidence
+      }
+
+export interface InpDiagnosticAnalysisResponse
+    extends InpDiagnosticResponse {
+    findings: InpDiagnosticFinding[]
 }
 
 export type MemoryHealthStatus =

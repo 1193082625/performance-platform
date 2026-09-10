@@ -203,6 +203,58 @@ describe('ValidateMetricEvent', () => {
         })
     })
 
+    it('accepts valid INP attribution', () => {
+        const base = makeMetricEvent()
+        const event = {
+            ...base,
+            type: 'web.vital.inp',
+            metricVersion: 'inp-v1',
+            payload: {
+                value: 320,
+                unit: 'ms',
+                attribution: {
+                    inputDelay: 80,
+                    processingDuration: 180,
+                    presentationDelay: 60,
+                    loadState: 'complete',
+                    interactionType: 'pointer',
+                    interactionTarget: '#checkout',
+                    totalScriptDuration: 150,
+                },
+            },
+        }
+
+        expect(validateMetricEvent(event, validationContext)).toEqual({
+            ok: true,
+            value: event,
+        })
+    })
+
+    it.each([
+        null,
+        { inputDelay: -1, processingDuration: 100, presentationDelay: 20, loadState: 'complete' },
+        { inputDelay: 20, processingDuration: Number.NaN, presentationDelay: 20, loadState: 'complete' },
+        { inputDelay: 20, processingDuration: 100, presentationDelay: 20, loadState: 'unknown' },
+        { inputDelay: 20, processingDuration: 100, presentationDelay: 20, loadState: 'complete', interactionType: 'touch' },
+    ])('rejects invalid INP attribution %#', (attribution) => {
+        const base = makeMetricEvent()
+        const event = {
+            ...base,
+            type: 'web.vital.inp',
+            metricVersion: 'inp-v1',
+            payload: {
+                value: 320,
+                unit: 'ms',
+                attribution,
+            },
+        }
+
+        expect(validateMetricEvent(event, validationContext)).toEqual({
+            ok: false,
+            reason: 'invalid_attribution',
+        })
+    })
+
     it.each([
         '',
         'not-a-uuid',

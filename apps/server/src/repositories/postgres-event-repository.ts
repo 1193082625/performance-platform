@@ -6,6 +6,7 @@ import type {
     MetricQueryRepository,
     LcpDiagnosticRepository,
     ClsDiagnosticRepository,
+    InpDiagnosticRepository,
 } from './event-repository.js'
 import type {
     MetricSeriesPoint,
@@ -84,6 +85,21 @@ interface ClsDiagnosticRow {
     dominant_target_count: string
 }
 
+interface InpDiagnosticRow {
+    sample_count: string
+    evidence_sample_count: string
+    overall_average: number | null
+    overall_p75: number | null
+    input_delay_average: number | null
+    input_delay_p75: number | null
+    processing_average: number | null
+    processing_p75: number | null
+    presentation_average: number | null
+    presentation_p75: number | null
+    dominant_target: string | null
+    dominant_target_count: string
+}
+
 function getIntervalDuration(interval: MetricsInterval): number {
     switch (interval) {
         case 'minute':
@@ -130,7 +146,8 @@ export function createPostgresEventRepository(
     MetricQueryRepository &
     MemoryHealthRepository &
     LcpDiagnosticRepository &
-    ClsDiagnosticRepository {
+    ClsDiagnosticRepository &
+    InpDiagnosticRepository {
     return {
         async insertBatch(events) {
             if (events.length === 0) return
@@ -152,7 +169,8 @@ export function createPostgresEventRepository(
                     const metricAttribution =
                         event.schemaVersion === '2.0' &&
                         (event.type === 'web.vital.lcp' ||
-                            event.type === 'web.vital.cls')
+                            event.type === 'web.vital.cls' ||
+                            event.type === 'web.vital.inp')
                             ? (event.payload.attribution ?? null)
                             : null
 
@@ -869,6 +887,107 @@ export function createPostgresEventRepository(
                               selector: row.dominant_target,
                               count: dominantTargetCount,
                               share: dominantTargetCount / evidenceSampleCount,
+                          },
+            }
+        },
+        async queryInpDiagnostics(input) {
+            const result = await pool.query<InpDiagnosticRow>(
+                `
+                WITH inp_events AS (
+                    SELECT metric_value, metric_attribution
+                    FROM metric_events
+                    WHERE app_id = $1
+                        AND event_time >= $2
+                        AND event_time < $3
+                        AND event_type = 'web.vital.inp'
+                ),
+                target_counts AS (
+                    SELECT
+                        metric_attribution ->> 'interactionTarget' AS target,
+                        COUNT(*) AS target_count
+                    FROM inp_events
+                    WHERE metric_attribution ->> 'interactionTarget' IS NOT NULL
+                    GROUP BY target
+                    ORDER BY target_count DESC, target ASC
+                    LIMIT 1
+                )
+                SELECT
+                    COUNT(*) AS sample_count,
+                    COUNT(metric_attribution) AS evidence_sample_count,
+                    AVG(metric_value) AS overall_average,
+                    PERCENTILE_CONT(0.75) WITHIN GROUP (
+                        ORDER BY metric_value
+                    ) AS overall_p75,
+                    AVG((metric_attribution ->> 'inputDelay')::DOUBLE PRECISION)
+                        AS input_delay_average,
+                    PERCENTILE_CONT(0.75) WITHIN GROUP (
+                        ORDER BY (metric_attribution ->> 'inputDelay')::DOUBLE PRECISION
+                    ) AS input_delay_p75,
+                    AVG((metric_attribution ->> 'processingDuration')::DOUBLE PRECISION)
+                        AS processing_average,
+                    PERCENTILE_CONT(0.75) WITHIN GROUP (
+                        ORDER BY (metric_attribution ->> 'processingDuration')::DOUBLE PRECISION
+                    ) AS processing_p75,
+                    AVG((metric_attribution ->> 'presentationDelay')::DOUBLE PRECISION)
+                        AS presentation_average,
+                    PERCENTILE_CONT(0.75) WITHIN GROUP (
+                        ORDER BY (metric_attribution ->> 'presentationDelay')::DOUBLE PRECISION
+                    ) AS presentation_p75,
+                    (SELECT target FROM target_counts) AS dominant_target,
+                    COALESCE(
+                        (SELECT target_count FROM target_counts),
+                        0
+                    ) AS dominant_target_count
+                FROM inp_events
+                `,
+                [input.appId, input.from, input.to],
+            )
+
+            const row = result.rows[0]
+            if (row === undefined) {
+                throw new Error('INP diagnostic query returned no row')
+            }
+
+            const evidenceSampleCount = Number(row.evidence_sample_count)
+            const targetCount = Number(row.dominant_target_count)
+
+            return {
+                metric: {
+                    type: 'web.vital.inp',
+                    unit: 'ms',
+                    metricVersion: 'inp-v1',
+                },
+                range: {
+                    from: input.from.toISOString(),
+                    to: input.to.toISOString(),
+                },
+                sampleCount: Number(row.sample_count),
+                evidenceSampleCount,
+                overall: {
+                    average: row.overall_average,
+                    p75: row.overall_p75,
+                },
+                phases: {
+                    inputDelay: {
+                        average: row.input_delay_average,
+                        p75: row.input_delay_p75,
+                    },
+                    processingDuration: {
+                        average: row.processing_average,
+                        p75: row.processing_p75,
+                    },
+                    presentationDelay: {
+                        average: row.presentation_average,
+                        p75: row.presentation_p75,
+                    },
+                },
+                dominantTarget:
+                    row.dominant_target === null || evidenceSampleCount === 0
+                        ? null
+                        : {
+                              selector: row.dominant_target,
+                              count: targetCount,
+                              share: targetCount / evidenceSampleCount,
                           },
             }
         },

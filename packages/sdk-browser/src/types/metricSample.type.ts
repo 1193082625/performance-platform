@@ -29,6 +29,22 @@ type MetricMeasurement =
           payload: {
               value: number
               unit: 'ms'
+              attribution?: {
+                  inputDelay: number
+                  processingDuration: number
+                  presentationDelay: number
+                  loadState:
+                      | 'loading'
+                      | 'dom-interactive'
+                      | 'dom-content-loaded'
+                      | 'complete'
+                  interactionType?: 'pointer' | 'keyboard'
+                  interactionTarget?: string
+                  interactionTime?: number
+                  totalScriptDuration?: number
+                  totalStyleAndLayoutDuration?: number
+                  totalPaintDuration?: number
+              }
           }
       }
     | {

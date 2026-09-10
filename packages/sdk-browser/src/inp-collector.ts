@@ -38,6 +38,11 @@ export function createInpCollector(
                 payload: {
                     value: metric.value,
                     unit: 'ms',
+                    ...(metric.attribution === undefined
+                        ? {}
+                        : {
+                              attribution: metric.attribution,
+                          }),
                 },
             })
         } catch {

@@ -1007,4 +1007,103 @@ describe('PostgresEventRepository', () => {
             dominantTarget: null,
         })
     })
+
+    it('stores and aggregates INP diagnostic evidence', async () => {
+        const baseEvent: MetricEventV2 = {
+            schemaVersion: '2.0',
+            eventId: '70000000-0000-4000-8000-000000000001',
+            type: 'web.vital.inp',
+            timestamp: QUERY_FROM.getTime() + 1_000,
+            sampleRate: 1,
+            metricVersion: 'inp-v1',
+            application: { ...EVENT.application, version: '0.2.0' },
+            runtime: EVENT.runtime,
+            session: { ...EVENT.session, viewId: 'inp-diagnostic-view-1' },
+            payload: {
+                value: 200,
+                unit: 'ms',
+                attribution: {
+                    inputDelay: 20,
+                    processingDuration: 120,
+                    presentationDelay: 60,
+                    loadState: 'complete',
+                    interactionType: 'pointer',
+                    interactionTarget: '#checkout',
+                    interactionTime: 1_000,
+                },
+            },
+        }
+        const secondEvent: MetricEventV2 = {
+            ...baseEvent,
+            eventId: '70000000-0000-4000-8000-000000000002',
+            timestamp: QUERY_FROM.getTime() + 2_000,
+            session: { ...baseEvent.session, viewId: 'inp-diagnostic-view-2' },
+            payload: {
+                value: 300,
+                unit: 'ms',
+                attribution: {
+                    inputDelay: 40,
+                    processingDuration: 180,
+                    presentationDelay: 80,
+                    loadState: 'complete',
+                    interactionType: 'pointer',
+                    interactionTarget: '#checkout',
+                    interactionTime: 2_000,
+                },
+            },
+        }
+        const eventWithoutEvidence: MetricEventV2 = {
+            ...baseEvent,
+            eventId: '70000000-0000-4000-8000-000000000003',
+            timestamp: QUERY_FROM.getTime() + 3_000,
+            session: { ...baseEvent.session, viewId: 'inp-diagnostic-view-3' },
+            payload: { value: 400, unit: 'ms' },
+        }
+
+        await repository.insertBatch([baseEvent, secondEvent, eventWithoutEvidence])
+
+        await expect(repository.queryInpDiagnostics({
+            appId: 'demo-web',
+            from: QUERY_FROM,
+            to: QUERY_TO,
+        })).resolves.toEqual({
+            metric: { type: 'web.vital.inp', unit: 'ms', metricVersion: 'inp-v1' },
+            range: {
+                from: QUERY_FROM.toISOString(),
+                to: QUERY_TO.toISOString(),
+            },
+            sampleCount: 3,
+            evidenceSampleCount: 2,
+            overall: { average: 300, p75: 350 },
+            phases: {
+                inputDelay: { average: 30, p75: 35 },
+                processingDuration: { average: 150, p75: 165 },
+                presentationDelay: { average: 70, p75: 75 },
+            },
+            dominantTarget: { selector: '#checkout', count: 2, share: 1 },
+        })
+    })
+
+    it('returns empty INP diagnostics without samples', async () => {
+        await expect(repository.queryInpDiagnostics({
+            appId: 'demo-web',
+            from: QUERY_FROM,
+            to: QUERY_TO,
+        })).resolves.toEqual({
+            metric: { type: 'web.vital.inp', unit: 'ms', metricVersion: 'inp-v1' },
+            range: {
+                from: QUERY_FROM.toISOString(),
+                to: QUERY_TO.toISOString(),
+            },
+            sampleCount: 0,
+            evidenceSampleCount: 0,
+            overall: { average: null, p75: null },
+            phases: {
+                inputDelay: { average: null, p75: null },
+                processingDuration: { average: null, p75: null },
+                presentationDelay: { average: null, p75: null },
+            },
+            dominantTarget: null,
+        })
+    })
 })

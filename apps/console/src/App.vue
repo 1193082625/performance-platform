@@ -197,6 +197,7 @@ import { createPaintMetricsApi } from "./api/metrics.js";
 import { createMetricQueryApi } from "./api/metric-query.js";
 import { createLcpDiagnosticApi } from "./api/lcp-diagnostic.js";
 import { createClsDiagnosticApi } from "./api/cls-diagnostic.js";
+import { createInpDiagnosticApi } from "./api/inp-diagnostic.js";
 
 import { usePaintMetrics } from "./composables/use-paint-metrics.js";
 import { useMetricQuery } from "./composables/use-metric-query.js";
@@ -210,6 +211,7 @@ import { createMemoryHealthApi } from "./api/memory-health.js";
 import type {
   LcpDiagnosticAnalysisResponse,
   ClsDiagnosticAnalysisResponse,
+  InpDiagnosticAnalysisResponse,
   MemoryHealthAssessment,
 } from "@performance-platform/protocol";
 import {
@@ -315,6 +317,29 @@ async function loadClsDiagnosticRange(
   } catch {
     if (requestId === latestClsDiagnosticRequestId) {
       clsDiagnostic.value = null;
+    }
+  }
+}
+const inpDiagnosticApi = createInpDiagnosticApi({
+  baseUrl: window.location.origin,
+  fetch: window.fetch.bind(window),
+});
+const inpDiagnostic = ref<InpDiagnosticAnalysisResponse | null>(null);
+let latestInpDiagnosticRequestId = 0;
+
+async function loadInpDiagnosticRange(
+  range: MetricsRange = "24h",
+): Promise<void> {
+  const requestId = ++latestInpDiagnosticRequestId;
+  const { from, to } = resolveMetricsRange(range, Date.now());
+  try {
+    const response = await inpDiagnosticApi.query({ from, to });
+    if (requestId === latestInpDiagnosticRequestId) {
+      inpDiagnostic.value = response;
+    }
+  } catch {
+    if (requestId === latestInpDiagnosticRequestId) {
+      inpDiagnostic.value = null;
     }
   }
 }
@@ -579,6 +604,7 @@ const recommendations = computed(() =>
     cls: clsData.value?.summary,
     clsFindings: clsDiagnostic.value?.findings,
     inp: inpData.value?.summary,
+    inpFindings: inpDiagnostic.value?.findings,
     memoryHealth: memoryHealth.value,
     lcpFindings: lcpDiagnostic.value?.findings,
   }),
@@ -895,6 +921,7 @@ async function refreshDashboard(
     loadMemoryHealth(),
     loadLcpDiagnosticRange(range),
     loadClsDiagnosticRange(range),
+    loadInpDiagnosticRange(range),
   ]);
 }
 

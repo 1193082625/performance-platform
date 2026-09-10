@@ -1,6 +1,6 @@
 import { onLCP } from 'web-vitals/attribution/onLCP.js'
 import { onCLS } from 'web-vitals/attribution/onCLS.js'
-import { onINP } from 'web-vitals/onINP.js'
+import { onINP } from 'web-vitals/attribution/onINP.js'
 
 import type { ObserveLcp } from './types/lcpCollector.type'
 import type { ObserveCls } from './types/clsCollector.type.js'
@@ -81,9 +81,38 @@ export const observeClsWithWebVitals: ObserveCls = (callback): void => {
 
 export const observeInpWithWebVitals: ObserveInp = (callback): void => {
     onINP((metric) => {
+        const attribution = metric.attribution
+
         callback({
             value: metric.value,
             interactionStartTime: metric.entries[0]?.startTime ?? 0,
+            attribution: {
+                inputDelay: attribution.inputDelay,
+                processingDuration: attribution.processingDuration,
+                presentationDelay: attribution.presentationDelay,
+                loadState: attribution.loadState,
+                ...(attribution.interactionType === undefined
+                    ? {}
+                    : { interactionType: attribution.interactionType }),
+                ...(attribution.interactionTarget === undefined
+                    ? {}
+                    : { interactionTarget: attribution.interactionTarget }),
+                ...(attribution.interactionTime === undefined
+                    ? {}
+                    : { interactionTime: attribution.interactionTime }),
+                ...(attribution.totalScriptDuration === undefined
+                    ? {}
+                    : { totalScriptDuration: attribution.totalScriptDuration }),
+                ...(attribution.totalStyleAndLayoutDuration === undefined
+                    ? {}
+                    : {
+                          totalStyleAndLayoutDuration:
+                              attribution.totalStyleAndLayoutDuration,
+                      }),
+                ...(attribution.totalPaintDuration === undefined
+                    ? {}
+                    : { totalPaintDuration: attribution.totalPaintDuration }),
+            },
         })
     })
 }
