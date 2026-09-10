@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 const webVitalsMocks = vi.hoisted(() => ({
     plainOnLcp: vi.fn(),
     attributedOnLcp: vi.fn(),
+    attributedOnCls: vi.fn(),
 }))
 
 // 创建两个 Mock 函数，模拟两个不同的模块入口
@@ -16,7 +17,14 @@ vi.mock('web-vitals/attribution/onLCP.js', () => ({
     onLCP: webVitalsMocks.attributedOnLcp,
 }))
 
-import { observeLcpWithWebVitals } from './web-vitals-adapter'
+vi.mock('web-vitals/attribution/onCLS.js', () => ({
+    onCLS: webVitalsMocks.attributedOnCls,
+}))
+
+import {
+    observeClsWithWebVitals,
+    observeLcpWithWebVitals,
+} from './web-vitals-adapter'
 
 describe('observeLcpWithWebVitals', () => {
     beforeEach(() => {
@@ -56,6 +64,48 @@ describe('observeLcpWithWebVitals', () => {
                 elementRenderDelay: 300,
                 element: '.hero-image',
                 url: 'https://example.com/hero.webp',
+            },
+        })
+    })
+})
+
+describe('observeClsWithWebVitals', () => {
+    beforeEach(() => {
+        vi.clearAllMocks()
+    })
+
+    it('maps attributed web-vitals CLS data', () => {
+        webVitalsMocks.attributedOnCls.mockImplementationOnce((callback) => {
+            callback({
+                value: 0.18,
+                entries: [{ startTime: 2_400 }],
+                attribution: {
+                    largestShiftTarget: '.promo-banner',
+                    largestShiftTime: 2_200,
+                    largestShiftValue: 0.14,
+                    loadState: 'complete',
+                    largestShiftSource: {
+                        previousRect: { x: 0, y: 100, width: 800, height: 80 },
+                        currentRect: { x: 0, y: 180, width: 800, height: 80 },
+                    },
+                },
+            })
+        })
+
+        const callback = vi.fn()
+
+        observeClsWithWebVitals(callback)
+
+        expect(callback).toHaveBeenCalledWith({
+            value: 0.18,
+            lastEntryStartTime: 2_400,
+            attribution: {
+                largestShiftTarget: '.promo-banner',
+                largestShiftTime: 2_200,
+                largestShiftValue: 0.14,
+                loadState: 'complete',
+                previousRect: { x: 0, y: 100, width: 800, height: 80 },
+                currentRect: { x: 0, y: 180, width: 800, height: 80 },
             },
         })
     })

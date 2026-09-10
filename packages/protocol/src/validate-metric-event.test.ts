@@ -897,6 +897,62 @@ describe('ValidateMetricEvent', () => {
         });
     });
 
+    it('accepts valid CLS attribution', () => {
+        const base = makeMetricEvent()
+        const event = {
+            ...base,
+            type: 'web.vital.cls',
+            metricVersion: 'cls-v1',
+            payload: {
+                value: 0.18,
+                unit: 'score',
+                attribution: {
+                    largestShiftTarget: '.promo-banner',
+                    largestShiftTime: 2_200,
+                    largestShiftValue: 0.14,
+                    loadState: 'complete',
+                    previousRect: { x: 0, y: 100, width: 800, height: 80 },
+                    currentRect: { x: 0, y: 180, width: 800, height: 80 },
+                },
+            },
+        }
+
+        expect(validateMetricEvent(event, validationContext)).toEqual({
+            ok: true,
+            value: event,
+        })
+    })
+
+    it.each([
+        null,
+        { largestShiftTime: -1, largestShiftValue: 0.1, loadState: 'complete' },
+        { largestShiftTime: 100, largestShiftValue: -0.1, loadState: 'complete' },
+        { largestShiftTime: 100, largestShiftValue: 0.1, loadState: 'unknown' },
+        {
+            largestShiftTime: 100,
+            largestShiftValue: 0.1,
+            loadState: 'complete',
+            currentRect: { x: 0, y: 0, width: -1, height: 20 },
+        },
+    ])('rejects invalid CLS attribution %#', (attribution) => {
+        const base = makeMetricEvent()
+        const event = {
+            ...base,
+            type: 'web.vital.cls',
+            metricVersion: 'cls-v1',
+            payload: {
+                value: 0.18,
+                unit: 'score',
+                attribution,
+            },
+        }
+
+        expect(validateMetricEvent(event, validationContext)).toEqual({
+            ok: false,
+            reason: 'invalid_attribution',
+        })
+    })
+
     it.each([
         null,
         [],

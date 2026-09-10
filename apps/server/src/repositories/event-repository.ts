@@ -10,6 +10,7 @@ import type {
     MetricQueryResponse,
     MemoryHealthSnapshot,
     LcpDiagnosticResponse,
+    ClsDiagnosticResponse,
 } from '@performance-platform/protocol'
 
 export interface PaintMetricsQuery {
@@ -25,6 +26,14 @@ export interface LcpDiagnosticRepository {
         from: Date
         to: Date
     }): Promise<LcpDiagnosticResponse>
+}
+
+export interface ClsDiagnosticRepository {
+    queryClsDiagnostics(input: {
+        appId: string
+        from: Date
+        to: Date
+    }): Promise<ClsDiagnosticResponse>
 }
 
 export type StorableMetricEvent = PaintEventV1 | MetricEventV2

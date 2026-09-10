@@ -5,6 +5,7 @@ import type {
     MemoryHealthRepository,
     MetricQueryRepository,
     LcpDiagnosticRepository,
+    ClsDiagnosticRepository,
 } from './event-repository.js'
 import type {
     MetricSeriesPoint,
@@ -68,6 +69,21 @@ interface LcpDiagnosticRow {
     render_delay_p75: number | null
 }
 
+interface ClsDiagnosticRow {
+    sample_count: string
+    evidence_sample_count: string
+    overall_average: number | null
+    overall_p75: number | null
+    largest_shift_average: number | null
+    largest_shift_p75: number | null
+    loading_count: string
+    dom_interactive_count: string
+    dom_content_loaded_count: string
+    complete_count: string
+    dominant_target: string | null
+    dominant_target_count: string
+}
+
 function getIntervalDuration(interval: MetricsInterval): number {
     switch (interval) {
         case 'minute':
@@ -113,7 +129,8 @@ export function createPostgresEventRepository(
 ): EventRepository &
     MetricQueryRepository &
     MemoryHealthRepository &
-    LcpDiagnosticRepository {
+    LcpDiagnosticRepository &
+    ClsDiagnosticRepository {
     return {
         async insertBatch(events) {
             if (events.length === 0) return
@@ -134,7 +151,8 @@ export function createPostgresEventRepository(
 
                     const metricAttribution =
                         event.schemaVersion === '2.0' &&
-                        event.type === 'web.vital.lcp'
+                        (event.type === 'web.vital.lcp' ||
+                            event.type === 'web.vital.cls')
                             ? (event.payload.attribution ?? null)
                             : null
 
@@ -753,6 +771,105 @@ export function createPostgresEventRepository(
                         p75: row.render_delay_p75,
                     },
                 },
+            }
+        },
+        async queryClsDiagnostics(input) {
+            const result = await pool.query<ClsDiagnosticRow>(
+                `
+                WITH cls_events AS (
+                    SELECT metric_value, metric_attribution
+                    FROM metric_events
+                    WHERE app_id = $1
+                        AND event_time >= $2
+                        AND event_time < $3
+                        AND event_type = 'web.vital.cls'
+                ),
+                target_counts AS (
+                    SELECT
+                        metric_attribution ->> 'largestShiftTarget' AS target,
+                        COUNT(*) AS target_count
+                    FROM cls_events
+                    WHERE metric_attribution ->> 'largestShiftTarget' IS NOT NULL
+                    GROUP BY target
+                    ORDER BY target_count DESC, target ASC
+                    LIMIT 1
+                )
+                SELECT
+                    COUNT(*) AS sample_count,
+                    COUNT(metric_attribution) AS evidence_sample_count,
+                    AVG(metric_value) AS overall_average,
+                    PERCENTILE_CONT(0.75) WITHIN GROUP (
+                        ORDER BY metric_value
+                    ) AS overall_p75,
+                    AVG((metric_attribution ->> 'largestShiftValue')::DOUBLE PRECISION)
+                        AS largest_shift_average,
+                    PERCENTILE_CONT(0.75) WITHIN GROUP (
+                        ORDER BY (metric_attribution ->> 'largestShiftValue')::DOUBLE PRECISION
+                    ) AS largest_shift_p75,
+                    COUNT(*) FILTER (
+                        WHERE metric_attribution ->> 'loadState' = 'loading'
+                    ) AS loading_count,
+                    COUNT(*) FILTER (
+                        WHERE metric_attribution ->> 'loadState' = 'dom-interactive'
+                    ) AS dom_interactive_count,
+                    COUNT(*) FILTER (
+                        WHERE metric_attribution ->> 'loadState' = 'dom-content-loaded'
+                    ) AS dom_content_loaded_count,
+                    COUNT(*) FILTER (
+                        WHERE metric_attribution ->> 'loadState' = 'complete'
+                    ) AS complete_count,
+                    (SELECT target FROM target_counts) AS dominant_target,
+                    COALESCE(
+                        (SELECT target_count FROM target_counts),
+                        0
+                    ) AS dominant_target_count
+                FROM cls_events
+                `,
+                [input.appId, input.from, input.to],
+            )
+
+            const row = result.rows[0]
+            if (row === undefined) {
+                throw new Error('CLS diagnostic query returned no row')
+            }
+
+            const evidenceSampleCount = Number(row.evidence_sample_count)
+            const dominantTargetCount = Number(row.dominant_target_count)
+
+            return {
+                metric: {
+                    type: 'web.vital.cls',
+                    unit: 'score',
+                    metricVersion: 'cls-v1',
+                },
+                range: {
+                    from: input.from.toISOString(),
+                    to: input.to.toISOString(),
+                },
+                sampleCount: Number(row.sample_count),
+                evidenceSampleCount,
+                overall: {
+                    average: row.overall_average,
+                    p75: row.overall_p75,
+                },
+                largestShift: {
+                    average: row.largest_shift_average,
+                    p75: row.largest_shift_p75,
+                },
+                loadStates: {
+                    loading: Number(row.loading_count),
+                    domInteractive: Number(row.dom_interactive_count),
+                    domContentLoaded: Number(row.dom_content_loaded_count),
+                    complete: Number(row.complete_count),
+                },
+                dominantTarget:
+                    row.dominant_target === null || evidenceSampleCount === 0
+                        ? null
+                        : {
+                              selector: row.dominant_target,
+                              count: dominantTargetCount,
+                              share: dominantTargetCount / evidenceSampleCount,
+                          },
             }
         },
     }

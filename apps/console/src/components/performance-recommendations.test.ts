@@ -180,4 +180,80 @@ describe("createPerformanceRecommendations", () => {
       }),
     ).toEqual([]);
   });
+
+  it("prioritizes a repeated CLS target and includes its evidence", () => {
+    const evidence = {
+      overallP75: 0.18,
+      sampleCount: 100,
+      evidenceSampleCount: 80,
+      affectedSampleCount: 32,
+      share: 0.4,
+    };
+
+    const [recommendation] = createPerformanceRecommendations({
+      cls: stats(0.18),
+      clsFindings: [
+        {
+          ruleId: "cls.late-layout-shift",
+          ruleVersion: "1",
+          loadPhase: "complete",
+          evidence: { ...evidence, affectedSampleCount: 50, share: 0.625 },
+        },
+        {
+          ruleId: "cls.repeated-shift-target",
+          ruleVersion: "1",
+          target: ".promo-banner",
+          evidence,
+        },
+      ],
+    });
+
+    expect(recommendation).toEqual({
+      metric: "CLS",
+      status: "NEEDS_IMPROVEMENT",
+      messageKey: "recommendations.clsRepeatedShiftTarget",
+      messageParams: {
+        target: ".promo-banner",
+        affectedSamples: 32,
+        evidenceSamples: 80,
+        samples: 100,
+        share: 40,
+      },
+    });
+  });
+
+  it.each([
+    {
+      finding: {
+        ruleId: "cls.late-layout-shift",
+        ruleVersion: "1",
+        loadPhase: "complete",
+      } as const,
+      messageKey: "recommendations.clsLateLayoutShift",
+    },
+    {
+      finding: {
+        ruleId: "cls.early-load-shift",
+        ruleVersion: "1",
+        loadPhase: "early",
+      } as const,
+      messageKey: "recommendations.clsEarlyLoadShift",
+    },
+  ])("maps $finding.ruleId to precise CLS advice", ({ finding, messageKey }) => {
+    const [recommendation] = createPerformanceRecommendations({
+      cls: stats(0.18),
+      clsFindings: [{
+        ...finding,
+        evidence: {
+          overallP75: 0.18,
+          sampleCount: 100,
+          evidenceSampleCount: 80,
+          affectedSampleCount: 50,
+          share: 0.625,
+        },
+      }],
+    });
+
+    expect(recommendation?.messageKey).toBe(messageKey);
+  });
 });

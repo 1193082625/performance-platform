@@ -131,4 +131,23 @@ describe('MetricEventV2 type contract', () => {
             getLcpAttribution(metricEventWithAttribution)?.timeToFirstByte,
         ).toBe(1_024);
     })
+
+    it('accepts CLS attribution evidence', () => {
+        const event: MetricEventV2 = {
+            ...clsEvent,
+            payload: {
+                ...clsEvent.payload,
+                attribution: {
+                    largestShiftTarget: '.promo-banner',
+                    largestShiftTime: 2_200,
+                    largestShiftValue: 0.14,
+                    loadState: 'complete',
+                    previousRect: { x: 0, y: 100, width: 800, height: 80 },
+                    currentRect: { x: 0, y: 180, width: 800, height: 80 },
+                },
+            },
+        }
+
+        expect(event.payload.attribution?.largestShiftValue).toBe(0.14)
+    })
 })

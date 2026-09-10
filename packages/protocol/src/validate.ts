@@ -65,6 +65,15 @@ const LCP_ATTRIBUTION_DURATION_FIELDS = [
     'elementRenderDelay',
 ] as const
 
+const CLS_LOAD_STATES = new Set([
+    'loading',
+    'dom-interactive',
+    'dom-content-loaded',
+    'complete',
+])
+
+const LAYOUT_SHIFT_RECT_FIELDS = ['x', 'y', 'width', 'height'] as const
+
 function isSupportedMetric(value: unknown): value is SupportedMetric {
     return typeof value === 'string' && Object.hasOwn(METRIC_UNITS, value)
 }
@@ -102,6 +111,50 @@ function isValidLcpAttribution(value: unknown): boolean {
 
     if (value.url !== undefined && !isBoundedString(value.url, 2_048)) {
         return false
+    }
+
+    return true
+}
+
+function isValidLayoutShiftRect(value: unknown): boolean {
+    return (
+        isRecord(value) &&
+        LAYOUT_SHIFT_RECT_FIELDS.every((field) => {
+            const coordinate = value[field]
+            return typeof coordinate === 'number' && Number.isFinite(coordinate)
+        }) &&
+        (value.width as number) >= 0 &&
+        (value.height as number) >= 0
+    )
+}
+
+function isValidClsAttribution(value: unknown): boolean {
+    if (!isRecord(value)) return false
+
+    if (
+        typeof value.largestShiftTime !== 'number' ||
+        !Number.isFinite(value.largestShiftTime) ||
+        value.largestShiftTime < 0 ||
+        value.largestShiftTime >= MAX_DURATION_MS ||
+        typeof value.largestShiftValue !== 'number' ||
+        !Number.isFinite(value.largestShiftValue) ||
+        value.largestShiftValue < 0 ||
+        !CLS_LOAD_STATES.has(value.loadState as string)
+    ) {
+        return false
+    }
+
+    if (
+        value.largestShiftTarget !== undefined &&
+        !isBoundedString(value.largestShiftTarget, 1_024)
+    ) {
+        return false
+    }
+
+    for (const field of ['previousRect', 'currentRect'] as const) {
+        if (value[field] !== undefined && !isValidLayoutShiftRect(value[field])) {
+            return false
+        }
     }
 
     return true
@@ -430,6 +483,14 @@ export function validateMetricEvent(
         input.type === 'web.vital.lcp' &&
         Object.hasOwn(input.payload, 'attribution') &&
         !isValidLcpAttribution(input.payload.attribution)
+    ) {
+        return invalid('invalid_attribution')
+    }
+
+    if (
+        input.type === 'web.vital.cls' &&
+        Object.hasOwn(input.payload, 'attribution') &&
+        !isValidClsAttribution(input.payload.attribution)
     ) {
         return invalid('invalid_attribution')
     }

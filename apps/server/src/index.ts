@@ -14,6 +14,7 @@ const app = buildApp({
     metricQueryRepository: repository,
     memoryHealthRepository: repository,
     lcpDiagnosticRepository: repository,
+    clsDiagnosticRepository: repository,
     appId: config.appId,
     now: Date.now,
     corsOrigins: config.corsOrigins,

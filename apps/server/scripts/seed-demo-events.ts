@@ -8,6 +8,7 @@ import type {
 } from '@performance-platform/protocol'
 
 import { createLcpDemoCohorts } from './lcp-demo-scenarios.js'
+import { createClsDemoCohorts } from './cls-demo-scenarios.js'
 
 const endpoint =
     process.env.EVENTS_ENDPOINT
@@ -109,7 +110,10 @@ const v2PaintEvents: MetricEventV2[] = paintEvents.map((event) => ({
 const lcpEvents = createLcpDemoCohorts(now).flatMap(
     (cohort) => cohort.events,
 )
-const events = [...v2PaintEvents, ...lcpEvents]
+const clsEvents = createClsDemoCohorts(now).flatMap(
+    (cohort) => cohort.events,
+)
+const events = [...v2PaintEvents, ...lcpEvents, ...clsEvents]
 
 for (
     let index = 0;
@@ -143,5 +147,5 @@ for (
 }
 
 console.log(
-    `Seeded ${v2PaintEvents.length} paint events and ${lcpEvents.length} LCP diagnostic events`,
+    `Seeded ${v2PaintEvents.length} paint events, ${lcpEvents.length} LCP diagnostic events, and ${clsEvents.length} CLS diagnostic events`,
 )

@@ -97,13 +97,13 @@ corepack pnpm build
 corepack pnpm test:e2e
 ```
 
-如需写入包含四类 LCP 瓶颈的确定性演示数据：
+如需写入包含 LCP 和 CLS 精准诊断场景的确定性演示数据：
 
 ```bash
 corepack pnpm --filter @performance-platform/server seed:demo
 ```
 
-脚本会写入 TTFB、资源发现、资源加载和元素渲染四类诊断样本；组合数据会稳定地将元素渲染延迟作为首要建议。
+脚本会写入 LCP 四阶段瓶颈，以及 CLS 加载期偏移、晚期偏移和重复偏移元素样本。组合数据会为两项指标生成稳定的首要建议。
 
 ## 主要接口
 
@@ -113,6 +113,7 @@ corepack pnpm --filter @performance-platform/server seed:demo
 | `GET /api/v1/metrics/paint` | 查询兼容的 FP/FCP 聚合结果 |
 | `GET /api/v2/metrics?type=...` | 查询单个通用指标的摘要和趋势 |
 | `GET /api/v2/diagnostics/lcp` | 查询 LCP 四阶段证据和版本化诊断结论 |
+| `GET /api/v2/diagnostics/cls` | 查询 CLS 偏移来源和版本化诊断结论 |
 | `GET /api/v2/memory-health` | 查询服务端计算的内存健康状态 |
 | `GET /health` | 服务健康检查 |
 

@@ -871,4 +871,140 @@ describe('PostgresEventRepository', () => {
             },
         })
     })
+
+    it('stores and aggregates CLS diagnostic evidence', async () => {
+        const baseEvent: MetricEventV2 = {
+            schemaVersion: '2.0',
+            eventId: '60000000-0000-4000-8000-000000000001',
+            type: 'web.vital.cls',
+            timestamp: QUERY_FROM.getTime() + 1_000,
+            sampleRate: 1,
+            metricVersion: 'cls-v1',
+            application: {
+                ...EVENT.application,
+                version: '0.2.0',
+            },
+            runtime: EVENT.runtime,
+            session: {
+                ...EVENT.session,
+                viewId: 'cls-diagnostic-view-1',
+            },
+            payload: {
+                value: 0.1,
+                unit: 'score',
+                attribution: {
+                    largestShiftTarget: '.promo-banner',
+                    largestShiftTime: 1_000,
+                    largestShiftValue: 0.08,
+                    loadState: 'dom-content-loaded',
+                },
+            },
+        }
+        const secondEvent: MetricEventV2 = {
+            ...baseEvent,
+            eventId: '60000000-0000-4000-8000-000000000002',
+            timestamp: QUERY_FROM.getTime() + 2_000,
+            session: {
+                ...baseEvent.session,
+                viewId: 'cls-diagnostic-view-2',
+            },
+            payload: {
+                value: 0.2,
+                unit: 'score',
+                attribution: {
+                    largestShiftTarget: '.promo-banner',
+                    largestShiftTime: 2_000,
+                    largestShiftValue: 0.16,
+                    loadState: 'complete',
+                },
+            },
+        }
+        const eventWithoutEvidence: MetricEventV2 = {
+            ...baseEvent,
+            eventId: '60000000-0000-4000-8000-000000000003',
+            timestamp: QUERY_FROM.getTime() + 3_000,
+            session: {
+                ...baseEvent.session,
+                viewId: 'cls-diagnostic-view-3',
+            },
+            payload: {
+                value: 0.3,
+                unit: 'score',
+            },
+        }
+
+        await repository.insertBatch([
+            baseEvent,
+            secondEvent,
+            eventWithoutEvidence,
+        ])
+
+        const result = await repository.queryClsDiagnostics({
+            appId: 'demo-web',
+            from: QUERY_FROM,
+            to: QUERY_TO,
+        })
+
+        expect(result).toEqual({
+            metric: {
+                type: 'web.vital.cls',
+                unit: 'score',
+                metricVersion: 'cls-v1',
+            },
+            range: {
+                from: QUERY_FROM.toISOString(),
+                to: QUERY_TO.toISOString(),
+            },
+            sampleCount: 3,
+            evidenceSampleCount: 2,
+            overall: {
+                average: expect.closeTo(0.2),
+                p75: 0.25,
+            },
+            largestShift: {
+                average: 0.12,
+                p75: 0.14,
+            },
+            loadStates: {
+                loading: 0,
+                domInteractive: 0,
+                domContentLoaded: 1,
+                complete: 1,
+            },
+            dominantTarget: {
+                selector: '.promo-banner',
+                count: 2,
+                share: 1,
+            },
+        })
+    })
+
+    it('returns empty CLS diagnostics without samples', async () => {
+        await expect(repository.queryClsDiagnostics({
+            appId: 'demo-web',
+            from: QUERY_FROM,
+            to: QUERY_TO,
+        })).resolves.toEqual({
+            metric: {
+                type: 'web.vital.cls',
+                unit: 'score',
+                metricVersion: 'cls-v1',
+            },
+            range: {
+                from: QUERY_FROM.toISOString(),
+                to: QUERY_TO.toISOString(),
+            },
+            sampleCount: 0,
+            evidenceSampleCount: 0,
+            overall: { average: null, p75: null },
+            largestShift: { average: null, p75: null },
+            loadStates: {
+                loading: 0,
+                domInteractive: 0,
+                domContentLoaded: 0,
+                complete: 0,
+            },
+            dominantTarget: null,
+        })
+    })
 })

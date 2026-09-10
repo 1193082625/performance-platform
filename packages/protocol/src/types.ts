@@ -39,6 +39,18 @@ type MetricMeasurement =
           payload: {
               value: number
               unit: 'score'
+              attribution?: {
+                  largestShiftTarget?: string
+                  largestShiftTime: number
+                  largestShiftValue: number
+                  loadState:
+                      | 'loading'
+                      | 'dom-interactive'
+                      | 'dom-content-loaded'
+                      | 'complete'
+                  previousRect?: LayoutShiftRect
+                  currentRect?: LayoutShiftRect
+              }
           }
       }
     | {
@@ -77,6 +89,13 @@ interface MetricEventBaseV2 {
         sessionId: string // 标签页会话标识，1–128 字符
         viewId: string // 本次页面加载标识，1–128 字符
     }
+}
+
+export interface LayoutShiftRect {
+    x: number
+    y: number
+    width: number
+    height: number
 }
 export type MetricEventV2 = MetricEventBaseV2 & MetricMeasurement
 
@@ -440,6 +459,58 @@ export type LcpDiagnosticFinding = {
 export interface LcpDiagnosticAnalysisResponse
     extends LcpDiagnosticResponse {
     findings: LcpDiagnosticFinding[]
+}
+
+export interface ClsDiagnosticResponse {
+    metric: {
+        type: 'web.vital.cls'
+        unit: 'score'
+        metricVersion: 'cls-v1'
+    }
+    range: {
+        from: string
+        to: string
+    }
+    sampleCount: number
+    evidenceSampleCount: number
+    overall: DiagnosticStats
+    largestShift: DiagnosticStats
+    loadStates: {
+        loading: number
+        domInteractive: number
+        domContentLoaded: number
+        complete: number
+    }
+    dominantTarget: {
+        selector: string
+        count: number
+        share: number
+    } | null
+}
+
+interface ClsDiagnosticFindingEvidence {
+    overallP75: number
+    sampleCount: number
+    evidenceSampleCount: number
+    affectedSampleCount: number
+    share: number
+}
+
+export type ClsDiagnosticFinding = {
+    ruleVersion: '1'
+    evidence: ClsDiagnosticFindingEvidence
+} & (
+    | { ruleId: 'cls.early-load-shift'; loadPhase: 'early' }
+    | { ruleId: 'cls.late-layout-shift'; loadPhase: 'complete' }
+    | {
+          ruleId: 'cls.repeated-shift-target'
+          target: string
+      }
+)
+
+export interface ClsDiagnosticAnalysisResponse
+    extends ClsDiagnosticResponse {
+    findings: ClsDiagnosticFinding[]
 }
 
 export type MemoryHealthStatus =

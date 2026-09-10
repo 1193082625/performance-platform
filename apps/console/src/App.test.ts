@@ -208,11 +208,11 @@ describe('App', () => {
         await sevenDayButton!.trigger('click')
         await flushPromises()
     
-        expect(fetchMock).toHaveBeenCalledTimes(18)
+        expect(fetchMock).toHaveBeenCalledTimes(20)
     
         const requestUrl = new URL(
             String(
-                fetchMock.mock.calls[9]?.[0],
+                fetchMock.mock.calls[10]?.[0],
             ),
         )
     
@@ -419,7 +419,7 @@ describe('App', () => {
 
         await flushPromises()
 
-        expect(fetchMock).toHaveBeenCalledTimes(9)
+        expect(fetchMock).toHaveBeenCalledTimes(10)
 
         for (const expected of [
             {
@@ -484,7 +484,7 @@ describe('App', () => {
             );
           }
           
-        expect(fetchMock).toHaveBeenCalledTimes(9)
+        expect(fetchMock).toHaveBeenCalledTimes(10)
     })
     it('shows the dashboard title, selected window, and total samples', async () => {
         const fetchMock = vi.fn()
@@ -602,11 +602,11 @@ describe('App', () => {
         const wrapper = mount(App)
         await flushPromises()
 
-        expect(fetchMock).toHaveBeenCalledTimes(9)
+        expect(fetchMock).toHaveBeenCalledTimes(10)
 
         await vi.advanceTimersByTimeAsync(30_000)
         await flushPromises()
-        expect(fetchMock).toHaveBeenCalledTimes(18)
+        expect(fetchMock).toHaveBeenCalledTimes(20)
 
         const liveButton = wrapper.get('.live-badge')
         await liveButton.trigger('click')
@@ -614,12 +614,12 @@ describe('App', () => {
 
         await vi.advanceTimersByTimeAsync(60_000)
         await flushPromises()
-        expect(fetchMock).toHaveBeenCalledTimes(18)
+        expect(fetchMock).toHaveBeenCalledTimes(20)
 
         await liveButton.trigger('click')
         await flushPromises()
         expect(liveButton.text()).toContain('LIVE')
-        expect(fetchMock).toHaveBeenCalledTimes(27)
+        expect(fetchMock).toHaveBeenCalledTimes(30)
 
         wrapper.unmount()
     })
@@ -787,6 +787,99 @@ describe('App', () => {
                 target: 10,
                 evidenceSamples: 80,
                 samples: 100,
+            },
+        })
+    })
+
+    it('passes evidence-backed CLS advice to the metric card', async () => {
+        const clsResponse = {
+            metric: {
+                type: 'web.vital.cls',
+                unit: 'score',
+                metricVersion: 'cls-v1',
+            },
+            range: METRICS_RESPONSE.range,
+            summary: {
+                count: 100,
+                average: 0.16,
+                p50: 0.14,
+                p75: 0.18,
+                p90: 0.24,
+            },
+            series: [],
+        }
+        const diagnosticResponse = {
+            metric: clsResponse.metric,
+            range: {
+                from: METRICS_RESPONSE.range.from,
+                to: METRICS_RESPONSE.range.to,
+            },
+            sampleCount: 100,
+            evidenceSampleCount: 80,
+            overall: { average: 0.16, p75: 0.18 },
+            largestShift: { average: 0.12, p75: 0.14 },
+            loadStates: {
+                loading: 0,
+                domInteractive: 0,
+                domContentLoaded: 20,
+                complete: 60,
+            },
+            dominantTarget: {
+                selector: '.promo-banner',
+                count: 32,
+                share: 0.4,
+            },
+            findings: [{
+                ruleId: 'cls.repeated-shift-target',
+                ruleVersion: '1',
+                target: '.promo-banner',
+                evidence: {
+                    overallP75: 0.18,
+                    sampleCount: 100,
+                    evidenceSampleCount: 80,
+                    affectedSampleCount: 32,
+                    share: 0.4,
+                },
+            }],
+        }
+        const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+            const url = new URL(String(input))
+
+            return {
+                ok: true,
+                json: async () => {
+                    if (url.pathname === '/api/v2/diagnostics/cls') {
+                        return diagnosticResponse
+                    }
+                    if (
+                        url.pathname === '/api/v2/metrics' &&
+                        url.searchParams.get('type') === 'web.vital.cls'
+                    ) {
+                        return clsResponse
+                    }
+                    return METRICS_RESPONSE
+                },
+            }
+        })
+
+        vi.stubGlobal('fetch', fetchMock)
+        const wrapper = mount(App)
+        await flushPromises()
+
+        const clsCard = wrapper
+            .findAllComponents(MetricSummaryCard)
+            .find((card) => card.props('metric').name === 'CLS')
+
+        expect(clsCard?.props('recommendation')).toEqual({
+            metric: 'CLS',
+            status: 'NEEDS_IMPROVEMENT',
+            messageKey: 'recommendations.clsRepeatedShiftTarget',
+            messageParams: {
+                target: '.promo-banner',
+                affectedSamples: 32,
+                evidenceSamples: 80,
+                samples: 100,
+                share: 40,
             },
         })
     })

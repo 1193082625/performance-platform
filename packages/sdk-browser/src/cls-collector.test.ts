@@ -55,6 +55,12 @@ describe('createClsCollector', () => {
         emit({
             value: 0.084,
             lastEntryStartTime: 2_300.4,
+            attribution: {
+                largestShiftTarget: '.hero',
+                largestShiftTime: 2_100,
+                largestShiftValue: 0.08,
+                loadState: 'complete',
+            },
         })
 
         expect(onSample).toHaveBeenCalledWith({
@@ -64,6 +70,12 @@ describe('createClsCollector', () => {
             payload: {
                 value: 0.084,
                 unit: 'score',
+                attribution: {
+                    largestShiftTarget: '.hero',
+                    largestShiftTime: 2_100,
+                    largestShiftValue: 0.08,
+                    loadState: 'complete',
+                },
             },
         })
     })

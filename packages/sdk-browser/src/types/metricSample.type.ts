@@ -37,6 +37,18 @@ type MetricMeasurement =
           payload: {
               value: number
               unit: 'score'
+              attribution?: {
+                  largestShiftTarget?: string
+                  largestShiftTime: number
+                  largestShiftValue: number
+                  loadState:
+                      | 'loading'
+                      | 'dom-interactive'
+                      | 'dom-content-loaded'
+                      | 'complete'
+                  previousRect?: LayoutShiftRect
+                  currentRect?: LayoutShiftRect
+              }
           }
       }
     | {
@@ -53,6 +65,13 @@ type MetricMeasurement =
 
 interface BaseMetricSample {
     occurredAt: number
+}
+
+interface LayoutShiftRect {
+    x: number
+    y: number
+    width: number
+    height: number
 }
 
 export type MetricSample = BaseMetricSample & MetricMeasurement

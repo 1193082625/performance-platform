@@ -1,6 +1,7 @@
 import {
   ratePaintMetric,
   rateWebVital,
+  type ClsDiagnosticFinding,
   type LcpDiagnosticFinding,
   type MemoryHealthAssessment,
   type MetricRating,
@@ -26,6 +27,7 @@ interface RecommendationInput {
   fcp?: PaintStats;
   lcp?: MetricStats;
   cls?: MetricStats;
+  clsFindings?: ClsDiagnosticFinding[];
   inp?: MetricStats;
   memoryHealth?: MemoryHealthAssessment | null;
   lcpFindings?: LcpDiagnosticFinding[];
@@ -89,6 +91,35 @@ export function createPerformanceRecommendations(
     }
   }
   add("CLS", input.cls, (value) => rateWebVital("web.vital.cls", value), "recommendations.cls");
+  const clsPriority = {
+    "cls.repeated-shift-target": 3,
+    "cls.late-layout-shift": 2,
+    "cls.early-load-shift": 1,
+  } as const;
+  const primaryClsFinding = input.clsFindings
+    ?.slice()
+    .sort(
+      (left, right) => clsPriority[right.ruleId] - clsPriority[left.ruleId],
+    )[0];
+  if (primaryClsFinding !== undefined) {
+    const recommendation = recommendations.find((item) => item.metric === "CLS");
+    if (recommendation !== undefined) {
+      recommendation.messageKey = {
+        "cls.repeated-shift-target": "recommendations.clsRepeatedShiftTarget",
+        "cls.late-layout-shift": "recommendations.clsLateLayoutShift",
+        "cls.early-load-shift": "recommendations.clsEarlyLoadShift",
+      }[primaryClsFinding.ruleId];
+      recommendation.messageParams = {
+        affectedSamples: primaryClsFinding.evidence.affectedSampleCount,
+        evidenceSamples: primaryClsFinding.evidence.evidenceSampleCount,
+        samples: primaryClsFinding.evidence.sampleCount,
+        share: Math.round(primaryClsFinding.evidence.share * 100),
+        ...(primaryClsFinding.ruleId === "cls.repeated-shift-target"
+          ? { target: primaryClsFinding.target }
+          : {}),
+      };
+    }
+  }
   add("INP", input.inp, (value) => rateWebVital("web.vital.inp", value), "recommendations.inp");
 
   const memoryStatus = input.memoryHealth?.status;

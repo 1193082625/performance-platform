@@ -42,6 +42,10 @@ export type {
     LcpDiagnosticAnalysisResponse,
     LcpDiagnosticResponse,
     LcpDiagnosticFinding,
+    ClsDiagnosticAnalysisResponse,
+    ClsDiagnosticResponse,
+    ClsDiagnosticFinding,
+    LayoutShiftRect,
 } from './types.js'
 
 export {

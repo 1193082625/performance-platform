@@ -5,7 +5,12 @@ import type {
 export interface ClsMetricLike {
     value: number
     lastEntryStartTime: number
+    attribution?: ClsAttributionLike
 }
+
+type ClsAttributionLike = NonNullable<
+    ClsSample['payload']['attribution']
+>
 
 export type ObserveCls = (
     callback: (

@@ -1,6 +1,7 @@
 import { expect, test } from '@playwright/test'
 import type { APIRequestContext } from '@playwright/test'
 import type {
+    ClsDiagnosticAnalysisResponse,
     LcpDiagnosticAnalysisResponse,
     MetricEventV2,
 } from '@performance-platform/protocol'
@@ -8,6 +9,9 @@ import type {
 import {
     createLcpDemoCohorts,
 } from '../../apps/server/scripts/lcp-demo-scenarios.js'
+import {
+    createClsDemoCohorts,
+} from '../../apps/server/scripts/cls-demo-scenarios.js'
 
 const CONSOLE_BASE_URL =
     process.env.CONSOLE_BASE_URL
@@ -82,6 +86,24 @@ async function queryLcpDiagnostic(
     expect(response.ok()).toBe(true)
 
     return response.json() as Promise<LcpDiagnosticAnalysisResponse>
+}
+
+async function queryClsDiagnostic(
+    request: APIRequestContext,
+    from: number,
+    to: number,
+): Promise<ClsDiagnosticAnalysisResponse> {
+    const search = new URLSearchParams({
+        from: new Date(from).toISOString(),
+        to: new Date(to).toISOString(),
+    })
+    const response = await request.get(
+        `${CONSOLE_BASE_URL}/api/v2/diagnostics/cls?${search.toString()}`,
+    )
+
+    expect(response.ok()).toBe(true)
+
+    return response.json() as Promise<ClsDiagnosticAnalysisResponse>
 }
 
 async function queryPaintCounts(
@@ -279,6 +301,48 @@ test(
         await recommendationButton.click()
         await expect(page.getByRole('note')).toContainText(
             'The LCP element renders too late after its resource is ready.',
+        )
+    },
+)
+
+test(
+    'diagnoses CLS evidence and displays the repeated target recommendation',
+    async ({ page, request }) => {
+        const cohorts = createClsDemoCohorts(Date.now() - 60_000)
+
+        await ingestEvents(
+            request,
+            cohorts.flatMap((cohort) => cohort.events),
+        )
+
+        for (const cohort of cohorts) {
+            const diagnostic = await queryClsDiagnostic(
+                request,
+                cohort.timestamp - 1,
+                cohort.timestamp + 1,
+            )
+
+            expect(diagnostic.sampleCount).toBe(
+                cohort.scenario.sampleCount,
+            )
+            expect(diagnostic.evidenceSampleCount).toBe(
+                cohort.scenario.sampleCount,
+            )
+            expect(diagnostic.findings.map((finding) => finding.ruleId)).toEqual(
+                cohort.scenario.expectedRuleIds,
+            )
+        }
+
+        await page.goto(CONSOLE_BASE_URL)
+
+        const recommendationButton = page.locator(
+            'summary[aria-label="Show optimization recommendation for CLS"]',
+        )
+
+        await expect(recommendationButton).toBeVisible()
+        await recommendationButton.click()
+        await expect(page.getByRole('note')).toContainText(
+            'The element .promo-banner is the largest layout-shift source',
         )
     },
 )

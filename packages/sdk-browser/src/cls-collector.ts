@@ -38,6 +38,11 @@ export function createClsCollector(
                 payload: {
                     value: metric.value,
                     unit: 'score',
+                    ...(metric.attribution === undefined
+                        ? {}
+                        : {
+                              attribution: metric.attribution,
+                          }),
                 },
             })
         } catch {
