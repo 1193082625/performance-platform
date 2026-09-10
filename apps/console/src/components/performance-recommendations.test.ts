@@ -182,6 +182,58 @@ describe("createPerformanceRecommendations", () => {
     ).toEqual([]);
   });
 
+  it.each([
+    ["LCP", "lcp", "lcpFindings", "lcpEvidence", 3_200, "recommendations.lcpInsufficientEvidence"],
+    ["CLS", "cls", "clsFindings", "clsEvidence", 0.18, "recommendations.clsInsufficientEvidence"],
+    ["INP", "inp", "inpFindings", "inpEvidence", 280, "recommendations.inpInsufficientEvidence"],
+  ] as const)(
+    "explains insufficient %s diagnostic evidence",
+    (metric, statsKey, findingsKey, evidenceKey, p75, messageKey) => {
+      const [recommendation] = createPerformanceRecommendations({
+        [statsKey]: stats(p75),
+        [findingsKey]: [],
+        [evidenceKey]: { sampleCount: 20, evidenceSampleCount: 8 },
+      });
+
+      expect(recommendation).toEqual({
+        metric,
+        status: "NEEDS_IMPROVEMENT",
+        messageKey,
+        messageParams: {
+          evidenceSamples: 8,
+          samples: 20,
+          coverage: 40,
+          minimumSamples: 10,
+          minimumCoverage: 50,
+        },
+      });
+    },
+  );
+
+  it("keeps generic advice when the diagnostic request is unavailable", () => {
+    expect(createPerformanceRecommendations({ inp: stats(280) })).toEqual([
+      {
+        metric: "INP",
+        status: "NEEDS_IMPROVEMENT",
+        messageKey: "recommendations.inp",
+      },
+    ]);
+  });
+
+  it("keeps generic advice when evidence is sufficient but no rule matches", () => {
+    expect(createPerformanceRecommendations({
+      inp: stats(280),
+      inpFindings: [],
+      inpEvidence: { sampleCount: 20, evidenceSampleCount: 15 },
+    })).toEqual([
+      {
+        metric: "INP",
+        status: "NEEDS_IMPROVEMENT",
+        messageKey: "recommendations.inp",
+      },
+    ]);
+  });
+
   it("prioritizes a repeated INP target and includes its evidence", () => {
     const [recommendation] = createPerformanceRecommendations({
       inp: stats(280),

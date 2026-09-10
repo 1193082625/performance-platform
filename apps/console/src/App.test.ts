@@ -968,6 +968,73 @@ describe('App', () => {
         })
     })
 
+    it('shows insufficient-evidence details for an abnormal INP', async () => {
+        const inpResponse = {
+            metric: {
+                type: 'web.vital.inp',
+                unit: 'ms',
+                metricVersion: 'inp-v1',
+            },
+            range: METRICS_RESPONSE.range,
+            summary: {
+                count: 20,
+                average: 260,
+                p50: 240,
+                p75: 280,
+                p90: 340,
+            },
+            series: [],
+        }
+        const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+            const url = new URL(String(input))
+            return {
+                ok: true,
+                json: async () => {
+                    if (url.pathname === '/api/v2/diagnostics/inp') {
+                        return {
+                            metric: inpResponse.metric,
+                            range: inpResponse.range,
+                            sampleCount: 20,
+                            evidenceSampleCount: 8,
+                            overall: { average: 260, p75: 280 },
+                            phases: {
+                                inputDelay: { average: 40, p75: 50 },
+                                processingDuration: { average: 140, p75: 160 },
+                                presentationDelay: { average: 80, p75: 90 },
+                            },
+                            dominantTarget: null,
+                            findings: [],
+                        }
+                    }
+                    if (
+                        url.pathname === '/api/v2/metrics' &&
+                        url.searchParams.get('type') === 'web.vital.inp'
+                    ) {
+                        return inpResponse
+                    }
+                    return METRICS_RESPONSE
+                },
+            }
+        })
+
+        vi.stubGlobal('fetch', fetchMock)
+        const wrapper = mount(App)
+        await flushPromises()
+        const inpCard = wrapper
+            .findAllComponents(MetricSummaryCard)
+            .find((card) => card.props('metric').name === 'INP')
+
+        expect(inpCard?.props('recommendation')).toMatchObject({
+            metric: 'INP',
+            messageKey: 'recommendations.inpInsufficientEvidence',
+            messageParams: {
+                evidenceSamples: 8,
+                samples: 20,
+                coverage: 40,
+            },
+        })
+    })
+
     it('loads and shows the CLS summary', async () => {
         const clsResponse = {
             metric: {

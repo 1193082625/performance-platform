@@ -29,10 +29,41 @@ interface RecommendationInput {
   lcp?: MetricStats;
   cls?: MetricStats;
   clsFindings?: ClsDiagnosticFinding[];
+  clsEvidence?: DiagnosticEvidence;
   inp?: MetricStats;
   inpFindings?: InpDiagnosticFinding[];
+  inpEvidence?: DiagnosticEvidence;
   memoryHealth?: MemoryHealthAssessment | null;
   lcpFindings?: LcpDiagnosticFinding[];
+  lcpEvidence?: DiagnosticEvidence;
+}
+
+interface DiagnosticEvidence {
+  sampleCount: number;
+  evidenceSampleCount: number;
+}
+
+function evidenceParams(evidence: DiagnosticEvidence) {
+  return {
+    evidenceSamples: evidence.evidenceSampleCount,
+    samples: evidence.sampleCount,
+    coverage: evidence.sampleCount === 0
+      ? 0
+      : Math.round((evidence.evidenceSampleCount / evidence.sampleCount) * 100),
+    minimumSamples: 10,
+    minimumCoverage: 50,
+  };
+}
+
+function hasInsufficientEvidence(
+  findings: readonly unknown[] | undefined,
+  evidence: DiagnosticEvidence | undefined,
+): evidence is DiagnosticEvidence {
+  return findings?.length === 0 && evidence !== undefined && (
+    evidence.evidenceSampleCount < 10 ||
+    evidence.sampleCount <= 0 ||
+    evidence.evidenceSampleCount / evidence.sampleCount < 0.5
+  );
 }
 
 function recommendationStatus(
@@ -81,6 +112,13 @@ export function createPerformanceRecommendations(
       ? "recommendations.lcp"
       : lcpMessageKeys[primaryLcpFinding.ruleId],
   );
+  if (hasInsufficientEvidence(input.lcpFindings, input.lcpEvidence)) {
+    const recommendation = recommendations.find((item) => item.metric === "LCP");
+    if (recommendation !== undefined) {
+      recommendation.messageKey = "recommendations.lcpInsufficientEvidence";
+      recommendation.messageParams = evidenceParams(input.lcpEvidence);
+    }
+  }
   if (primaryLcpFinding !== undefined) {
     const recommendation = recommendations.find((item) => item.metric === "LCP");
     if (recommendation !== undefined) {
@@ -93,6 +131,13 @@ export function createPerformanceRecommendations(
     }
   }
   add("CLS", input.cls, (value) => rateWebVital("web.vital.cls", value), "recommendations.cls");
+  if (hasInsufficientEvidence(input.clsFindings, input.clsEvidence)) {
+    const recommendation = recommendations.find((item) => item.metric === "CLS");
+    if (recommendation !== undefined) {
+      recommendation.messageKey = "recommendations.clsInsufficientEvidence";
+      recommendation.messageParams = evidenceParams(input.clsEvidence);
+    }
+  }
   const clsPriority = {
     "cls.repeated-shift-target": 3,
     "cls.late-layout-shift": 2,
@@ -123,6 +168,13 @@ export function createPerformanceRecommendations(
     }
   }
   add("INP", input.inp, (value) => rateWebVital("web.vital.inp", value), "recommendations.inp");
+  if (hasInsufficientEvidence(input.inpFindings, input.inpEvidence)) {
+    const recommendation = recommendations.find((item) => item.metric === "INP");
+    if (recommendation !== undefined) {
+      recommendation.messageKey = "recommendations.inpInsufficientEvidence";
+      recommendation.messageParams = evidenceParams(input.inpEvidence);
+    }
+  }
   const inpPriority = {
     "inp.repeated-interaction-target": 4,
     "inp.slow-event-handler": 3,

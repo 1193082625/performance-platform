@@ -603,10 +603,13 @@ const recommendations = computed(() =>
     lcp: lcpData.value?.summary,
     cls: clsData.value?.summary,
     clsFindings: clsDiagnostic.value?.findings,
+    clsEvidence: clsDiagnostic.value ?? undefined,
     inp: inpData.value?.summary,
     inpFindings: inpDiagnostic.value?.findings,
+    inpEvidence: inpDiagnostic.value ?? undefined,
     memoryHealth: memoryHealth.value,
     lcpFindings: lcpDiagnostic.value?.findings,
+    lcpEvidence: lcpDiagnostic.value ?? undefined,
   }),
 );
 
