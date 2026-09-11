@@ -9,7 +9,7 @@
       <svg viewBox="0 0 24 24" aria-hidden="true">
         <path
           v-if="recommendation.status === 'NEEDS_IMPROVEMENT'"
-          d="M9 18h6m-5 3h4M8.5 15.5A7 7 0 1 1 15.5 15.5C14.5 16.3 14 17 14 18h-4c0-1-.5-1.7-1.5-2.5Z"
+          d="M 9 20 h 6 m -5 3 h 4 M 8.5 17.5 A 7 7 0 1 1 15.5 17.5 C 14.5 18.3 14 19 14 20 h -4 c 0 -1 -0.5 -1.7 -1.5 -2.5 Z"
         />
         <path
           v-else-if="recommendation.status === 'CRITICAL'"
@@ -27,20 +27,22 @@
         <strong>{{ recommendation.metric }}</strong>
         <span>{{ t(`status.${recommendation.status}`) }}</span>
       </header>
-      <p>{{ t(recommendation.messageKey, recommendation.messageParams ?? {}) }}</p>
+      <p>
+        {{ t(recommendation.messageKey, recommendation.messageParams ?? {}) }}
+      </p>
     </div>
   </details>
 </template>
 
 <script setup lang="ts">
-import { useI18n } from "vue-i18n";
-import type { PerformanceRecommendation } from "./performance-recommendations.js";
+import { useI18n } from 'vue-i18n'
+import type { PerformanceRecommendation } from './performance-recommendations.js'
 
 defineProps<{
-  recommendation: PerformanceRecommendation;
-}>();
+  recommendation: PerformanceRecommendation
+}>()
 
-const { t } = useI18n();
+const { t } = useI18n()
 </script>
 
 <style scoped>

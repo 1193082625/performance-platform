@@ -119,6 +119,52 @@ describe('App', () => {
         expect(wrapper.text()).not.toContain('Unable to load performance data')
     })
 
+    it('opens the current alert drawer from the top bar', async () => {
+        const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+            const url = new URL(String(input))
+            if (url.pathname === '/api/v2/alerts/evaluate') {
+                return {
+                    ok: true,
+                    json: async () => ({
+                        range: METRICS_RESPONSE.range,
+                        evaluatedAt: METRICS_RESPONSE.range.to,
+                        events: [{
+                            schemaVersion: '1.0',
+                            alertId: 'alert-inp',
+                            status: 'triggered',
+                            ruleId: 'web-vital.inp-p75',
+                            ruleVersion: '1',
+                            application: { id: 'demo-web' },
+                            range: METRICS_RESPONSE.range,
+                            observedAt: METRICS_RESPONSE.range.to,
+                            metric: {
+                                type: 'web.vital.inp', unit: 'ms', metricVersion: 'inp-v1',
+                                statistic: 'p75', value: 520, threshold: 200, operator: 'gt',
+                            },
+                            evidence: {
+                                sampleCount: 100,
+                                diagnosticSampleCount: 100,
+                                diagnosticEvidenceSampleCount: 80,
+                            },
+                            diagnosticFindings: [],
+                        }],
+                    }),
+                }
+            }
+            return { ok: true, json: async () => METRICS_RESPONSE }
+        })
+        vi.stubGlobal('fetch', fetchMock)
+        const wrapper = mount(App)
+        await flushPromises()
+
+        const button = wrapper.get('.alert-count-button')
+        expect(button.text()).toContain('1')
+        await button.trigger('click')
+        expect(wrapper.get('[role="dialog"]').text()).toContain('INP')
+        await wrapper.get('.alert-drawer__close').trigger('click')
+        expect(wrapper.find('[role="dialog"]').exists()).toBe(false)
+    })
+
     it('shows a loading state while metrics are being requested', async () => {
         const fetchMock = vi.fn()
 
@@ -208,11 +254,11 @@ describe('App', () => {
         await sevenDayButton!.trigger('click')
         await flushPromises()
     
-        expect(fetchMock).toHaveBeenCalledTimes(22)
+        expect(fetchMock).toHaveBeenCalledTimes(24)
     
         const requestUrl = new URL(
             String(
-                fetchMock.mock.calls[11]?.[0],
+                fetchMock.mock.calls[12]?.[0],
             ),
         )
     
@@ -419,7 +465,7 @@ describe('App', () => {
 
         await flushPromises()
 
-        expect(fetchMock).toHaveBeenCalledTimes(11)
+        expect(fetchMock).toHaveBeenCalledTimes(12)
 
         for (const expected of [
             {
@@ -484,7 +530,7 @@ describe('App', () => {
             );
           }
           
-        expect(fetchMock).toHaveBeenCalledTimes(11)
+        expect(fetchMock).toHaveBeenCalledTimes(12)
     })
     it('shows the dashboard title, selected window, and total samples', async () => {
         const fetchMock = vi.fn()
@@ -602,11 +648,11 @@ describe('App', () => {
         const wrapper = mount(App)
         await flushPromises()
 
-        expect(fetchMock).toHaveBeenCalledTimes(11)
+        expect(fetchMock).toHaveBeenCalledTimes(12)
 
         await vi.advanceTimersByTimeAsync(30_000)
         await flushPromises()
-        expect(fetchMock).toHaveBeenCalledTimes(22)
+        expect(fetchMock).toHaveBeenCalledTimes(24)
 
         const liveButton = wrapper.get('.live-badge')
         await liveButton.trigger('click')
@@ -614,12 +660,12 @@ describe('App', () => {
 
         await vi.advanceTimersByTimeAsync(60_000)
         await flushPromises()
-        expect(fetchMock).toHaveBeenCalledTimes(22)
+        expect(fetchMock).toHaveBeenCalledTimes(24)
 
         await liveButton.trigger('click')
         await flushPromises()
         expect(liveButton.text()).toContain('LIVE')
-        expect(fetchMock).toHaveBeenCalledTimes(33)
+        expect(fetchMock).toHaveBeenCalledTimes(36)
 
         wrapper.unmount()
     })

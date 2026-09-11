@@ -49,6 +49,8 @@ export type {
     InpDiagnosticAnalysisResponse,
     InpDiagnosticResponse,
     InpDiagnosticFinding,
+    AlertEvaluationResponse,
+    WebVitalAlertEvent,
 } from './types.js'
 
 export {

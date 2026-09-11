@@ -3,7 +3,7 @@
     <header v-frame class="topbar tech-frame">
       <div class="brand">
         <Icon name="pulse" />
-        <h1>{{ t("app.title") }}</h1>
+        <h1>{{ t('app.title') }}</h1>
       </div>
       <button
         class="live-badge"
@@ -12,42 +12,53 @@
         :aria-pressed="live"
         :title="live ? t('app.pauseRefresh') : t('app.resumeRefresh')"
       >
-        <i></i>{{ live ? t("app.live") : t("app.paused") }}
-      </button>
-      <button
-        type="button"
-        class="locale-toggle"
-        :title="t('app.switchLanguage')"
-        @click="toggleLocale"
-      >
-        {{ locale === "en-US" ? "中文" : "EN" }}
+        <i></i>{{ live ? t('app.live') : t('app.paused') }}
       </button>
       <div class="sample-total">
-        <span>{{ t("app.totalSamples") }}</span>
+        <span>{{ t('app.totalSamples') }}</span>
         <strong>{{ n(totalSamples) }}</strong>
       </div>
       <MetricsRangeSelector
         :range="selectedRange"
         @select="handleSelectedRange"
       />
-      <div class="date-time">
+      <!-- <div class="date-time">
         <Icon name="clock" />
         <div>
           <span>{{ dashboardDate }}</span
           ><strong>{{ dashboardTime }} UTC</strong>
         </div>
-      </div>
+      </div> -->
+
+      <button
+        type="button"
+        class="locale-toggle"
+        :title="t('app.switchLanguage')"
+        @click="toggleLocale"
+      >
+        {{ locale === 'en-US' ? '中文' : 'EN' }}
+      </button>
+      <button
+        type="button"
+        class="alert-count-button"
+        :class="{ 'alert-count-button--active': alertCount > 0 }"
+        :aria-label="t('alerts.open', { count: alertCount })"
+        @click="alertDrawerOpen = true"
+      >
+        <span>{{ t('alerts.current') }}</span>
+        <strong>{{ alertCount }}</strong>
+      </button>
     </header>
 
     <p v-if="loading && data === null" class="dashboard-state" role="status">
-      {{ t("app.loading") }}
+      {{ t('app.loading') }}
     </p>
     <p
       v-else-if="error !== null && data === null"
       class="dashboard-state"
       role="alert"
     >
-      {{ t("app.error") }}
+      {{ t('app.error') }}
     </p>
     <p
       v-else-if="
@@ -58,7 +69,7 @@
       class="dashboard-state"
       role="status"
     >
-      {{ t("app.empty") }}
+      {{ t('app.empty') }}
     </p>
 
     <div v-frame class="main-shell tech-frame">
@@ -74,8 +85,11 @@
         <div class="charts">
           <article v-frame class="chart-panel tech-frame">
             <div class="chart-heading">
-              <h2>{{ t("app.averageTrend") }}</h2>
-              <select v-model="averageMode" :aria-label="t('app.averageMetric')">
+              <h2>{{ t('app.averageTrend') }}</h2>
+              <select
+                v-model="averageMode"
+                :aria-label="t('app.averageMetric')"
+              >
                 <option
                   v-for="mode in ['PAINT', 'LCP', 'CLS', 'INP', 'MEMORY']"
                   :key="mode"
@@ -93,7 +107,7 @@
           </article>
           <article v-frame class="chart-panel tech-frame">
             <div class="chart-heading p75-heading">
-              <h2>{{ t("app.p75Trend") }}</h2>
+              <h2>{{ t('app.p75Trend') }}</h2>
               <div class="metric-tabs" :aria-label="t('app.p75Metric')">
                 <button
                   v-for="mode in ['PAINT', 'LCP', 'CLS', 'INP', 'MEMORY']"
@@ -124,7 +138,7 @@
           class="health-card tech-frame"
           :data-status="memoryHealthView.status"
         >
-          <h2>{{ t("app.memoryHealth") }}</h2>
+          <h2>{{ t('app.memoryHealth') }}</h2>
           <RecommendationPopover
             v-if="recommendationFor('MEMORY')"
             :recommendation="recommendationFor('MEMORY')!"
@@ -137,8 +151,9 @@
             />
             <div class="health-stats">
               <strong>{{ t(`status.${memoryHealthView.status}`) }}</strong
-              ><span>{{ t("app.utilization") }}</span><b>{{ memoryHealthView.utilization }}</b
-              ><span>{{ t("app.sampleSufficiency") }}</span
+              ><span>{{ t('app.utilization') }}</span
+              ><b>{{ memoryHealthView.utilization }}</b
+              ><span>{{ t('app.sampleSufficiency') }}</span
               ><em
                 >{{ t(`status.${memoryHealthView.sufficiency}`) }} ({{
                   memoryHealthView.sampleCount
@@ -147,7 +162,7 @@
             </div>
           </div>
           <div class="reason">
-            <span>{{ t("app.reason") }}</span>
+            <span>{{ t('app.reason') }}</span>
             <p>{{ memoryHealthView.reason }}</p>
           </div>
         </article>
@@ -179,9 +194,16 @@
         </article>
       </aside>
       <footer>
-        <Icon name="info" /><span>{{ t("app.footer") }}</span>
+        <Icon name="info" /><span>{{ t('app.footer') }}</span>
       </footer>
     </div>
+    <AlertDrawer
+      :open="alertDrawerOpen"
+      :loading="alertEvaluationLoading"
+      :error="alertEvaluationError"
+      :evaluation="alertEvaluation"
+      @close="alertDrawerOpen = false"
+    />
   </main>
 </template>
 
@@ -192,260 +214,295 @@ import {
   onMounted,
   onUnmounted,
   ref,
-} from "vue";
-import { createPaintMetricsApi } from "./api/metrics.js";
-import { createMetricQueryApi } from "./api/metric-query.js";
-import { createLcpDiagnosticApi } from "./api/lcp-diagnostic.js";
-import { createClsDiagnosticApi } from "./api/cls-diagnostic.js";
-import { createInpDiagnosticApi } from "./api/inp-diagnostic.js";
+} from 'vue'
+import { createPaintMetricsApi } from './api/metrics.js'
+import { createMetricQueryApi } from './api/metric-query.js'
+import { createLcpDiagnosticApi } from './api/lcp-diagnostic.js'
+import { createClsDiagnosticApi } from './api/cls-diagnostic.js'
+import { createInpDiagnosticApi } from './api/inp-diagnostic.js'
+import { createAlertEvaluationApi } from './api/alert-evaluation.js'
 
-import { usePaintMetrics } from "./composables/use-paint-metrics.js";
-import { useMetricQuery } from "./composables/use-metric-query.js";
-import MetricsRangeSelector from "./components/MetricsRangeSelector.vue";
+import { usePaintMetrics } from './composables/use-paint-metrics.js'
+import { useMetricQuery } from './composables/use-metric-query.js'
+import MetricsRangeSelector from './components/MetricsRangeSelector.vue'
 import {
   resolveMetricsRange,
   type MetricsRange,
-} from "./composables/metrics-range.js";
-import MetricSummaryCard from "./components/MetricSummaryCard.vue";
-import { createMemoryHealthApi } from "./api/memory-health.js";
+} from './composables/metrics-range.js'
+import MetricSummaryCard from './components/MetricSummaryCard.vue'
+import { createMemoryHealthApi } from './api/memory-health.js'
 import type {
   LcpDiagnosticAnalysisResponse,
   ClsDiagnosticAnalysisResponse,
   InpDiagnosticAnalysisResponse,
   MemoryHealthAssessment,
-} from "@performance-platform/protocol";
+  AlertEvaluationResponse,
+} from '@performance-platform/protocol'
 import {
   PAINT_METRIC_THRESHOLDS,
   WEB_VITAL_THRESHOLDS,
-} from "@performance-platform/protocol";
-import { useI18n } from "vue-i18n";
-import { LOCALE_STORAGE_KEY, type AppLocale } from "./i18n.js";
-import { formatBytes } from "./components/metric-value-format.js";
-import { createPerformanceRecommendations } from "./components/performance-recommendations.js";
+} from '@performance-platform/protocol'
+import { useI18n } from 'vue-i18n'
+import { LOCALE_STORAGE_KEY, type AppLocale } from './i18n.js'
+import { formatBytes } from './components/metric-value-format.js'
+import { createPerformanceRecommendations } from './components/performance-recommendations.js'
 
-import Icon from "./components/Icon.vue";
-import Ring from "./components/Ring.vue";
-import RecommendationPopover from "./components/RecommendationPopover.vue";
+import Icon from './components/Icon.vue'
+import Ring from './components/Ring.vue'
+import RecommendationPopover from './components/RecommendationPopover.vue'
+import AlertDrawer from './components/AlertDrawer.vue'
 
 import {
   createMetricTrendSeries,
   createPaintTrendSeries,
-} from "./components/trend-series.js";
+} from './components/trend-series.js'
 
-import type { TrendSeries, TrendStatistic } from "./components/trend-series.js";
+import type { TrendSeries, TrendStatistic } from './components/trend-series.js'
 
 const TrendChart = defineAsyncComponent(
-  () => import("./components/TrendChart.vue"),
-);
-const { t, n, locale } = useI18n();
-document.documentElement.lang = locale.value;
+  () => import('./components/TrendChart.vue'),
+)
+const { t, n, locale } = useI18n()
+document.documentElement.lang = locale.value
 
 function toggleLocale(): void {
-  const nextLocale: AppLocale = locale.value === "en-US" ? "zh-CN" : "en-US";
-  locale.value = nextLocale;
-  window.localStorage.setItem(LOCALE_STORAGE_KEY, nextLocale);
-  document.documentElement.lang = nextLocale;
+  const nextLocale: AppLocale = locale.value === 'en-US' ? 'zh-CN' : 'en-US'
+  locale.value = nextLocale
+  window.localStorage.setItem(LOCALE_STORAGE_KEY, nextLocale)
+  document.documentElement.lang = nextLocale
 }
 
-type TrendMode = "PAINT" | "LCP" | "CLS" | "INP" | "MEMORY";
-type DataState = "loading" | "error" | "empty" | null;
+type TrendMode = 'PAINT' | 'LCP' | 'CLS' | 'INP' | 'MEMORY'
+type DataState = 'loading' | 'error' | 'empty' | null
 
 function calculateRingProgress(
   value: number | null | undefined,
   poorThreshold: number,
 ): number {
   if (value === null || value === undefined || !Number.isFinite(value)) {
-    return 0;
+    return 0
   }
 
-  const percentage = Math.min(100, Math.max(0, (value / poorThreshold) * 100));
+  const percentage = Math.min(100, Math.max(0, (value / poorThreshold) * 100))
 
-  return Math.round(percentage * 10) / 10;
+  return Math.round(percentage * 10) / 10
 }
 
 const metricsApi = createPaintMetricsApi({
   baseUrl: window.location.origin,
   fetch: window.fetch.bind(window),
-});
+})
 
 const metricQueryApi = createMetricQueryApi({
   baseUrl: window.location.origin,
   fetch: window.fetch.bind(window),
-});
+})
 const lcpDiagnosticApi = createLcpDiagnosticApi({
   baseUrl: window.location.origin,
   fetch: window.fetch.bind(window),
-});
-const lcpDiagnostic = ref<LcpDiagnosticAnalysisResponse | null>(null);
-let latestLcpDiagnosticRequestId = 0;
+})
+const lcpDiagnostic = ref<LcpDiagnosticAnalysisResponse | null>(null)
+let latestLcpDiagnosticRequestId = 0
 
 async function loadLcpDiagnosticRange(
-  range: MetricsRange = "24h",
+  range: MetricsRange = '24h',
 ): Promise<void> {
-  const requestId = ++latestLcpDiagnosticRequestId;
-  const { from, to } = resolveMetricsRange(range, Date.now());
+  const requestId = ++latestLcpDiagnosticRequestId
+  const { from, to } = resolveMetricsRange(range, Date.now())
 
   try {
-    const response = await lcpDiagnosticApi.query({ from, to });
+    const response = await lcpDiagnosticApi.query({ from, to })
     if (requestId === latestLcpDiagnosticRequestId) {
-      lcpDiagnostic.value = response;
+      lcpDiagnostic.value = response
     }
   } catch {
     if (requestId === latestLcpDiagnosticRequestId) {
-      lcpDiagnostic.value = null;
+      lcpDiagnostic.value = null
     }
   }
 }
 const clsDiagnosticApi = createClsDiagnosticApi({
   baseUrl: window.location.origin,
   fetch: window.fetch.bind(window),
-});
-const clsDiagnostic = ref<ClsDiagnosticAnalysisResponse | null>(null);
-let latestClsDiagnosticRequestId = 0;
+})
+const clsDiagnostic = ref<ClsDiagnosticAnalysisResponse | null>(null)
+let latestClsDiagnosticRequestId = 0
 
 async function loadClsDiagnosticRange(
-  range: MetricsRange = "24h",
+  range: MetricsRange = '24h',
 ): Promise<void> {
-  const requestId = ++latestClsDiagnosticRequestId;
-  const { from, to } = resolveMetricsRange(range, Date.now());
+  const requestId = ++latestClsDiagnosticRequestId
+  const { from, to } = resolveMetricsRange(range, Date.now())
 
   try {
-    const response = await clsDiagnosticApi.query({ from, to });
+    const response = await clsDiagnosticApi.query({ from, to })
     if (requestId === latestClsDiagnosticRequestId) {
-      clsDiagnostic.value = response;
+      clsDiagnostic.value = response
     }
   } catch {
     if (requestId === latestClsDiagnosticRequestId) {
-      clsDiagnostic.value = null;
+      clsDiagnostic.value = null
     }
   }
 }
 const inpDiagnosticApi = createInpDiagnosticApi({
   baseUrl: window.location.origin,
   fetch: window.fetch.bind(window),
-});
-const inpDiagnostic = ref<InpDiagnosticAnalysisResponse | null>(null);
-let latestInpDiagnosticRequestId = 0;
+})
+const inpDiagnostic = ref<InpDiagnosticAnalysisResponse | null>(null)
+let latestInpDiagnosticRequestId = 0
 
 async function loadInpDiagnosticRange(
-  range: MetricsRange = "24h",
+  range: MetricsRange = '24h',
 ): Promise<void> {
-  const requestId = ++latestInpDiagnosticRequestId;
-  const { from, to } = resolveMetricsRange(range, Date.now());
+  const requestId = ++latestInpDiagnosticRequestId
+  const { from, to } = resolveMetricsRange(range, Date.now())
   try {
-    const response = await inpDiagnosticApi.query({ from, to });
+    const response = await inpDiagnosticApi.query({ from, to })
     if (requestId === latestInpDiagnosticRequestId) {
-      inpDiagnostic.value = response;
+      inpDiagnostic.value = response
     }
   } catch {
     if (requestId === latestInpDiagnosticRequestId) {
-      inpDiagnostic.value = null;
+      inpDiagnostic.value = null
+    }
+  }
+}
+const alertEvaluationApi = createAlertEvaluationApi({
+  baseUrl: window.location.origin,
+  fetch: window.fetch.bind(window),
+})
+const alertEvaluation = ref<AlertEvaluationResponse | null>(null)
+const alertEvaluationLoading = ref(false)
+const alertEvaluationError = ref<string | null>(null)
+const alertDrawerOpen = ref(false)
+let latestAlertEvaluationRequestId = 0
+const alertCount = computed(() => alertEvaluation.value?.events?.length ?? 0)
+
+async function loadAlertEvaluationRange(
+  range: MetricsRange = '24h',
+): Promise<void> {
+  const requestId = ++latestAlertEvaluationRequestId
+  const { from, to } = resolveMetricsRange(range, Date.now())
+  alertEvaluationLoading.value = true
+  alertEvaluationError.value = null
+  try {
+    const response = await alertEvaluationApi.query({ from, to })
+    if (requestId === latestAlertEvaluationRequestId) {
+      alertEvaluation.value = response
+    }
+  } catch (error) {
+    if (requestId === latestAlertEvaluationRequestId) {
+      alertEvaluation.value = null
+      alertEvaluationError.value =
+        error instanceof Error ? error.message : String(error)
+    }
+  } finally {
+    if (requestId === latestAlertEvaluationRequestId) {
+      alertEvaluationLoading.value = false
     }
   }
 }
 const memoryHealthApi = createMemoryHealthApi({
   baseUrl: window.location.origin,
   fetch: window.fetch.bind(window),
-});
-const memoryHealth = ref<MemoryHealthAssessment | null>(null);
-const memoryHealthLoading = ref(false);
-const memoryHealthError = ref<string | null>(null);
-let latestMemoryHealthRequestId = 0;
+})
+const memoryHealth = ref<MemoryHealthAssessment | null>(null)
+const memoryHealthLoading = ref(false)
+const memoryHealthError = ref<string | null>(null)
+let latestMemoryHealthRequestId = 0
 
 const memoryHealthReasonLabels = {
-  HIGH_HEAP_PRESSURE: "memory.highPressure",
-  SUSTAINED_HEAP_GROWTH: "memory.sustainedGrowth",
-  INSUFFICIENT_SAMPLES: "memory.insufficientSamples",
-} as const;
+  HIGH_HEAP_PRESSURE: 'memory.highPressure',
+  SUSTAINED_HEAP_GROWTH: 'memory.sustainedGrowth',
+  INSUFFICIENT_SAMPLES: 'memory.insufficientSamples',
+} as const
 
 const memoryHealthView = computed(() => {
   if (memoryHealthLoading.value) {
     return {
-      status: "LOADING",
-      utilization: "—",
+      status: 'LOADING',
+      utilization: '—',
       progress: 0,
-      sufficiency: "PENDING",
+      sufficiency: 'PENDING',
       sampleCount: 0,
-      reason: t("memory.loading"),
-    };
+      reason: t('memory.loading'),
+    }
   }
 
   if (memoryHealthError.value !== null || memoryHealth.value === null) {
     return {
-      status: "UNAVAILABLE",
-      utilization: "—",
+      status: 'UNAVAILABLE',
+      utilization: '—',
       progress: 0,
-      sufficiency: "UNKNOWN",
+      sufficiency: 'UNKNOWN',
       sampleCount: 0,
-      reason: t("memory.unavailable"),
-    };
+      reason: t('memory.unavailable'),
+    }
   }
 
-  const assessment = memoryHealth.value;
+  const assessment = memoryHealth.value
 
   if (
-    typeof assessment.status !== "string" ||
+    typeof assessment.status !== 'string' ||
     !Array.isArray(assessment.reasons) ||
-    typeof assessment.sampleCount !== "number"
+    typeof assessment.sampleCount !== 'number'
   ) {
     return {
-      status: "UNAVAILABLE",
-      utilization: "—",
+      status: 'UNAVAILABLE',
+      utilization: '—',
       progress: 0,
-      sufficiency: "UNKNOWN",
+      sufficiency: 'UNKNOWN',
       sampleCount: 0,
-      reason: t("memory.unavailable"),
-    };
+      reason: t('memory.unavailable'),
+    }
   }
 
-  const utilization = assessment.latest?.utilization;
+  const utilization = assessment.latest?.utilization
   const utilizationPercent =
     utilization === undefined
       ? null
-      : Math.min(100, Math.max(0, utilization * 100));
-  const reasons = assessment.reasons.map(
-    (reason) => t(memoryHealthReasonLabels[reason]),
-  );
+      : Math.min(100, Math.max(0, utilization * 100))
+  const reasons = assessment.reasons.map((reason) =>
+    t(memoryHealthReasonLabels[reason]),
+  )
 
   return {
     status: assessment.status,
     utilization:
-      utilizationPercent === null ? "—" : `${utilizationPercent.toFixed(1)}%`,
+      utilizationPercent === null ? '—' : `${utilizationPercent.toFixed(1)}%`,
     progress: utilizationPercent ?? 0,
     sufficiency:
-      assessment.status === "INSUFFICIENT_DATA" ? "INSUFFICIENT" : "GOOD",
+      assessment.status === 'INSUFFICIENT_DATA' ? 'INSUFFICIENT' : 'GOOD',
     sampleCount: assessment.sampleCount.toLocaleString(),
-    reason:
-      reasons.length > 0
-        ? reasons.join(" ")
-        : t("memory.healthy"),
-  };
-});
+    reason: reasons.length > 0 ? reasons.join(' ') : t('memory.healthy'),
+  }
+})
 
 async function loadMemoryHealth(): Promise<void> {
-  const requestId = ++latestMemoryHealthRequestId;
-  memoryHealthLoading.value = true;
-  memoryHealthError.value = null;
+  const requestId = ++latestMemoryHealthRequestId
+  memoryHealthLoading.value = true
+  memoryHealthError.value = null
   try {
-    const response = await memoryHealthApi.query();
+    const response = await memoryHealthApi.query()
 
     if (requestId === latestMemoryHealthRequestId) {
-      memoryHealth.value = response;
+      memoryHealth.value = response
     }
   } catch {
     if (requestId === latestMemoryHealthRequestId) {
-      memoryHealthError.value = "Unable to load memory health";
+      memoryHealthError.value = 'Unable to load memory health'
     }
   } finally {
     if (requestId === latestMemoryHealthRequestId) {
-      memoryHealthLoading.value = false;
+      memoryHealthLoading.value = false
     }
   }
 }
 
 const { data, loading, error, loadRange } = usePaintMetrics({
   query: metricsApi.query,
-});
+})
 
 const {
   data: lcpData,
@@ -453,9 +510,9 @@ const {
   error: lcpError,
   loadRange: loadLcpRange,
 } = useMetricQuery({
-  type: "web.vital.lcp",
+  type: 'web.vital.lcp',
   query: metricQueryApi.query,
-});
+})
 
 const {
   data: clsData,
@@ -463,9 +520,9 @@ const {
   error: clsError,
   loadRange: loadClsRange,
 } = useMetricQuery({
-  type: "web.vital.cls",
+  type: 'web.vital.cls',
   query: metricQueryApi.query,
-});
+})
 
 const {
   data: inpData,
@@ -473,36 +530,36 @@ const {
   error: inpError,
   loadRange: loadInpRange,
 } = useMetricQuery({
-  type: "web.vital.inp",
+  type: 'web.vital.inp',
   query: metricQueryApi.query,
-});
+})
 
 function resolveDataState(
   hasData: boolean,
   isLoading: boolean,
   queryError: string | null,
 ): DataState {
-  if (hasData) return null;
-  if (isLoading) return "loading";
-  if (queryError !== null) return "error";
-  return "empty";
+  if (hasData) return null
+  if (isLoading) return 'loading'
+  if (queryError !== null) return 'error'
+  return 'empty'
 }
 
 const metrics = computed(() => [
   {
-    name: "FP",
+    name: 'FP',
     stats: data.value?.summary.fp,
     value:
       data.value?.summary.fp.average === null ||
       data.value?.summary.fp.average === undefined
-        ? "—"
+        ? '—'
         : Math.round(data.value.summary.fp.average).toLocaleString(),
-    unit: "ms",
-    type: "web.paint.fp",
-    color: "#00d8ff",
+    unit: 'ms',
+    type: 'web.paint.fp',
+    color: '#00d8ff',
     progress: calculateRingProgress(
       data.value?.summary.fp.average,
-      PAINT_METRIC_THRESHOLDS["web.paint.fp"].poor,
+      PAINT_METRIC_THRESHOLDS['web.paint.fp'].poor,
     ),
     state: resolveDataState(
       (data.value?.summary.fp.count ?? 0) > 0,
@@ -511,19 +568,19 @@ const metrics = computed(() => [
     ),
   },
   {
-    name: "FCP",
+    name: 'FCP',
     stats: data.value?.summary.fcp,
     value:
       data.value?.summary.fcp.average === null ||
       data.value?.summary.fcp.average === undefined
-        ? "—"
+        ? '—'
         : Math.round(data.value.summary.fcp.average).toLocaleString(),
-    unit: "ms",
-    type: "web.paint.fcp",
-    color: "#00baff",
+    unit: 'ms',
+    type: 'web.paint.fcp',
+    color: '#00baff',
     progress: calculateRingProgress(
       data.value?.summary.fcp.average,
-      PAINT_METRIC_THRESHOLDS["web.paint.fcp"].poor,
+      PAINT_METRIC_THRESHOLDS['web.paint.fcp'].poor,
     ),
     state: resolveDataState(
       (data.value?.summary.fcp.count ?? 0) > 0,
@@ -532,19 +589,19 @@ const metrics = computed(() => [
     ),
   },
   {
-    name: "LCP",
+    name: 'LCP',
     stats: lcpData.value?.summary,
     value:
       lcpData.value?.summary.average === null ||
       lcpData.value?.summary.average === undefined
-        ? "—"
+        ? '—'
         : Math.round(lcpData.value.summary.average).toLocaleString(),
     unit: lcpData.value?.metric?.unit,
-    type: "web.vital.lcp",
-    color: "#ad75fa",
+    type: 'web.vital.lcp',
+    color: '#ad75fa',
     progress: calculateRingProgress(
       lcpData.value?.summary.average,
-      WEB_VITAL_THRESHOLDS["web.vital.lcp"].poor,
+      WEB_VITAL_THRESHOLDS['web.vital.lcp'].poor,
     ),
     state: resolveDataState(
       (lcpData.value?.summary.count ?? 0) > 0,
@@ -553,19 +610,19 @@ const metrics = computed(() => [
     ),
   },
   {
-    name: "CLS",
+    name: 'CLS',
     stats: clsData.value?.summary,
     value:
       clsData.value?.summary.average === null ||
       clsData.value?.summary.average === undefined
-        ? "—"
+        ? '—'
         : clsData.value.summary.average.toFixed(3),
     unit: clsData.value?.metric?.unit,
-    type: "web.vital.cls",
-    color: "#bc7eff",
+    type: 'web.vital.cls',
+    color: '#bc7eff',
     progress: calculateRingProgress(
       clsData.value?.summary.average,
-      WEB_VITAL_THRESHOLDS["web.vital.cls"].poor,
+      WEB_VITAL_THRESHOLDS['web.vital.cls'].poor,
     ),
     state: resolveDataState(
       (clsData.value?.summary.count ?? 0) > 0,
@@ -574,19 +631,19 @@ const metrics = computed(() => [
     ),
   },
   {
-    name: "INP",
+    name: 'INP',
     stats: inpData.value?.summary,
     value:
       inpData.value?.summary.average === null ||
       inpData.value?.summary.average === undefined
-        ? "—"
+        ? '—'
         : Math.round(inpData.value.summary.average).toLocaleString(),
     unit: inpData.value?.metric?.unit,
-    type: "web.vital.inp",
-    color: "#a673ff",
+    type: 'web.vital.inp',
+    color: '#a673ff',
     progress: calculateRingProgress(
       inpData.value?.summary.average,
-      WEB_VITAL_THRESHOLDS["web.vital.inp"].poor,
+      WEB_VITAL_THRESHOLDS['web.vital.inp'].poor,
     ),
     state: resolveDataState(
       (inpData.value?.summary.count ?? 0) > 0,
@@ -594,7 +651,7 @@ const metrics = computed(() => [
       inpError.value,
     ),
   },
-]);
+])
 
 const recommendations = computed(() =>
   createPerformanceRecommendations({
@@ -611,10 +668,10 @@ const recommendations = computed(() =>
     lcpFindings: lcpDiagnostic.value?.findings,
     lcpEvidence: lcpDiagnostic.value ?? undefined,
   }),
-);
+)
 
 function recommendationFor(metric: string) {
-  return recommendations.value.find((item) => item.metric === metric);
+  return recommendations.value.find((item) => item.metric === metric)
 }
 
 const {
@@ -623,9 +680,9 @@ const {
   error: usedHeapError,
   loadRange: loadUsedHeapRange,
 } = useMetricQuery({
-  type: "web.memory.used_heap",
+  type: 'web.memory.used_heap',
   query: metricQueryApi.query,
-});
+})
 
 const {
   data: totalHeapData,
@@ -633,9 +690,9 @@ const {
   error: totalHeapError,
   loadRange: loadTotalHeapRange,
 } = useMetricQuery({
-  type: "web.memory.total_heap",
+  type: 'web.memory.total_heap',
   query: metricQueryApi.query,
-});
+})
 
 const {
   data: heapLimitData,
@@ -643,17 +700,17 @@ const {
   error: heapLimitError,
   loadRange: loadHeapLimitRange,
 } = useMetricQuery({
-  type: "web.memory.heap_limit",
+  type: 'web.memory.heap_limit',
   query: metricQueryApi.query,
-});
+})
 
 function formatHeapAverage(value: number | null | undefined): string {
-  return value === null || value === undefined ? "—" : formatBytes(value);
+  return value === null || value === undefined ? '—' : formatBytes(value)
 }
 
 const usedHeapUtilization = computed(() => {
-  const usedHeap = usedHeapData.value?.summary.average;
-  const heapLimit = heapLimitData.value?.summary.average;
+  const usedHeap = usedHeapData.value?.summary.average
+  const heapLimit = heapLimitData.value?.summary.average
 
   if (
     usedHeap === null ||
@@ -665,22 +722,22 @@ const usedHeapUtilization = computed(() => {
     usedHeap < 0 ||
     heapLimit <= 0
   ) {
-    return null;
+    return null
   }
 
-  return Math.min(1, usedHeap / heapLimit);
-});
+  return Math.min(1, usedHeap / heapLimit)
+})
 
 function heapCaption(defaultCaption: string, state: DataState): string {
   switch (state) {
-    case "loading":
-      return t("memory.loadingData");
-    case "error":
-      return t("memory.loadFailed");
-    case "empty":
-      return t("memory.noSamples");
+    case 'loading':
+      return t('memory.loadingData')
+    case 'error':
+      return t('memory.loadFailed')
+    case 'empty':
+      return t('memory.noSamples')
     default:
-      return defaultCaption;
+      return defaultCaption
   }
 }
 
@@ -689,217 +746,217 @@ const heaps = computed(() => {
     (usedHeapData.value?.summary.count ?? 0) > 0,
     usedHeapLoading.value,
     usedHeapError.value,
-  );
+  )
   const totalState = resolveDataState(
     (totalHeapData.value?.summary.count ?? 0) > 0,
     totalHeapLoading.value,
     totalHeapError.value,
-  );
+  )
   const limitState = resolveDataState(
     (heapLimitData.value?.summary.count ?? 0) > 0,
     heapLimitLoading.value,
     heapLimitError.value,
-  );
+  )
 
   return [
     {
-      title: t("memory.usedHeap"),
+      title: t('memory.usedHeap'),
       value: formatHeapAverage(usedHeapData.value?.summary.average),
       caption: heapCaption(
         usedHeapUtilization.value === null
-        ? t("memory.unavailableOfHeapLimit")
-        : t("memory.ofHeapLimit", {
-            value: (usedHeapUtilization.value * 100).toFixed(1),
-          }),
+          ? t('memory.unavailableOfHeapLimit')
+          : t('memory.ofHeapLimit', {
+              value: (usedHeapUtilization.value * 100).toFixed(1),
+            }),
         usedState,
       ),
-      color: "#79e76d",
+      color: '#79e76d',
       bars:
         usedHeapUtilization.value === null
           ? 0
           : Math.ceil(usedHeapUtilization.value * 14),
-      kind: "used",
+      kind: 'used',
       state: usedState,
     },
     {
-      title: t("memory.totalHeap"),
+      title: t('memory.totalHeap'),
       value: formatHeapAverage(totalHeapData.value?.summary.average),
-    caption: heapCaption(t("memory.allocated"), totalState),
-      color: "#06d2ee",
+      caption: heapCaption(t('memory.allocated'), totalState),
+      color: '#06d2ee',
       bars: totalState === null ? 6 : 0,
-      kind: "total",
+      kind: 'total',
       state: totalState,
     },
     {
-      title: t("memory.heapLimit"),
+      title: t('memory.heapLimit'),
       value: formatHeapAverage(heapLimitData.value?.summary.average),
-    caption: heapCaption(t("memory.hardLimit"), limitState),
-      color: "#b77aff",
+      caption: heapCaption(t('memory.hardLimit'), limitState),
+      color: '#b77aff',
       bars: limitState === null ? 14 : 0,
-      kind: "limit",
+      kind: 'limit',
       state: limitState,
     },
-  ];
-});
+  ]
+})
 
 function createDashboardTrendSeries(
   mode: TrendMode,
   statistic: TrendStatistic,
 ): TrendSeries[] {
   switch (mode) {
-    case "PAINT":
+    case 'PAINT':
       return data.value === null
         ? []
-        : createPaintTrendSeries(data.value.series, statistic);
+        : createPaintTrendSeries(data.value.series, statistic)
 
-    case "LCP": {
-      const response = lcpData.value;
+    case 'LCP': {
+      const response = lcpData.value
 
-      if (response?.metric?.type !== "web.vital.lcp") {
-        return [];
+      if (response?.metric?.type !== 'web.vital.lcp') {
+        return []
       }
 
       return [
         createMetricTrendSeries({
-          key: "lcp",
-          label: "LCP",
+          key: 'lcp',
+          label: 'LCP',
           unit: response.metric.unit,
-          color: "#ae66fa",
+          color: '#ae66fa',
           points: response.series,
           statistic,
         }),
-      ];
+      ]
     }
 
-    case "CLS": {
-      const response = clsData.value;
+    case 'CLS': {
+      const response = clsData.value
 
-      if (response?.metric?.type !== "web.vital.cls") {
-        return [];
+      if (response?.metric?.type !== 'web.vital.cls') {
+        return []
       }
 
       return [
         createMetricTrendSeries({
-          key: "cls",
-          label: "CLS",
+          key: 'cls',
+          label: 'CLS',
           unit: response.metric.unit,
-          color: "#e262ef",
+          color: '#e262ef',
           points: response.series,
           statistic,
         }),
-      ];
+      ]
     }
 
-    case "INP": {
-      const response = inpData.value;
+    case 'INP': {
+      const response = inpData.value
 
-      if (response?.metric?.type !== "web.vital.inp") {
-        return [];
+      if (response?.metric?.type !== 'web.vital.inp') {
+        return []
       }
 
       return [
         createMetricTrendSeries({
-          key: "inp",
-          label: "INP",
+          key: 'inp',
+          label: 'INP',
           unit: response.metric.unit,
-          color: "#9860ee",
+          color: '#9860ee',
           points: response.series,
           statistic,
         }),
-      ];
+      ]
     }
 
-    case "MEMORY": {
-      const response = usedHeapData.value;
+    case 'MEMORY': {
+      const response = usedHeapData.value
 
-      if (response?.metric?.type !== "web.memory.used_heap") {
-        return [];
+      if (response?.metric?.type !== 'web.memory.used_heap') {
+        return []
       }
 
       return [
         createMetricTrendSeries({
-          key: "used-heap",
-          label: t("memory.usedHeapTrend"),
+          key: 'used-heap',
+          label: t('memory.usedHeapTrend'),
           unit: response.metric.unit,
-          color: "#7be66b",
+          color: '#7be66b',
           points: response.series,
           statistic,
         }),
-      ];
+      ]
     }
   }
 }
 
 function trendState(mode: TrendMode): { loading: boolean; error: boolean } {
   switch (mode) {
-    case "PAINT":
-      return { loading: loading.value, error: error.value !== null };
-    case "LCP":
-      return { loading: lcpLoading.value, error: lcpError.value !== null };
-    case "CLS":
-      return { loading: clsLoading.value, error: clsError.value !== null };
-    case "INP":
-      return { loading: inpLoading.value, error: inpError.value !== null };
-    case "MEMORY":
+    case 'PAINT':
+      return { loading: loading.value, error: error.value !== null }
+    case 'LCP':
+      return { loading: lcpLoading.value, error: lcpError.value !== null }
+    case 'CLS':
+      return { loading: clsLoading.value, error: clsError.value !== null }
+    case 'INP':
+      return { loading: inpLoading.value, error: inpError.value !== null }
+    case 'MEMORY':
       return {
         loading: usedHeapLoading.value,
         error: usedHeapError.value !== null,
-      };
+      }
   }
 }
 
-const live = ref(true);
-const LIVE_REFRESH_INTERVAL_MS = 30_000;
-const LIVE_CLOCK_INTERVAL_MS = 1_000;
-let liveRefreshTimer: ReturnType<typeof setInterval> | undefined;
-let liveClockTimer: ReturnType<typeof setInterval> | undefined;
-const averageMode = ref<TrendMode>("PAINT");
-const p75Mode = ref<TrendMode>("MEMORY");
+const live = ref(true)
+const LIVE_REFRESH_INTERVAL_MS = 30_000
+const LIVE_CLOCK_INTERVAL_MS = 1_000
+let liveRefreshTimer: ReturnType<typeof setInterval> | undefined
+let liveClockTimer: ReturnType<typeof setInterval> | undefined
+const averageMode = ref<TrendMode>('PAINT')
+const p75Mode = ref<TrendMode>('MEMORY')
 const averageTrendSeries = computed(() =>
-  createDashboardTrendSeries(averageMode.value, "average"),
-);
+  createDashboardTrendSeries(averageMode.value, 'average'),
+)
 const p75TrendSeries = computed(() =>
-  createDashboardTrendSeries(p75Mode.value, "p75"),
-);
-const dashboardTimestamp = ref(Date.now());
+  createDashboardTrendSeries(p75Mode.value, 'p75'),
+)
+const dashboardTimestamp = ref(Date.now())
 const dashboardDate = computed(() =>
   new Intl.DateTimeFormat(locale.value, {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-    timeZone: "UTC",
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+    timeZone: 'UTC',
   })
     .format(dashboardTimestamp.value)
     .toUpperCase(),
-);
+)
 const dashboardTime = computed(() =>
   new Intl.DateTimeFormat(locale.value, {
-    hour: "2-digit",
-    minute: "2-digit",
-    second: "2-digit",
-    hourCycle: "h23",
-    timeZone: "UTC",
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hourCycle: 'h23',
+    timeZone: 'UTC',
   }).format(dashboardTimestamp.value),
-);
-const selectedRange = ref<MetricsRange>("24h");
+)
+const selectedRange = ref<MetricsRange>('24h')
 
 const totalSamples = computed(() => {
   if (data.value === null) {
-    return 0;
+    return 0
   }
 
   const lcpSamples =
-    lcpData.value?.metric?.type === "web.vital.lcp"
+    lcpData.value?.metric?.type === 'web.vital.lcp'
       ? lcpData.value.summary.count
-      : 0;
+      : 0
   const clsSamples =
-    clsData.value?.metric?.type === "web.vital.cls"
+    clsData.value?.metric?.type === 'web.vital.cls'
       ? clsData.value.summary.count
-      : 0;
+      : 0
   const inpSamples =
-    inpData.value?.metric?.type === "web.vital.inp"
+    inpData.value?.metric?.type === 'web.vital.inp'
       ? inpData.value.summary.count
-      : 0;
+      : 0
 
   return (
     data.value.summary.fp.count +
@@ -907,8 +964,8 @@ const totalSamples = computed(() => {
     lcpSamples +
     clsSamples +
     inpSamples
-  );
-});
+  )
+})
 
 async function refreshDashboard(
   range: MetricsRange = selectedRange.value,
@@ -925,56 +982,57 @@ async function refreshDashboard(
     loadLcpDiagnosticRange(range),
     loadClsDiagnosticRange(range),
     loadInpDiagnosticRange(range),
-  ]);
+    loadAlertEvaluationRange(range),
+  ])
 }
 
 function stopLiveRefresh(): void {
   if (liveRefreshTimer !== undefined) {
-    clearInterval(liveRefreshTimer);
-    liveRefreshTimer = undefined;
+    clearInterval(liveRefreshTimer)
+    liveRefreshTimer = undefined
   }
 
   if (liveClockTimer !== undefined) {
-    clearInterval(liveClockTimer);
-    liveClockTimer = undefined;
+    clearInterval(liveClockTimer)
+    liveClockTimer = undefined
   }
 }
 
 function startLiveRefresh(): void {
-  stopLiveRefresh();
+  stopLiveRefresh()
   liveRefreshTimer = setInterval(() => {
-    void refreshDashboard();
-  }, LIVE_REFRESH_INTERVAL_MS);
+    void refreshDashboard()
+  }, LIVE_REFRESH_INTERVAL_MS)
   liveClockTimer = setInterval(() => {
-    dashboardTimestamp.value = Date.now();
-  }, LIVE_CLOCK_INTERVAL_MS);
+    dashboardTimestamp.value = Date.now()
+  }, LIVE_CLOCK_INTERVAL_MS)
 }
 
 function toggleLive(): void {
-  live.value = !live.value;
+  live.value = !live.value
 
   if (live.value) {
-    dashboardTimestamp.value = Date.now();
-    void refreshDashboard();
-    startLiveRefresh();
+    dashboardTimestamp.value = Date.now()
+    void refreshDashboard()
+    startLiveRefresh()
   } else {
-    stopLiveRefresh();
+    stopLiveRefresh()
   }
 }
 
 function handleSelectedRange(range: MetricsRange): void {
-  selectedRange.value = range;
-  void refreshDashboard(range);
+  selectedRange.value = range
+  void refreshDashboard(range)
 
   if (live.value) {
-    startLiveRefresh();
+    startLiveRefresh()
   }
 }
 
 onMounted(() => {
-  void refreshDashboard();
-  startLiveRefresh();
-});
+  void refreshDashboard()
+  startLiveRefresh()
+})
 
-onUnmounted(stopLiveRefresh);
+onUnmounted(stopLiveRefresh)
 </script>

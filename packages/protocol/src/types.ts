@@ -598,6 +598,71 @@ export interface InpDiagnosticAnalysisResponse
     findings: InpDiagnosticFinding[]
 }
 
+interface WebVitalAlertEvidence {
+    sampleCount: number
+    diagnosticSampleCount: number
+    diagnosticEvidenceSampleCount: number
+}
+
+interface WebVitalAlertEventBase {
+    schemaVersion: '1.0'
+    alertId: string
+    status: 'triggered'
+    ruleVersion: '1'
+    application: { id: string }
+    range: { from: string; to: string }
+    observedAt: string
+    evidence: WebVitalAlertEvidence
+}
+
+export type WebVitalAlertEvent = WebVitalAlertEventBase & (
+    | {
+          ruleId: 'web-vital.lcp-p75'
+          metric: {
+              type: 'web.vital.lcp'
+              unit: 'ms'
+              metricVersion: 'lcp-v1'
+              statistic: 'p75'
+              value: number
+              threshold: number
+              operator: 'gt'
+          }
+          diagnosticFindings: LcpDiagnosticFinding[]
+      }
+    | {
+          ruleId: 'web-vital.cls-p75'
+          metric: {
+              type: 'web.vital.cls'
+              unit: 'score'
+              metricVersion: 'cls-v1'
+              statistic: 'p75'
+              value: number
+              threshold: number
+              operator: 'gt'
+          }
+          diagnosticFindings: ClsDiagnosticFinding[]
+      }
+    | {
+          ruleId: 'web-vital.inp-p75'
+          metric: {
+              type: 'web.vital.inp'
+              unit: 'ms'
+              metricVersion: 'inp-v1'
+              statistic: 'p75'
+              value: number
+              threshold: number
+              operator: 'gt'
+          }
+          diagnosticFindings: InpDiagnosticFinding[]
+      }
+)
+
+export interface AlertEvaluationResponse {
+    range: { from: string; to: string }
+    evaluatedAt: string
+    events: WebVitalAlertEvent[]
+}
+
 export type MemoryHealthStatus =
     'INSUFFICIENT_DATA' | 'NORMAL' | 'WARNING' | 'CRITICAL'
 

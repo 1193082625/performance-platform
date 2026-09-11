@@ -33,6 +33,8 @@ import { createClsDiagnosticService } from './services/cls-diagnostic-service.js
 import { registerClsDiagnosticRoutes } from './routes/cls-diagnostic.js'
 import { createInpDiagnosticService } from './services/inp-diagnostic-service.js'
 import { registerInpDiagnosticRoutes } from './routes/inp-diagnostic.js'
+import { createAlertEvaluationService } from './services/alert-evaluation-service.js'
+import { registerAlertEvaluationRoutes } from './routes/alert-evaluation.js'
 
 interface BuildAppOptions {
     eventRepository: EventRepository
@@ -172,6 +174,22 @@ export function buildApp(options: BuildAppOptions): FastifyInstance {
         app.register(registerInpDiagnosticRoutes, {
             inpDiagnosticService,
         })
+    }
+
+    if (
+        options.lcpDiagnosticRepository !== undefined &&
+        options.clsDiagnosticRepository !== undefined &&
+        options.inpDiagnosticRepository !== undefined
+    ) {
+        const alertEvaluationService = createAlertEvaluationService({
+            metricRepository: options.metricQueryRepository,
+            lcpDiagnosticRepository: options.lcpDiagnosticRepository,
+            clsDiagnosticRepository: options.clsDiagnosticRepository,
+            inpDiagnosticRepository: options.inpDiagnosticRepository,
+            appId: options.appId,
+            now: options.now,
+        })
+        app.register(registerAlertEvaluationRoutes, { alertEvaluationService })
     }
 
     if (options.memoryHealthRepository !== undefined) {
