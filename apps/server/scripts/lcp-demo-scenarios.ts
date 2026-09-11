@@ -67,14 +67,14 @@ export function createLcpDemoCohorts(now: number): LcpDemoCohort[] {
                     metricVersion: 'lcp-v1',
                     application: {
                         id: 'demo-web',
-                        version: '0.2.0+diagnostic-demo',
+                        version: '0.3.0+diagnostic-demo',
                         environment: 'development',
                     },
                     runtime: {
                         platform: 'web',
                         sdk: {
                             name: '@performance-platform/browser',
-                            version: '0.2.0',
+                            version: '0.3.0',
                         },
                     },
                     session: {

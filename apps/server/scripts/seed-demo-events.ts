@@ -34,7 +34,7 @@ function createEvent(
 
         application: {
             id: 'demo-web',
-            version: '0.1.0+demo',
+            version: '0.3.0+demo',
             environment: 'development',
         },
 
@@ -43,7 +43,7 @@ function createEvent(
 
             sdk: {
                 name: '@performance-platform/browser',
-                version: '0.1.0',
+                version: '0.3.0',
             },
         },
 
@@ -123,14 +123,14 @@ for (let sampleIndex = 0; sampleIndex < 24; sampleIndex += 1) {
             metricVersion: 'memory-v1',
             application: {
                 id: 'demo-web',
-                version: '0.2.0+memory-demo',
+                version: '0.3.0+memory-demo',
                 environment: 'development',
             },
             runtime: {
                 platform: 'web',
                 sdk: {
                     name: '@performance-platform/browser',
-                    version: '0.2.0',
+                    version: '0.3.0',
                 },
             },
             session: {

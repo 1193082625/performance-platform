@@ -196,7 +196,9 @@
         </article>
       </aside>
       <footer>
-        <Icon name="info" /><span>{{ t('app.footer') }}</span>
+        <Icon name="info" /><span>{{
+          t(selectedRange === '1h' ? 'app.footerOneHour' : 'app.footer')
+        }}</span>
       </footer>
     </div>
     <AlertDrawer

@@ -154,7 +154,7 @@ async function queryMetricCount(
 }
 
 test(
-    'captures and displays the v0.2 monitoring flow',
+    'captures and displays the v0.3 monitoring flow',
     async ({ page, request }) => {
         const pageErrors: string[] = []
         const successfulBatches: string[] = []

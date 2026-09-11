@@ -107,7 +107,7 @@ services:
         VITE_MONITOR_ENDPOINT: >-
           ${VITE_MONITOR_ENDPOINT:-http://localhost:3000/api/v2/events/batch}
         VITE_APP_ID: ${APP_ID:-demo-web}
-        VITE_APP_VERSION: ${DEMO_APP_VERSION:-0.2.0+compose}
+        VITE_APP_VERSION: ${DEMO_APP_VERSION:-0.3.0+compose}
         VITE_APP_ENVIRONMENT: ${DEMO_APP_ENVIRONMENT:-development}
         VITE_MONITOR_SAMPLE_RATE: >-
           ${VITE_MONITOR_SAMPLE_RATE:-1}

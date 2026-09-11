@@ -125,7 +125,7 @@ describe('createPaintMonitor', () => {
                         platform: 'web',
                         sdk: {
                             name: '@performance-platform/browser',
-                            version: '0.2.0',
+                            version: '0.3.0',
                         },
                     },
 
@@ -796,7 +796,7 @@ describe('createPaintMonitor', () => {
                         platform: 'web',
                         sdk: {
                             name: '@performance-platform/browser',
-                            version: '0.2.0',
+                            version: '0.3.0',
                         },
                     },
 
@@ -898,7 +898,7 @@ describe('createPaintMonitor', () => {
                         platform: 'web',
                         sdk: {
                             name: '@performance-platform/browser',
-                            version: '0.2.0',
+                            version: '0.3.0',
                         },
                     },
                     session: {
@@ -996,7 +996,7 @@ describe('createPaintMonitor', () => {
                         platform: 'web',
                         sdk: {
                             name: '@performance-platform/browser',
-                            version: '0.2.0',
+                            version: '0.3.0',
                         },
                     },
                     session: {

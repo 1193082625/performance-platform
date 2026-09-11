@@ -44,7 +44,7 @@ const paintMonitor = createPaintMonitor({
     endpoint:
         'http://localhost:3000/api/v2/events/batch',
     appId: 'demo-web',
-    appVersion: '0.2.0',
+    appVersion: '0.3.0',
     environment: 'development',
     sampleRate: 1,
     debug: (message, error) => {
@@ -80,7 +80,7 @@ Vite 应用可以通过环境变量提供配置：
 ```env
 VITE_MONITOR_ENDPOINT=http://localhost:3000/api/v2/events/batch
 VITE_APP_ID=demo-web
-VITE_APP_VERSION=0.2.0
+VITE_APP_VERSION=0.3.0
 VITE_APP_ENVIRONMENT=development
 VITE_MONITOR_SAMPLE_RATE=1
 ```

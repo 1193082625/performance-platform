@@ -37,6 +37,7 @@ export const i18n = createI18n({
         sampleSufficiency: "SAMPLE SUFFICIENCY",
         reason: "REASON",
         footer: "All times are in UTC. Metrics update continuously. Data reflects real user monitoring (RUM) from production.",
+        footerOneHour: "The 1H chart axis uses your local time. Metrics update continuously. Data reflects real user monitoring (RUM) from production.",
         switchLanguage: "切换到中文",
       },
       status: {
@@ -163,6 +164,7 @@ export const i18n = createI18n({
         sampleSufficiency: "样本充足度",
         reason: "原因",
         footer: "所有时间均为 UTC。指标持续更新，数据来自生产环境真实用户监控（RUM）。",
+        footerOneHour: "1H 图表横轴使用访问者本地时间。指标持续更新，数据来自生产环境真实用户监控（RUM）。",
         switchLanguage: "Switch to English",
       },
       status: {

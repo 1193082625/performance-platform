@@ -280,6 +280,28 @@ describe('App', () => {
             requestUrl.searchParams.get('interval'),
         ).toBe('day')
     })
+    it('explains the local-time axis only for the 1h range', async () => {
+        const fetchMock = vi.fn().mockResolvedValue({
+            ok: true,
+            json: async () => METRICS_RESPONSE,
+        })
+        vi.stubGlobal('fetch', fetchMock)
+        const wrapper = mount(App)
+        await flushPromises()
+
+        expect(wrapper.get('footer').text()).toContain('UTC')
+
+        const oneHourButton = wrapper
+            .findAll('button')
+            .find((button) => button.text() === '1h')
+
+        expect(oneHourButton).toBeDefined()
+        await oneHourButton!.trigger('click')
+        await flushPromises()
+
+        expect(wrapper.get('footer').text()).toContain('local time')
+        expect(wrapper.get('footer').text()).not.toContain('All times are in UTC')
+    })
     it("shows FP and FCP summary cards", async () => {
         const fetchMock = vi.fn();
         const paintResponse = {
