@@ -10,6 +10,7 @@ export function createInpCollector(
     let started = false
     let destroyed = false
     let reported = false
+    let latestMetric: InpMetricLike | undefined
 
     const handleMetric = (
         metric: InpMetricLike,
@@ -25,6 +26,14 @@ export function createInpCollector(
             return
         }
 
+        latestMetric = metric
+    }
+
+    const finalize = (): void => {
+        if (destroyed || reported || latestMetric === undefined) return
+
+        const metric = latestMetric
+        latestMetric = undefined
         reported = true
 
         try {
@@ -74,6 +83,7 @@ export function createInpCollector(
 
     return {
         start,
+        finalize,
         destroy,
     }
 }

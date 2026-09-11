@@ -64,6 +64,7 @@ describe('createInpCollector', () => {
                 interactionTarget: '#checkout',
             },
         })
+        collector.finalize()
 
         expect(onSample).toHaveBeenCalledWith({
             type: 'web.vital.inp',
@@ -90,8 +91,13 @@ describe('createInpCollector', () => {
         collector.start()
         emit({ value: 120, interactionStartTime: 100 })
         emit({ value: 240, interactionStartTime: 200 })
+        collector.finalize()
+        collector.finalize()
 
         expect(onSample).toHaveBeenCalledTimes(1)
+        expect(onSample).toHaveBeenCalledWith(expect.objectContaining({
+            payload: { value: 240, unit: 'ms' },
+        }))
     })
 
     it('ignores callbacks after being destroyed', () => {
@@ -115,6 +121,7 @@ describe('createInpCollector', () => {
 
         collector.start()
         emit(metric)
+        collector.finalize()
 
         expect(onSample).not.toHaveBeenCalled()
     })

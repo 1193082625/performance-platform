@@ -10,6 +10,7 @@ export function createClsCollector(
     let started = false
     let destroyed = false
     let reported = false
+    let latestMetric: ClsMetricLike | undefined
 
     const handleMetric = (
         metric: ClsMetricLike,
@@ -25,6 +26,14 @@ export function createClsCollector(
             return
         }
 
+        latestMetric = metric
+    }
+
+    const finalize = (): void => {
+        if (destroyed || reported || latestMetric === undefined) return
+
+        const metric = latestMetric
+        latestMetric = undefined
         reported = true
 
         try {
@@ -74,6 +83,7 @@ export function createClsCollector(
 
     return {
         start,
+        finalize,
         destroy,
     }
 }

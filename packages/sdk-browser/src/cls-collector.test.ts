@@ -62,6 +62,7 @@ describe('createClsCollector', () => {
                 loadState: 'complete',
             },
         })
+        collector.finalize()
 
         expect(onSample).toHaveBeenCalledWith({
             type: 'web.vital.cls',
@@ -86,8 +87,13 @@ describe('createClsCollector', () => {
         collector.start()
         emit({ value: 0.04, lastEntryStartTime: 100 })
         emit({ value: 0.08, lastEntryStartTime: 200 })
+        collector.finalize()
+        collector.finalize()
 
         expect(onSample).toHaveBeenCalledTimes(1)
+        expect(onSample).toHaveBeenCalledWith(expect.objectContaining({
+            payload: { value: 0.08, unit: 'score' },
+        }))
     })
 
     it('ignores callbacks after being destroyed', () => {
@@ -111,6 +117,7 @@ describe('createClsCollector', () => {
 
         collector.start()
         emit(metric)
+        collector.finalize()
 
         expect(onSample).not.toHaveBeenCalled()
     })

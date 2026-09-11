@@ -59,6 +59,10 @@ describe('observeLcpWithWebVitals', () => {
         observeLcpWithWebVitals(callback)
 
         expect(webVitalsMocks.attributedOnLcp).toHaveBeenCalledOnce()
+        expect(webVitalsMocks.attributedOnLcp).toHaveBeenCalledWith(
+            expect.any(Function),
+            { reportAllChanges: true },
+        )
         expect(webVitalsMocks.plainOnLcp).not.toHaveBeenCalled()
 
         expect(callback).toHaveBeenCalledWith({
@@ -103,6 +107,11 @@ describe('observeInpWithWebVitals', () => {
         const callback = vi.fn()
 
         observeInpWithWebVitals(callback)
+
+        expect(webVitalsMocks.attributedOnInp).toHaveBeenCalledWith(
+            expect.any(Function),
+            { reportAllChanges: true },
+        )
 
         expect(callback).toHaveBeenCalledWith({
             value: 320,
@@ -149,6 +158,11 @@ describe('observeClsWithWebVitals', () => {
         const callback = vi.fn()
 
         observeClsWithWebVitals(callback)
+
+        expect(webVitalsMocks.attributedOnCls).toHaveBeenCalledWith(
+            expect.any(Function),
+            { reportAllChanges: true },
+        )
 
         expect(callback).toHaveBeenCalledWith({
             value: 0.18,

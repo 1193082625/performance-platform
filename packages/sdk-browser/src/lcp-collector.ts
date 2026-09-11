@@ -8,6 +8,7 @@ export function createLcpCollector(options: LcpCollectorOptions): LcpCollector {
     let started = false
     let destroyed = false
     let reported = false
+    let latestMetric: LcpMetricLike | undefined
 
     const handleMetric = (metric: LcpMetricLike): void => {
         if (destroyed || reported) {
@@ -18,9 +19,16 @@ export function createLcpCollector(options: LcpCollectorOptions): LcpCollector {
             return
         }
 
-        // 每个 view 只接受一个最终 LCP
-        // 在调用外部回调前更新状态，避免回调异常后重复上报
+        latestMetric = metric
+    }
+
+    const finalize = (): void => {
+        if (destroyed || reported || latestMetric === undefined) return
+
+        const metric = latestMetric
+        latestMetric = undefined
         reported = true
+
         try {
             options.onSample({
                 type: 'web.vital.lcp',
@@ -66,6 +74,7 @@ export function createLcpCollector(options: LcpCollectorOptions): LcpCollector {
 
     return {
         start,
+        finalize,
         destroy,
     }
 }

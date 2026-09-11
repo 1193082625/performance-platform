@@ -33,5 +33,6 @@ export interface InpCollectorOptions {
 
 export interface InpCollector {
     start(): void
+    finalize(): void
     destroy(): void
 }

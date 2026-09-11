@@ -20,7 +20,7 @@ PerformanceObserver         →    createObserver
 navigator.sendBeacon        →    sendBeacon
 window.fetch                →    fetch
 sessionStorage              →    sessionStorage
-document                    →    pageLifecycle
+    document / window           →    pageLifecycle
  */
 import { createMonitorIds } from "./ids";
 import { createPaintCollector } from "./paint-collector";
@@ -52,7 +52,32 @@ function getBrowserSessionStorage(): PaintMonitorDependencies['sessionStorage'] 
 function getBrowserPageLifecycle():
     PaintMonitorDependencies['pageLifecycle'] {
     try {
-        return globalThis.document
+        if (
+            typeof document === 'undefined'
+            || typeof window === 'undefined'
+        ) {
+            return undefined
+        }
+
+        return {
+            get visibilityState() {
+                return document.visibilityState
+            },
+            addEventListener: (type, listener) => {
+                if (type === 'pagehide') {
+                    window.addEventListener(type, listener)
+                } else {
+                    document.addEventListener(type, listener)
+                }
+            },
+            removeEventListener: (type, listener) => {
+                if (type === 'pagehide') {
+                    window.removeEventListener(type, listener)
+                } else {
+                    document.removeEventListener(type, listener)
+                }
+            },
+        }
     } catch {
         return undefined
     }
@@ -256,7 +281,6 @@ export function createPaintMonitorWithDependencies(
 
         onSample: (sample) => {
             enqueueMetricSample(sample)
-            void reporter.flush()
         },
     })
 
@@ -271,7 +295,6 @@ export function createPaintMonitorWithDependencies(
 
         onSample: (sample) => {
             enqueueMetricSample(sample)
-            void reporter.flush()
         },
     })
 
@@ -286,7 +309,6 @@ export function createPaintMonitorWithDependencies(
 
         onSample: (sample) => {
             enqueueMetricSample(sample)
-            void reporter.flush()
         },
     })
 
@@ -321,6 +343,9 @@ export function createPaintMonitorWithDependencies(
         if (
             dependencies.pageLifecycle?.visibilityState === 'hidden'
         ) {
+            lcpCollector.finalize()
+            clsCollector.finalize()
+            inpCollector.finalize()
             memoryCollector.flush()
             // 启动 flush，但当前函数不等待它完成，也不使用它返回的 Promise
             // js 的 void 会先执行后面的表达式，然后把整个表达式的结果变成 undefined
@@ -330,6 +355,9 @@ export function createPaintMonitorWithDependencies(
     }
 
     const handlePageHide = (): void => {
+        lcpCollector.finalize()
+        clsCollector.finalize()
+        inpCollector.finalize()
         memoryCollector.flush()
         void reporter.flush()
     }
@@ -371,6 +399,9 @@ export function createPaintMonitorWithDependencies(
         // Preserve the latest memory snapshot before collectors discard their
         // pending state. Reporter transport is safe to start during teardown:
         // sendBeacon is synchronous and fetch uses keepalive.
+        lcpCollector.finalize()
+        clsCollector.finalize()
+        inpCollector.finalize()
         memoryCollector.flush()
         void reporter.flush()
 

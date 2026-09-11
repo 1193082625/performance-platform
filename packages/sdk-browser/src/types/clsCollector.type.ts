@@ -33,5 +33,6 @@ export interface ClsCollectorOptions {
 
 export interface ClsCollector {
     start(): void
+    finalize(): void
     destroy(): void
 }

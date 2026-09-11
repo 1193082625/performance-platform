@@ -25,5 +25,6 @@ export interface LcpCollectorOptions {
 
 export interface LcpCollector {
     start(): void
+    finalize(): void
     destroy(): void
 }

@@ -51,6 +51,7 @@ describe('createLcpCollector', () => {
                 url: 'https://example.com/hero.webp',
             },
         })
+        collector.finalize()
 
         expect(onSample).toHaveBeenCalledWith({
             type: 'web.vital.lcp',
@@ -124,13 +125,15 @@ describe('createLcpCollector', () => {
 
         callback({ value: 2300 })
         callback({ value: 2500 })
+        collector.finalize()
+        collector.finalize()
 
         expect(onSample).toHaveBeenCalledTimes(1)
 
         expect(onSample).toHaveBeenCalledWith(
             expect.objectContaining({
                 payload: {
-                    value: 2300,
+                    value: 2500,
                     unit: 'ms',
                 },
             }),
@@ -161,6 +164,7 @@ describe('createLcpCollector', () => {
             }
 
             callback({ value })
+            collector.finalize()
 
             expect(onSample).not.toHaveBeenCalled()
         },

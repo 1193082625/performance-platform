@@ -29,7 +29,7 @@ export const observeLcpWithWebVitals: ObserveLcp = (callback): void => {
                       }),
             },
         })
-    })
+    }, { reportAllChanges: true })
 }
 
 export const observeClsWithWebVitals: ObserveCls = (callback): void => {
@@ -76,7 +76,7 @@ export const observeClsWithWebVitals: ObserveCls = (callback): void => {
                   }
                 : {}),
         })
-    })
+    }, { reportAllChanges: true })
 }
 
 export const observeInpWithWebVitals: ObserveInp = (callback): void => {
@@ -114,5 +114,5 @@ export const observeInpWithWebVitals: ObserveInp = (callback): void => {
                     : { totalPaintDuration: attribution.totalPaintDuration }),
             },
         })
-    })
+    }, { reportAllChanges: true })
 }

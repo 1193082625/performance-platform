@@ -361,6 +361,18 @@ describe('createPaintMonitor', () => {
             'document',
             documentMock
         )
+        let pageHideListener: (() => void) | undefined
+        const windowMock = {
+            addEventListener: vi.fn((type: string, listener: () => void) => {
+                if (type === 'pagehide') {
+                    pageHideListener = listener
+                }
+            }),
+            removeEventListener: vi.fn(),
+            setInterval: vi.fn(),
+            clearInterval: vi.fn(),
+        }
+        vi.stubGlobal('window', windowMock)
 
         try {
             const monitor = createPaintMonitor({
@@ -377,6 +389,10 @@ describe('createPaintMonitor', () => {
             ).toHaveBeenCalledWith(
                 'visibilitychange',
                 expect.any(Function)
+            )
+            expect(windowMock.addEventListener).toHaveBeenCalledWith(
+                'pagehide',
+                expect.any(Function),
             )
 
             const callback = observerCallback
@@ -449,9 +465,9 @@ describe('createPaintMonitor', () => {
                 'visibilitychange',
                 listener
             )
-            expect(documentMock.removeEventListener).toHaveBeenCalledWith(
+            expect(windowMock.removeEventListener).toHaveBeenCalledWith(
                 'pagehide',
-                lifecycleListeners.get('pagehide'),
+                pageHideListener,
             )
         } finally {
             // 清理替换过的全局对象
@@ -743,6 +759,7 @@ describe('createPaintMonitor', () => {
             value: 2_500.4,
         })
 
+        monitor.destroy()
         await monitor.flush()
 
         const call = sendBeacon.mock.calls[0]
@@ -849,6 +866,7 @@ describe('createPaintMonitor', () => {
             lastEntryStartTime: 2_300.4,
         })
 
+        monitor.destroy()
         await monitor.flush()
 
         const call = sendBeacon.mock.calls[0]
@@ -946,6 +964,7 @@ describe('createPaintMonitor', () => {
             interactionStartTime: 2_300.4,
         })
 
+        monitor.destroy()
         await monitor.flush()
 
         const call = sendBeacon.mock.calls[0]
@@ -1154,4 +1173,73 @@ describe('createPaintMonitor', () => {
             )
         },
     )
+
+    it('finalizes all Web Vitals before starting the pagehide flush', async () => {
+        const lifecycleListeners = new Map<string, () => void>()
+        let lcpCallback: ((metric: { value: number }) => void) | undefined
+        let clsCallback: ((metric: {
+            value: number
+            lastEntryStartTime: number
+        }) => void) | undefined
+        let inpCallback: ((metric: {
+            value: number
+            interactionStartTime: number
+        }) => void) | undefined
+        const sendBeacon = vi.fn((
+            _endpoint: string,
+            _body: string,
+        ) => true)
+        const monitor = createPaintMonitorWithDependencies(
+            {
+                appId: 'demo-web',
+                appVersion: '0.2.0',
+                environment: 'test',
+                endpoint: ENDPOINT,
+            },
+            {
+                timeOrigin: 1_000_000,
+                randomUUID: vi.fn()
+                    .mockReturnValueOnce(VIEW_ID)
+                    .mockReturnValueOnce('11111111-1111-4111-8111-111111111111')
+                    .mockReturnValueOnce('22222222-2222-4222-8222-222222222222')
+                    .mockReturnValueOnce('33333333-3333-4333-8333-333333333333'),
+                sessionStorage: {
+                    getItem: vi.fn(() => SESSION_ID),
+                    setItem: vi.fn(),
+                },
+                observeLcp: (callback) => { lcpCallback = callback },
+                observeCls: (callback) => { clsCallback = callback },
+                observeInp: (callback) => { inpCallback = callback },
+                sendBeacon,
+                pageLifecycle: {
+                    visibilityState: 'visible',
+                    addEventListener: (type, listener) => {
+                        lifecycleListeners.set(type, listener)
+                    },
+                    removeEventListener: vi.fn(),
+                },
+            },
+        )
+
+        monitor.start()
+        lcpCallback?.({ value: 2_400 })
+        clsCallback?.({ value: 0.08, lastEntryStartTime: 200 })
+        inpCallback?.({ value: 180, interactionStartTime: 300 })
+
+        lifecycleListeners.get('pagehide')?.()
+        lifecycleListeners.get('pagehide')?.()
+        await monitor.flush()
+
+        expect(sendBeacon).toHaveBeenCalledOnce()
+        const body = sendBeacon.mock.calls[0]?.[1]
+        expect(body).toBeDefined()
+        const payload = JSON.parse(body!) as {
+            events: Array<{ type: string }>
+        }
+        expect(payload.events.map((event) => event.type)).toEqual([
+            'web.vital.lcp',
+            'web.vital.cls',
+            'web.vital.inp',
+        ])
+    })
 })
