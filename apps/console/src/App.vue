@@ -100,6 +100,7 @@
             </div>
             <TrendChart
               :series="averageTrendSeries"
+              :range="selectedRange"
               :loading="trendState(averageMode).loading"
               :error="trendState(averageMode).error"
               :aria-label="t('app.averageTrendLabel', { metric: averageMode })"
@@ -125,6 +126,7 @@
             </div>
             <TrendChart
               :series="p75TrendSeries"
+              :range="selectedRange"
               :loading="trendState(p75Mode).loading"
               :error="trendState(p75Mode).error"
               :aria-label="t('app.p75TrendLabel', { metric: p75Mode })"

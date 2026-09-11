@@ -4,6 +4,63 @@ import { buildTrendChartOption } from "./trend-chart-option.js";
 import type { TrendSeries } from "./trend-series.js";
 
 describe("buildTrendChartOption", () => {
+  it("formats the 1h range using the visitor's current local-time window", () => {
+    const rangeStart = new Date(2026, 8, 11, 13, 0);
+    const points = Array.from({ length: 60 }, (_, minute) => ({
+      time: new Date(rangeStart.getTime() + minute * 60_000).toISOString(),
+      value: 120,
+    }));
+    const option = buildTrendChartOption(
+      [
+        {
+          key: "fp",
+          label: "FP",
+          unit: "ms",
+          color: "#09d9ea",
+          points,
+        },
+      ],
+      undefined,
+      "1h",
+    );
+    const xAxis = option.xAxis as {
+      axisLabel: {
+        formatter(value: string, index: number): string;
+        interval?: number;
+      };
+    };
+
+    expect(xAxis.axisLabel.formatter(points[0]!.time, 0)).toBe("13:00");
+    expect(xAxis.axisLabel.formatter(points[10]!.time, 10)).toBe("13:10");
+    expect(xAxis.axisLabel.formatter(points[59]!.time, 59)).toBe("14:00");
+    expect(xAxis.axisLabel.interval).toBe(9);
+  });
+
+  it("keeps relative labels for ranges other than 1h", () => {
+    const option = buildTrendChartOption([
+      {
+        key: "fp",
+        label: "FP",
+        unit: "ms",
+        color: "#09d9ea",
+        points: [
+          { time: "2026-09-11T08:00:00.000Z", value: 120 },
+          { time: "2026-09-11T10:00:00.000Z", value: 140 },
+        ],
+      },
+    ]);
+    const xAxis = option.xAxis as {
+      axisLabel: {
+        formatter(value: string, index: number): string;
+        interval?: number;
+      };
+    };
+
+    expect(xAxis.axisLabel.formatter("2026-09-11T08:00:00.000Z", 0))
+      .toBe("2H AGO");
+    expect(xAxis.axisLabel.interval).toBeUndefined();
+  });
+
   it("uses real timestamps and values", () => {
     const series: TrendSeries[] = [
       {

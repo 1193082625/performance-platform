@@ -39,6 +39,7 @@ import VChart from "vue-echarts";
 
 import { buildTrendChartOption } from "./trend-chart-option.js";
 import type { TrendSeries } from "./trend-series.js";
+import type { MetricsRange } from "../composables/metrics-range.js";
 import { useI18n } from "vue-i18n";
 
 const { t } = useI18n();
@@ -54,11 +55,13 @@ use([
 const props = withDefaults(
   defineProps<{
     series: TrendSeries[];
+    range?: MetricsRange;
     ariaLabel?: string;
     loading?: boolean;
     error?: boolean;
   }>(),
   {
+    range: "24h",
     ariaLabel: undefined,
     loading: false,
     error: false,
@@ -76,7 +79,7 @@ const option = computed(() =>
     now: t("trend.now"),
     hoursAgo: (count) => t("trend.hoursAgo", { count }),
     daysAgo: (count) => t("trend.daysAgo", { count }),
-  }),
+  }, props.range),
 );
 const ariaLabel = computed(() => props.ariaLabel ?? t("trend.defaultLabel"));
 </script>

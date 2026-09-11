@@ -1,6 +1,7 @@
 import { type ComposeOption, type GridComponentOption, type LegendComponentOption, type LineSeriesOption, type TooltipComponentOption } from "echarts";
 import type { TrendSeries } from "./trend-series";
 import type { MetricUnit } from "@performance-platform/protocol";
+import type { MetricsRange } from "../composables/metrics-range.js";
 
 
 export type TrendChartOption = ComposeOption<
@@ -30,7 +31,25 @@ const DEFAULT_TIME_LABELS: TrendTimeLabels = {
     daysAgo: (count) => `${count}D AGO`,
 }
 
-function formatTime(value: string, endTime: string, labels: TrendTimeLabels) {
+function formatTime(
+    value: string,
+    endTime: string,
+    labels: TrendTimeLabels,
+    range: MetricsRange,
+    isLastTick: boolean,
+) {
+    if (range === '1h') {
+        const time = new Date(value)
+
+        if (isLastTick) {
+            time.setMinutes(time.getMinutes() + 1)
+        }
+
+        return [time.getHours(), time.getMinutes()]
+            .map((part) => String(part).padStart(2, '0'))
+            .join(':')
+    }
+
     const differenceInHours = Math.max(
         0,
         Math.round(
@@ -60,6 +79,7 @@ function formatAxisValue(value: number, unit: MetricUnit): string {
 export function buildTrendChartOption(
     series: TrendSeries[],
     timeLabels: TrendTimeLabels = DEFAULT_TIME_LABELS,
+    range: MetricsRange = '24h',
 ): TrendChartOption {
     const times = collectTimes(series)
     const endTime = times.at(-1) ?? ""
@@ -122,7 +142,15 @@ export function buildTrendChartOption(
             axisLabel: {
                 color: "#bdcde8",
                 fontFamily: "Arial, sans-serif",
-                formatter: (value: string) => formatTime(value, endTime, timeLabels),
+                formatter: (value: string, index: number) =>
+                    formatTime(
+                        value,
+                        endTime,
+                        timeLabels,
+                        range,
+                        index === times.length - 1,
+                    ),
+                interval: range === '1h' ? 9 : undefined,
                 showMinLabel: true,
                 showMaxLabel: true,
             },
