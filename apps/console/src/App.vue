@@ -22,13 +22,13 @@
         :range="selectedRange"
         @select="handleSelectedRange"
       />
-      <!-- <div class="date-time">
+      <div class="date-time">
         <Icon name="clock" />
         <div>
           <span>{{ dashboardDate }}</span
           ><strong>{{ dashboardTime }} UTC</strong>
         </div>
-      </div> -->
+      </div>
 
       <button
         type="button"
@@ -479,12 +479,15 @@ const memoryHealthView = computed(() => {
   }
 })
 
-async function loadMemoryHealth(): Promise<void> {
+async function loadMemoryHealth(
+  range: MetricsRange = '24h',
+): Promise<void> {
   const requestId = ++latestMemoryHealthRequestId
+  const { from, to } = resolveMetricsRange(range, Date.now())
   memoryHealthLoading.value = true
   memoryHealthError.value = null
   try {
-    const response = await memoryHealthApi.query()
+    const response = await memoryHealthApi.query({ from, to })
 
     if (requestId === latestMemoryHealthRequestId) {
       memoryHealth.value = response
@@ -978,7 +981,7 @@ async function refreshDashboard(
     loadUsedHeapRange(range),
     loadTotalHeapRange(range),
     loadHeapLimitRange(range),
-    loadMemoryHealth(),
+    loadMemoryHealth(range),
     loadLcpDiagnosticRange(range),
     loadClsDiagnosticRange(range),
     loadInpDiagnosticRange(range),

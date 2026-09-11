@@ -185,15 +185,13 @@ describe('createPaintMonitor', () => {
             .mockReturnValueOnce(false)
             .mockReturnValueOnce(true)
 
-        let visibilityListener:
-            | (() => void)
-            | undefined
+        const lifecycleListeners = new Map<string, () => void>()
 
         const pageLifecycle: PageLifecycleLike = {
             visibilityState: 'visible',
             addEventListener: vi.fn(
-                (_type, listener) => {
-                    visibilityListener = listener
+                (type, listener) => {
+                    lifecycleListeners.set(type, listener)
                 }
             ),
             removeEventListener: vi.fn(() => {
@@ -222,7 +220,7 @@ describe('createPaintMonitor', () => {
 
         expect(
             pageLifecycle.addEventListener
-        ).toHaveBeenCalledTimes(1)
+        ).toHaveBeenCalledTimes(2)
 
         expect(
             pageLifecycle.addEventListener
@@ -247,7 +245,7 @@ describe('createPaintMonitor', () => {
         // 等待自动 flush 完整结束；第一次 Beacon 返回 false，事件留在队列
         await monitor.flush()
         expect(sendBeacon).toHaveBeenCalledTimes(1)
-        const listener = visibilityListener
+        const listener = lifecycleListeners.get('visibilitychange')
 
         if (listener === undefined) {
             throw new Error(
@@ -279,14 +277,18 @@ describe('createPaintMonitor', () => {
         expect(() => monitor.destroy()).not.toThrow()
 
         expect(disconnect).toHaveBeenCalledTimes(1)
-        expect(pageLifecycle.removeEventListener).toHaveBeenCalledTimes(1)
+        expect(pageLifecycle.removeEventListener).toHaveBeenCalledTimes(2)
         expect(pageLifecycle.removeEventListener).toHaveBeenCalledWith(
             'visibilitychange',
             listener
         )
+        expect(pageLifecycle.removeEventListener).toHaveBeenCalledWith(
+            'pagehide',
+            lifecycleListeners.get('pagehide'),
+        )
 
         monitor.start()
-        expect(pageLifecycle.addEventListener).toHaveBeenCalledTimes(1)
+        expect(pageLifecycle.addEventListener).toHaveBeenCalledTimes(2)
     })
 
     // 证明公开函数能使用真实浏览器依赖。
@@ -345,14 +347,12 @@ describe('createPaintMonitor', () => {
         vi.stubGlobal('fetch', fetchMock)
 
         // document 页面生成周期
-        let visibilityListener:
-            | (() => void)
-            | undefined
+        const lifecycleListeners = new Map<string, () => void>()
         const documentMock = {
             visibilityState: 'visible',
             addEventListener: vi.fn(
-                (_type, listener: () => void) => {
-                    visibilityListener = listener
+                (type: string, listener: () => void) => {
+                    lifecycleListeners.set(type, listener)
                 },
             ),
             removeEventListener: vi.fn(),
@@ -394,7 +394,7 @@ describe('createPaintMonitor', () => {
                 ]
             })
 
-            const listener = visibilityListener
+            const listener = lifecycleListeners.get('visibilitychange')
             if (listener === undefined) {
                 throw new Error('Visibility listener was not registered')
             }
@@ -448,6 +448,10 @@ describe('createPaintMonitor', () => {
             expect(documentMock.removeEventListener).toHaveBeenCalledWith(
                 'visibilitychange',
                 listener
+            )
+            expect(documentMock.removeEventListener).toHaveBeenCalledWith(
+                'pagehide',
+                lifecycleListeners.get('pagehide'),
             )
         } finally {
             // 清理替换过的全局对象
@@ -1094,4 +1098,60 @@ describe('createPaintMonitor', () => {
             },
         ])
     })
+
+    it.each(['pagehide', 'destroy'] as const)(
+        'flushes a pending memory snapshot on %s',
+        async (exitMethod) => {
+            const lifecycleListeners = new Map<string, () => void>()
+            const sendBeacon = vi.fn(() => true)
+            const monitor = createPaintMonitorWithDependencies(
+                {
+                    appId: 'demo-web',
+                    appVersion: '0.2.0',
+                    environment: 'test',
+                    endpoint: ENDPOINT,
+                },
+                {
+                    timeOrigin: 1_000_000,
+                    randomUUID: vi.fn()
+                        .mockReturnValueOnce(VIEW_ID)
+                        .mockReturnValueOnce('11111111-1111-4111-8111-111111111111')
+                        .mockReturnValueOnce('22222222-2222-4222-8222-222222222222')
+                        .mockReturnValueOnce('33333333-3333-4333-8333-333333333333'),
+                    sessionStorage: {
+                        getItem: vi.fn(() => SESSION_ID),
+                        setItem: vi.fn(),
+                    },
+                    readMemory: () => ({
+                        usedJSHeapSize: 100,
+                        totalJSHeapSize: 200,
+                        jsHeapSizeLimit: 1000,
+                    }),
+                    now: () => 1_500_000,
+                    sendBeacon,
+                    pageLifecycle: {
+                        visibilityState: 'visible',
+                        addEventListener: (type, listener) => {
+                            lifecycleListeners.set(type, listener)
+                        },
+                        removeEventListener: vi.fn(),
+                    },
+                },
+            )
+
+            monitor.start()
+            if (exitMethod === 'pagehide') {
+                lifecycleListeners.get('pagehide')?.()
+            } else {
+                monitor.destroy()
+            }
+            await monitor.flush()
+
+            expect(sendBeacon).toHaveBeenCalledOnce()
+            expect(sendBeacon).toHaveBeenCalledWith(
+                ENDPOINT,
+                expect.stringContaining('"type":"web.memory.used_heap"'),
+            )
+        },
+    )
 })

@@ -154,6 +154,7 @@ export function createPaintMonitorWithDependencies(
 ): PaintMonitor {
     // 页面监听器当前是否已经安装
     let visibilityListenerInstalled = false
+    let pageHideListenerInstalled = false
     // 整个 Monitor 是否已经永久销毁
     let destroyed = false
 
@@ -328,6 +329,11 @@ export function createPaintMonitorWithDependencies(
         }
     }
 
+    const handlePageHide = (): void => {
+        memoryCollector.flush()
+        void reporter.flush()
+    }
+
     const start = (): void => {
         if (destroyed || !sampled) return
 
@@ -337,7 +343,10 @@ export function createPaintMonitorWithDependencies(
         inpCollector.start()
         memoryCollector.start()
 
-        if (visibilityListenerInstalled || dependencies.pageLifecycle === undefined) {
+        if (
+            visibilityListenerInstalled
+            || dependencies.pageLifecycle === undefined
+        ) {
             return
         }
 
@@ -347,10 +356,23 @@ export function createPaintMonitorWithDependencies(
         )
 
         visibilityListenerInstalled = true
+
+        dependencies.pageLifecycle.addEventListener(
+            'pagehide',
+            handlePageHide,
+        )
+
+        pageHideListenerInstalled = true
     }
 
     const destroy = (): void => {
         if (destroyed) return
+
+        // Preserve the latest memory snapshot before collectors discard their
+        // pending state. Reporter transport is safe to start during teardown:
+        // sendBeacon is synchronous and fetch uses keepalive.
+        memoryCollector.flush()
+        void reporter.flush()
 
         destroyed = true
 
@@ -360,13 +382,32 @@ export function createPaintMonitorWithDependencies(
         inpCollector.destroy()
         memoryCollector.destroy()
 
-        if (visibilityListenerInstalled && dependencies.pageLifecycle !== undefined) {
+        if (
+            visibilityListenerInstalled
+            && dependencies.pageLifecycle !== undefined
+        ) {
             visibilityListenerInstalled = false
 
             try {
                 dependencies.pageLifecycle.removeEventListener(
                     'visibilitychange',
                     handleVisibilityChange
+                )
+            } catch {
+                // 移除监听时报错不影响业务页面
+            }
+        }
+
+        if (
+            pageHideListenerInstalled
+            && dependencies.pageLifecycle !== undefined
+        ) {
+            pageHideListenerInstalled = false
+
+            try {
+                dependencies.pageLifecycle.removeEventListener(
+                    'pagehide',
+                    handlePageHide,
                 )
             } catch {
                 // 移除监听时报错不影响业务页面

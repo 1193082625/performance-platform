@@ -48,12 +48,12 @@ export interface PageLifecycleLike {
     visibilityState: string
 
     addEventListener(
-        type: 'visibilitychange',
+        type: 'visibilitychange' | 'pagehide',
         listener: () => void,
     ): void
 
     removeEventListener(
-        type: 'visibilitychange',
+        type: 'visibilitychange' | 'pagehide',
         listener: () => void,
     ): void
 }

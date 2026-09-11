@@ -19,6 +19,7 @@ const HOUR_MS = 60 * 60 * 1_000
 const now = Date.now()
 
 const paintEvents: PaintEventV1[] = []
+const memoryEvents: MetricEventV2[] = []
 
 function createEvent(
     type: PaintEventV1['type'],
@@ -63,14 +64,14 @@ for (
     hourIndex < 24;
     hourIndex += 1
 ) {
-    const timestamp =
-        now - (23 - hourIndex) * HOUR_MS
+    const hourStart = now - (24 - hourIndex) * HOUR_MS
 
     for (
         let sampleIndex = 0;
         sampleIndex < 5;
         sampleIndex += 1
     ) {
+        const timestamp = hourStart + (sampleIndex + 1) * 10 * 60_000
         const fp =
             650
             + hourIndex * 12
@@ -101,6 +102,46 @@ for (
     }
 }
 
+for (let sampleIndex = 0; sampleIndex < 24; sampleIndex += 1) {
+    const timestamp = now - (23 - sampleIndex) * 5 * 60_000
+    const viewId = 'memory-demo-view'
+    const heapLimit = 4 * 1024 * 1024 * 1024
+    const usedHeap = (320 + sampleIndex * 3) * 1024 * 1024
+    const totalHeap = usedHeap + 96 * 1024 * 1024
+
+    for (const [type, value] of [
+        ['web.memory.used_heap', usedHeap],
+        ['web.memory.total_heap', totalHeap],
+        ['web.memory.heap_limit', heapLimit],
+    ] as const) {
+        memoryEvents.push({
+            schemaVersion: '2.0',
+            eventId: randomUUID(),
+            type,
+            timestamp,
+            sampleRate: 1,
+            metricVersion: 'memory-v1',
+            application: {
+                id: 'demo-web',
+                version: '0.2.0+memory-demo',
+                environment: 'development',
+            },
+            runtime: {
+                platform: 'web',
+                sdk: {
+                    name: '@performance-platform/browser',
+                    version: '0.2.0',
+                },
+            },
+            session: {
+                sessionId: 'memory-demo',
+                viewId,
+            },
+            payload: { value, unit: 'byte' },
+        })
+    }
+}
+
 const v2PaintEvents: MetricEventV2[] = paintEvents.map((event) => ({
     ...event,
     schemaVersion: '2.0',
@@ -117,7 +158,13 @@ const clsEvents = createClsDemoCohorts(now).flatMap(
 const inpEvents = createInpDemoCohorts(now).flatMap(
     (cohort) => cohort.events,
 )
-const events = [...v2PaintEvents, ...lcpEvents, ...clsEvents, ...inpEvents]
+const events = [
+    ...v2PaintEvents,
+    ...memoryEvents,
+    ...lcpEvents,
+    ...clsEvents,
+    ...inpEvents,
+]
 
 for (
     let index = 0;
@@ -151,5 +198,5 @@ for (
 }
 
 console.log(
-    `Seeded ${v2PaintEvents.length} paint events, ${lcpEvents.length} LCP diagnostic events, ${clsEvents.length} CLS diagnostic events, and ${inpEvents.length} INP diagnostic events`,
+    `Seeded ${v2PaintEvents.length} paint events, ${memoryEvents.length} memory events, ${lcpEvents.length} LCP diagnostic events, ${clsEvents.length} CLS diagnostic events, and ${inpEvents.length} INP diagnostic events`,
 )
