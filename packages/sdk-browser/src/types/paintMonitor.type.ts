@@ -3,7 +3,7 @@ import type {
 } from '@performance-platform/protocol'
 import type { SessionStorageLike } from './ids.type'
 import type { CreatePaintObserver } from './paintCollector.type'
-import type { FetchTransport, SendBeacon } from './reporter.type'
+import type { FetchTransport, ReporterScheduler, SendBeacon } from './reporter.type'
 import type { ObserveLcp } from './lcpCollector.type'
 import type { ObserveCls } from './clsCollector.type.js'
 import type { ObserveInp } from './inpCollector.type.js'
@@ -70,6 +70,7 @@ export interface PaintMonitorDependencies {
     observeInp?: ObserveInp
     sendBeacon?: SendBeacon
     fetch?: FetchTransport
+    reporterScheduler?: ReporterScheduler
     pageLifecycle?: PageLifecycleLike
 
     readMemory?: ReadMemory

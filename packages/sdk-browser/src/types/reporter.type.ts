@@ -25,11 +25,22 @@ export type FetchTransport = (
     },
 ) => Promise<FetchResponseLike>
 
+export interface ReporterScheduler {
+    setTimeout(callback: () => void, delayMs: number): number | object
+    clearTimeout(handle: number | object): void
+}
+
 // 创建 Reporter 时由外部提供的配置和传输能力
 export interface ReporterOptions {
     endpoint: string // 上报API地址
     sendBeacon?: SendBeacon
     fetch?: FetchTransport
+    scheduler?: ReporterScheduler
+    now?: () => number
+    maxQueueSize?: number
+    maxEventAgeMs?: number
+    retryBaseDelayMs?: number
+    retryMaxDelayMs?: number
     // 可选，Reporter 内部发生异常时，不把异常抛给业务代码，但可以把诊断信息交给调用者
     // message 说明哪个阶段失败了
     // error 是原始异常，可能不存在

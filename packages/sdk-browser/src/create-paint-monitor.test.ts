@@ -371,6 +371,8 @@ describe('createPaintMonitor', () => {
             removeEventListener: vi.fn(),
             setInterval: vi.fn(),
             clearInterval: vi.fn(),
+            setTimeout: vi.fn(() => 1),
+            clearTimeout: vi.fn(),
         }
         vi.stubGlobal('window', windowMock)
 

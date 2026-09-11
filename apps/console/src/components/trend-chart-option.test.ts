@@ -142,6 +142,69 @@ describe("buildTrendChartOption", () => {
     ]);
   });
 
+  it("shows markers for sparse values without connecting missing buckets", () => {
+    const option = buildTrendChartOption([
+      {
+        key: "used-heap",
+        label: "Used heap",
+        unit: "byte",
+        color: "#00d48a",
+        points: [
+          {
+            time: "2026-09-11T00:00:00.000Z",
+            value: 256 * 1024 * 1024,
+          },
+          {
+            time: "2026-09-11T00:01:00.000Z",
+            value: null,
+          },
+          {
+            time: "2026-09-11T00:02:00.000Z",
+            value: 268 * 1024 * 1024,
+          },
+        ],
+      },
+    ]);
+
+    expect(option.series).toEqual([
+      expect.objectContaining({
+        data: [256 * 1024 * 1024, null, 268 * 1024 * 1024],
+        connectNulls: false,
+        showSymbol: true,
+        showAllSymbol: true,
+        symbolSize: 4,
+      }),
+    ]);
+  });
+
+  it("keeps markers hidden for a continuous series", () => {
+    const option = buildTrendChartOption([
+      {
+        key: "fp",
+        label: "FP",
+        unit: "ms",
+        color: "#09d9ea",
+        points: [
+          {
+            time: "2026-09-11T00:00:00.000Z",
+            value: 120,
+          },
+          {
+            time: "2026-09-11T00:01:00.000Z",
+            value: 140,
+          },
+        ],
+      },
+    ]);
+
+    expect(option.series).toEqual([
+      expect.objectContaining({
+        showSymbol: false,
+        showAllSymbol: false,
+      }),
+    ]);
+  });
+
   it("returns an empty chart configuration for empty series", () => {
     const option = buildTrendChartOption([]);
 

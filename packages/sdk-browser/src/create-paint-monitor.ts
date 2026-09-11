@@ -120,10 +120,28 @@ function getBrowserMemoryScheduler():
     }
 }
 
+function getBrowserReporterScheduler():
+    PaintMonitorDependencies['reporterScheduler'] {
+    try {
+        if (typeof window === 'undefined') return undefined
+
+        return {
+            setTimeout: (callback, delayMs) => window.setTimeout(
+                callback,
+                delayMs,
+            ),
+            clearTimeout: (handle) => window.clearTimeout(handle as number),
+        }
+    } catch {
+        return undefined
+    }
+}
+
 export function createPaintMonitor(config: PaintMonitorConfig): PaintMonitor {
     const browserSessionStorage = getBrowserSessionStorage()
     const browserPageLifecycle = getBrowserPageLifecycle()
     const browserMemoryScheduler = getBrowserMemoryScheduler()
+    const browserReporterScheduler = getBrowserReporterScheduler()
     /**
      * performance 和 crypto 都是现代浏览器提供的全局对象。浏览器运行js时，会自动提供
      */
@@ -146,6 +164,9 @@ export function createPaintMonitor(config: PaintMonitorConfig): PaintMonitor {
                 return navigator.sendBeacon(endpoint, body)
             },
             fetch,
+            ...(browserReporterScheduler === undefined
+                ? {}
+                : { reporterScheduler: browserReporterScheduler }),
             ...(browserPageLifecycle === undefined
                 ? {}
                 : {
@@ -223,6 +244,14 @@ export function createPaintMonitorWithDependencies(
             : {
                 debug: config.debug,
             }),
+
+        ...(dependencies.reporterScheduler === undefined
+            ? {}
+            : { scheduler: dependencies.reporterScheduler }),
+
+        ...(dependencies.now === undefined
+            ? {}
+            : { now: dependencies.now }),
     })
 
     const enqueueMetricSample = (

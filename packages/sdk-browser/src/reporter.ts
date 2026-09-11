@@ -39,18 +39,30 @@ import type { ReportableEvent, ReporterOptions, Reporter } from "./types/reporte
 
 
 const MAX_BATCH_SIZE = 20
+const DEFAULT_MAX_QUEUE_SIZE = 100
+const DEFAULT_MAX_EVENT_AGE_MS = 5 * 60_000
+const DEFAULT_RETRY_BASE_DELAY_MS = 1_000
+const DEFAULT_RETRY_MAX_DELAY_MS = 30_000
+
+interface QueuedEvent {
+    event: ReportableEvent
+    enqueuedAt: number
+}
 
 export function createReporter(
     options: ReporterOptions
 ): Reporter {
     const endpoint = options.endpoint
-    let eventQueue: ReportableEvent[] = []
+    const now = options.now ?? (() => Date.now())
+    const maxQueueSize = options.maxQueueSize ?? DEFAULT_MAX_QUEUE_SIZE
+    const maxEventAgeMs = options.maxEventAgeMs ?? DEFAULT_MAX_EVENT_AGE_MS
+    const retryBaseDelayMs = options.retryBaseDelayMs ?? DEFAULT_RETRY_BASE_DELAY_MS
+    const retryMaxDelayMs = options.retryMaxDelayMs ?? DEFAULT_RETRY_MAX_DELAY_MS
+    const eventQueue: QueuedEvent[] = []
     // 如果当前有正在发送的批次，则后面的请求共用同一批次
     let activeFlush: Promise<void> | undefined
-
-    const enqueue = (event: ReportableEvent): void => {
-        eventQueue.push(event)
-    }
+    let retryTimer: number | object | undefined
+    let retryAttempt = 0
 
     const reportDebug = (
         message: string,
@@ -61,6 +73,34 @@ export function createReporter(
         } catch {
             // 调试回调失败也不能影响业务页面
         }
+    }
+
+    const discardExpiredEvents = (): void => {
+        const expiresBefore = now() - maxEventAgeMs
+        let discarded = 0
+
+        while (
+            eventQueue[0] !== undefined
+            && eventQueue[0].enqueuedAt <= expiresBefore
+        ) {
+            eventQueue.shift()
+            discarded += 1
+        }
+
+        if (discarded > 0) {
+            reportDebug(`Reporter discarded ${discarded} expired event(s)`)
+        }
+    }
+
+    const enqueue = (event: ReportableEvent): void => {
+        discardExpiredEvents()
+
+        if (eventQueue.length >= maxQueueSize) {
+            eventQueue.shift()
+            reportDebug('Reporter queue capacity exceeded; dropped oldest event')
+        }
+
+        eventQueue.push({ event, enqueuedAt: now() })
     }
 
     const flushFetch = async (batchQueue: ReportableEvent[]): Promise<boolean> => {
@@ -92,41 +132,70 @@ export function createReporter(
     }
 
     const performFlush = async (): Promise<void> => {
-        if (!eventQueue.length) return
+        discardExpiredEvents()
 
-        const batch = eventQueue.slice(0, MAX_BATCH_SIZE)
-        const body = JSON.stringify({
-            events: batch
-        })
+        while (eventQueue.length > 0) {
+            const queuedBatch = eventQueue.slice(0, MAX_BATCH_SIZE)
+            const batch = queuedBatch.map(({ event }) => event)
+            const body = JSON.stringify({ events: batch })
+            let sent = false
 
-        if (options.sendBeacon) {
-            try {
-                const accepted = options.sendBeacon(
-                    endpoint,
-                    body
-                )
-
-                if (accepted) {
-                    eventQueue.splice(0, batch.length)
-                    return
+            if (options.sendBeacon) {
+                try {
+                    sent = options.sendBeacon(endpoint, body)
+                } catch (error) {
+                    reportDebug(
+                        'Beacon transport failed',
+                        error,
+                    )
                 }
-            } catch (error) {
-                reportDebug(
-                    'Beacon transport failed',
-                    error,
-                )
             }
-        }
 
-        const fetched = await flushFetch(batch)
-        if (fetched) {
-            eventQueue.splice(0, batch.length)
+            if (!sent) {
+                sent = await flushFetch(batch)
+            }
+
+            if (!sent) {
+                scheduleRetry()
+                return
+            }
+
+            eventQueue.splice(0, queuedBatch.length)
+            retryAttempt = 0
+            discardExpiredEvents()
         }
+    }
+
+    const cancelRetry = (): void => {
+        if (retryTimer === undefined || options.scheduler === undefined) return
+        options.scheduler.clearTimeout(retryTimer)
+        retryTimer = undefined
+    }
+
+    function scheduleRetry(): void {
+        if (options.scheduler === undefined || retryTimer !== undefined) return
+
+        const delayMs = Math.min(
+            retryBaseDelayMs * 2 ** retryAttempt,
+            retryMaxDelayMs,
+        )
+        retryAttempt += 1
+        retryTimer = options.scheduler.setTimeout(() => {
+            retryTimer = undefined
+            void flush()
+        }, delayMs)
     }
 
     const flush = (): Promise<void> => {
         if (activeFlush !== undefined) return activeFlush
-        if (!eventQueue.length) return Promise.resolve()
+        discardExpiredEvents()
+        if (!eventQueue.length) {
+            cancelRetry()
+            retryAttempt = 0
+            return Promise.resolve()
+        }
+
+        cancelRetry()
 
         activeFlush = performFlush().finally(() => {
             activeFlush = undefined

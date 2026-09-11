@@ -90,7 +90,7 @@ SDK 使用 `PerformanceObserver` 观察 `paint`，并设置 `buffered: true` 读
 
 ### 6.3 上报
 
-MVP 维护有界内存队列：收齐当前 paint 条目后立即批量上报；页面隐藏时再次 flush。优先 `sendBeacon`，否则使用 `fetch`。每批最多 20 条；失败只记录调试信息，不做持久化离线重试。
+MVP 维护最多 100 条、单条最长保留 5 分钟的有界内存队列：收齐当前 paint 条目后立即批量上报；页面隐藏时再次 flush。优先 `sendBeacon`，否则使用 `fetch`。每批最多 20 条，一次 flush 连续排空；失败后在当前页面内指数退避重试，但不做跨页持久化。
 
 ## 7. 事件协议
 

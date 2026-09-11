@@ -349,14 +349,15 @@ Demo 中的 `appVersion` 应由构建变量、Git commit SHA 或 CI 发布号注
 
 ### 8.3 内存队列和上报
 
-- 队列最多 20 条，不使用 `localStorage` 或 IndexedDB 持久化。
+- 队列最多 100 条，单条最多保留 5 分钟，不使用 `localStorage` 或 IndexedDB 持久化。
 - 观察到当前 paint 条目后触发一次 `flush()`。
 - 页面转入 `hidden` 时再次尝试 `flush()`。
 - 页面隐藏/退出优先使用 `navigator.sendBeacon`，其他场景可使用 `fetch`。
 - `sendBeacon()` 返回 `true` 仅表示浏览器接受发送任务，MVP 将其视为可从内存队列移除。
 - `sendBeacon()` 返回 `false` 时使用 `fetch` 降级。
 - `fetch` 只在收到 2xx 响应时移除对应队列数据。
-- 上报失败不抛给宿主业务；MVP 不实现跨页持久化重试。
+- 一次 `flush()` 按每批最多 20 条连续排空，遇到失败批次时停止。
+- 上报失败不抛给宿主业务；当前页面内按 1 秒起步、最高 30 秒指数退避重试，MVP 不实现跨页持久化重试。
 
 ### 8.4 失败隔离
 

@@ -167,6 +167,7 @@ export function buildTrendChartOption(
             const valueCount = item.points.filter(
                 (point) => point.value !== null,
             ).length;
+            const hasMissingValues = valueCount < times.length;
 
             return {
                 id: item.key,
@@ -175,7 +176,8 @@ export function buildTrendChartOption(
                 data: times.map((time) => valuesByTime.get(time) ?? null),
                 connectNulls: false,
                 symbol: 'circle',
-                showSymbol: valueCount === 1,
+                showSymbol: valueCount === 1 || hasMissingValues,
+                showAllSymbol: hasMissingValues,
                 symbolSize: valueCount === 1 ? 7 : 4,
 
                 lineStyle: {

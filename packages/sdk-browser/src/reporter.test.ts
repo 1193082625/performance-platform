@@ -289,7 +289,7 @@ describe('Reporter', () => {
         expect(fetchTransport).toHaveBeenCalledTimes(1)
     })
 
-    it('sends at most 20 events per flush', async () => {
+    it('drains the queue in batches of at most 20 events per flush', async () => {
         const events = Array.from(
             {length: 21},
             (_, index) => makeEvent(index)
@@ -307,15 +307,12 @@ describe('Reporter', () => {
         }
 
         await expect(reporter.flush()).resolves.toBeUndefined()
-        expect(sendBeacon).toHaveBeenCalledTimes(1)
+        expect(sendBeacon).toHaveBeenCalledTimes(2)
         expect(sendBeacon).toHaveBeenNthCalledWith(
             1,
             ENDPOINT,
             JSON.stringify({events: events.slice(0, 20)})
         )
-
-        await expect(reporter.flush()).resolves.toBeUndefined()
-        expect(sendBeacon).toHaveBeenCalledTimes(2)
         expect(sendBeacon).toHaveBeenNthCalledWith(
             2,
             ENDPOINT,
@@ -324,6 +321,90 @@ describe('Reporter', () => {
 
         await expect(reporter.flush()).resolves.toBeUndefined()
         expect(sendBeacon).toHaveBeenCalledTimes(2)
+    })
+
+    it('automatically retries a failed batch with exponential backoff', async () => {
+        const scheduled: Array<{ callback: () => void; delayMs: number }> = []
+        const scheduler = {
+            setTimeout: vi.fn((callback: () => void, delayMs: number) => {
+                scheduled.push({ callback, delayMs })
+                return scheduled.length
+            }),
+            clearTimeout: vi.fn(),
+        }
+        const fetchTransport = vi.fn()
+            .mockResolvedValueOnce({ ok: false })
+            .mockResolvedValueOnce({ ok: false })
+            .mockResolvedValueOnce({ ok: true })
+        const reporter = createReporter({
+            endpoint: ENDPOINT,
+            fetch: fetchTransport,
+            scheduler,
+            retryBaseDelayMs: 100,
+            retryMaxDelayMs: 1_000,
+        })
+
+        reporter.enqueue(makeEvent())
+        await reporter.flush()
+        expect(scheduled[0]?.delayMs).toBe(100)
+
+        scheduled[0]?.callback()
+        await vi.waitFor(() => expect(fetchTransport).toHaveBeenCalledTimes(2))
+        await vi.waitFor(() => expect(scheduled).toHaveLength(2))
+        expect(scheduled[1]?.delayMs).toBe(200)
+
+        scheduled[1]?.callback()
+        await vi.waitFor(() => expect(fetchTransport).toHaveBeenCalledTimes(3))
+        await reporter.flush()
+        expect(fetchTransport).toHaveBeenCalledTimes(3)
+    })
+
+    it('bounds the queue and drops the oldest event', async () => {
+        const debug = vi.fn()
+        const sendBeacon = vi.fn(() => true)
+        const reporter = createReporter({
+            endpoint: ENDPOINT,
+            sendBeacon,
+            debug,
+            maxQueueSize: 2,
+        })
+
+        reporter.enqueue(makeEvent(100))
+        reporter.enqueue(makeEvent(200))
+        reporter.enqueue(makeEvent(300))
+        await reporter.flush()
+
+        expect(sendBeacon).toHaveBeenCalledWith(
+            ENDPOINT,
+            JSON.stringify({ events: [makeEvent(200), makeEvent(300)] }),
+        )
+        expect(debug).toHaveBeenCalledWith(
+            'Reporter queue capacity exceeded; dropped oldest event',
+            undefined,
+        )
+    })
+
+    it('discards expired events before transport', async () => {
+        let currentTime = 1_000
+        const debug = vi.fn()
+        const sendBeacon = vi.fn(() => true)
+        const reporter = createReporter({
+            endpoint: ENDPOINT,
+            sendBeacon,
+            debug,
+            now: () => currentTime,
+            maxEventAgeMs: 500,
+        })
+
+        reporter.enqueue(makeEvent())
+        currentTime = 1_500
+        await reporter.flush()
+
+        expect(sendBeacon).not.toHaveBeenCalled()
+        expect(debug).toHaveBeenCalledWith(
+            'Reporter discarded 1 expired event(s)',
+            undefined,
+        )
     })
 
     it('does not send the same batch twice during concurrent flushes', async () => {
