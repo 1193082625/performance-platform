@@ -22,14 +22,18 @@ window.fetch                →    fetch
 sessionStorage              →    sessionStorage
     document / window           →    pageLifecycle
  */
-import { createMonitorIds } from "./ids";
-import { createPaintCollector } from "./paint-collector";
+import { createMonitorIds } from './ids'
+import { createPaintCollector } from './paint-collector'
 import { createMetricEvent } from './metric-event'
-import { createReporter } from "./reporter";
-import type { PaintMonitor, PaintMonitorConfig, PaintMonitorDependencies } from "./types/paintMonitor.type";
+import { createReporter } from './reporter'
+import type {
+    PaintMonitor,
+    PaintMonitorConfig,
+    PaintMonitorDependencies,
+} from './types/paintMonitor.type'
 import { shouldSampleSession } from './sampling'
-import type { MetricSample } from "./types/metricSample.type";
-import { createLcpCollector } from "./lcp-collector";
+import type { MetricSample } from './types/metricSample.type'
+import { createLcpCollector } from './lcp-collector'
 import { createClsCollector } from './cls-collector.js'
 import { createInpCollector } from './inp-collector.js'
 import {
@@ -37,9 +41,8 @@ import {
     observeInpWithWebVitals,
     observeLcpWithWebVitals,
 } from './web-vitals-adapter.js'
-import type { MemoryInfoLike } from "./types/memoryCollector.type.js";
-import { createMemoryCollector } from "./memory-collector";
-
+import type { MemoryInfoLike } from './types/memoryCollector.type.js'
+import { createMemoryCollector } from './memory-collector'
 
 function getBrowserSessionStorage(): PaintMonitorDependencies['sessionStorage'] {
     try {
@@ -49,13 +52,9 @@ function getBrowserSessionStorage(): PaintMonitorDependencies['sessionStorage'] 
     }
 }
 
-function getBrowserPageLifecycle():
-    PaintMonitorDependencies['pageLifecycle'] {
+function getBrowserPageLifecycle(): PaintMonitorDependencies['pageLifecycle'] {
     try {
-        if (
-            typeof document === 'undefined'
-            || typeof window === 'undefined'
-        ) {
+        if (typeof document === 'undefined' || typeof window === 'undefined') {
             return undefined
         }
 
@@ -95,9 +94,7 @@ function readBrowserMemory(): MemoryInfoLike | undefined {
     }
 }
 
-
-function getBrowserMemoryScheduler():
-    PaintMonitorDependencies['memoryScheduler'] {
+function getBrowserMemoryScheduler(): PaintMonitorDependencies['memoryScheduler'] {
     try {
         if (typeof window === 'undefined') {
             return undefined
@@ -105,10 +102,7 @@ function getBrowserMemoryScheduler():
 
         return {
             setInterval: (callback, intervalMs) => {
-                return window.setInterval(
-                    callback,
-                    intervalMs,
-                )
+                return window.setInterval(callback, intervalMs)
             },
 
             clearInterval: (handle) => {
@@ -120,16 +114,13 @@ function getBrowserMemoryScheduler():
     }
 }
 
-function getBrowserReporterScheduler():
-    PaintMonitorDependencies['reporterScheduler'] {
+function getBrowserReporterScheduler(): PaintMonitorDependencies['reporterScheduler'] {
     try {
         if (typeof window === 'undefined') return undefined
 
         return {
-            setTimeout: (callback, delayMs) => window.setTimeout(
-                callback,
-                delayMs,
-            ),
+            setTimeout: (callback, delayMs) =>
+                window.setTimeout(callback, delayMs),
             clearTimeout: (handle) => window.clearTimeout(handle as number),
         }
     } catch {
@@ -145,58 +136,50 @@ export function createPaintMonitor(config: PaintMonitorConfig): PaintMonitor {
     /**
      * performance 和 crypto 都是现代浏览器提供的全局对象。浏览器运行js时，会自动提供
      */
-    return createPaintMonitorWithDependencies(
-        config,
-        {
-            timeOrigin: performance.timeOrigin,
-            randomUUID: () => crypto.randomUUID(),
-            observeLcp: observeLcpWithWebVitals,
-            observeCls: observeClsWithWebVitals,
-            observeInp: observeInpWithWebVitals,
-            ...(browserSessionStorage === undefined
-                ? {}
-                : {
-                    sessionStorage:
-                        browserSessionStorage,
-                }),
-            // 等同于 nvaigator.sendBeacon.bind(navigator)
-            sendBeacon: (endpoint, body) => {
-                return navigator.sendBeacon(endpoint, body)
-            },
-            fetch,
-            ...(browserReporterScheduler === undefined
-                ? {}
-                : { reporterScheduler: browserReporterScheduler }),
-            ...(browserPageLifecycle === undefined
-                ? {}
-                : {
-                    pageLifecycle:
-                        browserPageLifecycle,
-                }),
-            // 内部模块不想直接依赖浏览器的 PerformanceObserver，公开入口负责把真实浏览器API转换成内部需要的形状
-            createObserver: (callback) => {
-                return new PerformanceObserver(
-                    (entryList) => {
-                        callback(entryList)
-                    }
-                )
-            },
+    return createPaintMonitorWithDependencies(config, {
+        timeOrigin: performance.timeOrigin,
+        randomUUID: () => crypto.randomUUID(),
+        observeLcp: observeLcpWithWebVitals,
+        observeCls: observeClsWithWebVitals,
+        observeInp: observeInpWithWebVitals,
+        ...(browserSessionStorage === undefined
+            ? {}
+            : {
+                  sessionStorage: browserSessionStorage,
+              }),
+        // 等同于 nvaigator.sendBeacon.bind(navigator)
+        sendBeacon: (endpoint, body) => {
+            return navigator.sendBeacon(endpoint, body)
+        },
+        fetch,
+        ...(browserReporterScheduler === undefined
+            ? {}
+            : { reporterScheduler: browserReporterScheduler }),
+        ...(browserPageLifecycle === undefined
+            ? {}
+            : {
+                  pageLifecycle: browserPageLifecycle,
+              }),
+        // 内部模块不想直接依赖浏览器的 PerformanceObserver，公开入口负责把真实浏览器API转换成内部需要的形状
+        createObserver: (callback) => {
+            return new PerformanceObserver((entryList) => {
+                callback(entryList)
+            })
+        },
 
-            readMemory: readBrowserMemory,
-            ...(browserMemoryScheduler === undefined
-                ? {}
-                : {
-                    memoryScheduler:
-                        browserMemoryScheduler,
-                }),
-            now: () => Date.now()
-        }
-    )
+        readMemory: readBrowserMemory,
+        ...(browserMemoryScheduler === undefined
+            ? {}
+            : {
+                  memoryScheduler: browserMemoryScheduler,
+              }),
+        now: () => Date.now(),
+    })
 }
 
 export function createPaintMonitorWithDependencies(
     config: PaintMonitorConfig,
-    dependencies: PaintMonitorDependencies
+    dependencies: PaintMonitorDependencies,
 ): PaintMonitor {
     // 页面监听器当前是否已经安装
     let visibilityListenerInstalled = false
@@ -214,61 +197,53 @@ export function createPaintMonitorWithDependencies(
         ...(dependencies.sessionStorage === undefined
             ? {}
             : {
-                sessionStorage: dependencies.sessionStorage
-            }
-        )
+                  sessionStorage: dependencies.sessionStorage,
+              }),
     })
 
-    const sampled = shouldSampleSession(
-        ids.getSessionId(),
-        sampleRate,
-    )
+    const sampled = shouldSampleSession(ids.getSessionId(), sampleRate)
 
     const reporter = createReporter({
         endpoint: config.endpoint,
+        ...(config.projectKey === undefined
+            ? {}
+            : { projectKey: config.projectKey }),
 
         ...(dependencies.sendBeacon === undefined
             ? {}
             : {
-                sendBeacon: dependencies.sendBeacon,
-            }),
+                  sendBeacon: dependencies.sendBeacon,
+              }),
 
         ...(dependencies.fetch === undefined
             ? {}
             : {
-                fetch: dependencies.fetch,
-            }),
+                  fetch: dependencies.fetch,
+              }),
 
         ...(config.debug === undefined
             ? {}
             : {
-                debug: config.debug,
-            }),
+                  debug: config.debug,
+              }),
 
         ...(dependencies.reporterScheduler === undefined
             ? {}
             : { scheduler: dependencies.reporterScheduler }),
 
-        ...(dependencies.now === undefined
-            ? {}
-            : { now: dependencies.now }),
+        ...(dependencies.now === undefined ? {} : { now: dependencies.now }),
     })
 
-    const enqueueMetricSample = (
-        sample: MetricSample
-    ): void => {
-        const event = createMetricEvent(
-            sample,
-            {
-                eventId: ids.createEventId(),
-                appId: config.appId,
-                appVersion: config.appVersion,
-                environment: config.environment,
-                sessionId: ids.getSessionId(),
-                viewId: ids.getViewId(),
-                sampleRate,
-            },
-        )
+    const enqueueMetricSample = (sample: MetricSample): void => {
+        const event = createMetricEvent(sample, {
+            eventId: ids.createEventId(),
+            appId: config.appId,
+            appVersion: config.appVersion,
+            environment: config.environment,
+            sessionId: ids.getSessionId(),
+            viewId: ids.getViewId(),
+            sampleRate,
+        })
 
         reporter.enqueue(event)
     }
@@ -279,9 +254,8 @@ export function createPaintMonitorWithDependencies(
         ...(dependencies.createObserver === undefined
             ? {}
             : {
-                createObserver:
-                    dependencies.createObserver,
-            }),
+                  createObserver: dependencies.createObserver,
+              }),
 
         onSample: (sample) => {
             enqueueMetricSample({
@@ -296,7 +270,7 @@ export function createPaintMonitorWithDependencies(
         },
         onEntriesComplete: () => {
             void reporter.flush()
-        }
+        },
     })
 
     const lcpCollector = createLcpCollector({
@@ -305,8 +279,8 @@ export function createPaintMonitorWithDependencies(
         ...(dependencies.observeLcp === undefined
             ? {}
             : {
-                observeLcp: dependencies.observeLcp,
-            }),
+                  observeLcp: dependencies.observeLcp,
+              }),
 
         onSample: (sample) => {
             enqueueMetricSample(sample)
@@ -319,8 +293,8 @@ export function createPaintMonitorWithDependencies(
         ...(dependencies.observeCls === undefined
             ? {}
             : {
-                observeCls: dependencies.observeCls,
-            }),
+                  observeCls: dependencies.observeCls,
+              }),
 
         onSample: (sample) => {
             enqueueMetricSample(sample)
@@ -333,8 +307,8 @@ export function createPaintMonitorWithDependencies(
         ...(dependencies.observeInp === undefined
             ? {}
             : {
-                observeInp: dependencies.observeInp,
-            }),
+                  observeInp: dependencies.observeInp,
+              }),
 
         onSample: (sample) => {
             enqueueMetricSample(sample)
@@ -345,19 +319,16 @@ export function createPaintMonitorWithDependencies(
         ...(dependencies.readMemory === undefined
             ? {}
             : {
-                readMemory: dependencies.readMemory,
-            }),
+                  readMemory: dependencies.readMemory,
+              }),
 
         ...(dependencies.memoryScheduler === undefined
             ? {}
             : {
-                scheduler:
-                    dependencies.memoryScheduler,
-            }),
+                  scheduler: dependencies.memoryScheduler,
+              }),
 
-        now:
-            dependencies.now ??
-            (() => Date.now()),
+        now: dependencies.now ?? (() => Date.now()),
 
         onSamples: (samples) => {
             for (const sample of samples) {
@@ -369,9 +340,7 @@ export function createPaintMonitorWithDependencies(
     })
 
     const handleVisibilityChange = (): void => {
-        if (
-            dependencies.pageLifecycle?.visibilityState === 'hidden'
-        ) {
+        if (dependencies.pageLifecycle?.visibilityState === 'hidden') {
             lcpCollector.finalize()
             clsCollector.finalize()
             inpCollector.finalize()
@@ -401,8 +370,8 @@ export function createPaintMonitorWithDependencies(
         memoryCollector.start()
 
         if (
-            visibilityListenerInstalled
-            || dependencies.pageLifecycle === undefined
+            visibilityListenerInstalled ||
+            dependencies.pageLifecycle === undefined
         ) {
             return
         }
@@ -414,10 +383,7 @@ export function createPaintMonitorWithDependencies(
 
         visibilityListenerInstalled = true
 
-        dependencies.pageLifecycle.addEventListener(
-            'pagehide',
-            handlePageHide,
-        )
+        dependencies.pageLifecycle.addEventListener('pagehide', handlePageHide)
 
         pageHideListenerInstalled = true
     }
@@ -443,15 +409,15 @@ export function createPaintMonitorWithDependencies(
         memoryCollector.destroy()
 
         if (
-            visibilityListenerInstalled
-            && dependencies.pageLifecycle !== undefined
+            visibilityListenerInstalled &&
+            dependencies.pageLifecycle !== undefined
         ) {
             visibilityListenerInstalled = false
 
             try {
                 dependencies.pageLifecycle.removeEventListener(
                     'visibilitychange',
-                    handleVisibilityChange
+                    handleVisibilityChange,
                 )
             } catch {
                 // 移除监听时报错不影响业务页面
@@ -459,8 +425,8 @@ export function createPaintMonitorWithDependencies(
         }
 
         if (
-            pageHideListenerInstalled
-            && dependencies.pageLifecycle !== undefined
+            pageHideListenerInstalled &&
+            dependencies.pageLifecycle !== undefined
         ) {
             pageHideListenerInstalled = false
 

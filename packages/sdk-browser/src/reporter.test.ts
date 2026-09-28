@@ -1,11 +1,6 @@
-import {
-    describe,
-    it,
-    expect,
-    vi,
-} from 'vitest'
+import { describe, it, expect, vi } from 'vitest'
 import { createReporter } from './reporter'
-import type { PaintEventV1 } from "@performance-platform/protocol"
+import type { PaintEventV1 } from '@performance-platform/protocol'
 
 const NOW = Date.UTC(2026, 7, 24, 10, 0, 0)
 const ENDPOINT = '/api/v1/events/batch'
@@ -33,7 +28,7 @@ function makeEvent(value = 260.4): PaintEventV1 {
             sessionId: 'session-test-1',
             viewId: 'view-test-1',
         },
-    
+
         payload: {
             value,
             unit: 'ms',
@@ -45,22 +40,15 @@ describe('Reporter', () => {
     it('sends an enqueued event with Beacon and clears it when accepted', async () => {
         const event = makeEvent()
 
-        const sendBeacon = vi.fn(
-            (
-                _endpoint: string,
-                _body: string,
-            ) => true,
-        )
-        const fetchTransport = vi.fn(
-            async () => ({
-                ok: true,
-            }),
-        )
+        const sendBeacon = vi.fn((_endpoint: string, _body: string) => true)
+        const fetchTransport = vi.fn(async () => ({
+            ok: true,
+        }))
 
         const reporter = createReporter({
             endpoint: ENDPOINT,
             sendBeacon,
-            fetch: fetchTransport
+            fetch: fetchTransport,
         })
 
         reporter.enqueue(event)
@@ -71,8 +59,8 @@ describe('Reporter', () => {
         expect(sendBeacon).toHaveBeenCalledWith(
             ENDPOINT,
             JSON.stringify({
-                events: [event]
-            })
+                events: [event],
+            }),
         )
 
         expect(fetchTransport).not.toHaveBeenCalled()
@@ -88,16 +76,14 @@ describe('Reporter', () => {
         const event = makeEvent()
         const sendBeacon = vi.fn(() => false)
 
-        const fetchTransport = vi.fn(
-            async () => ({
-                ok: true,
-            }),
-        )
+        const fetchTransport = vi.fn(async () => ({
+            ok: true,
+        }))
 
         const reporter = createReporter({
             endpoint: ENDPOINT,
             sendBeacon,
-            fetch: fetchTransport
+            fetch: fetchTransport,
         })
 
         reporter.enqueue(event)
@@ -105,19 +91,16 @@ describe('Reporter', () => {
         await reporter.flush()
         expect(sendBeacon).toHaveBeenCalledTimes(1)
         expect(fetchTransport).toHaveBeenCalledTimes(1)
-        expect(fetchTransport).toHaveBeenCalledWith(
-            ENDPOINT,
-            {
-                method: 'POST',
-                headers: {
-                    'content-type': 'application/json'
-                },
-                body: JSON.stringify({
-                    events: [event]
-                }),
-                keepalive: true,
-            }
-        )
+        expect(fetchTransport).toHaveBeenCalledWith(ENDPOINT, {
+            method: 'POST',
+            headers: {
+                'content-type': 'application/json',
+            },
+            body: JSON.stringify({
+                events: [event],
+            }),
+            keepalive: true,
+        })
 
         await reporter.flush()
         expect(sendBeacon).toHaveBeenCalledTimes(1)
@@ -129,44 +112,37 @@ describe('Reporter', () => {
 
         const sendBeacon = vi.fn(() => false)
 
-        const fetchTransport = vi.fn(
-            async () => ({
-                ok: false
-            })
-        )
+        const fetchTransport = vi.fn(async () => ({
+            ok: false,
+        }))
 
         const reporter = createReporter({
             endpoint: ENDPOINT,
             sendBeacon,
-            fetch: fetchTransport
+            fetch: fetchTransport,
         })
 
         reporter.enqueue(event)
-        
+
         // 表示 HTTP 非成功响应 属于可处理的传输失败，不应该让业务调用者收到异常
         await expect(reporter.flush()).resolves.toBeUndefined()
 
         expect(sendBeacon).toHaveBeenCalledTimes(1)
         expect(fetchTransport).toHaveBeenCalledTimes(1)
-        
 
         await expect(reporter.flush()).resolves.toBeUndefined()
         expect(sendBeacon).toHaveBeenCalledTimes(2)
         expect(fetchTransport).toHaveBeenCalledTimes(2)
-        expect(fetchTransport).toHaveBeenNthCalledWith(
-            2,
-            ENDPOINT,
-            {
-                method: 'POST',
-                headers: {
-                    'content-type': 'application/json'
-                },
-                body: JSON.stringify({
-                    events: [event]
-                }),
-                keepalive: true,
-            }
-        )
+        expect(fetchTransport).toHaveBeenNthCalledWith(2, ENDPOINT, {
+            method: 'POST',
+            headers: {
+                'content-type': 'application/json',
+            },
+            body: JSON.stringify({
+                events: [event],
+            }),
+            keepalive: true,
+        })
     })
 
     it('falls back to fetch when Beacon throws', async () => {
@@ -176,9 +152,7 @@ describe('Reporter', () => {
             throw beaconError
         })
 
-        const fetchTransport = vi.fn(
-            async () => ({ok: true})
-        )
+        const fetchTransport = vi.fn(async () => ({ ok: true }))
 
         const debug = vi.fn()
 
@@ -186,33 +160,29 @@ describe('Reporter', () => {
             endpoint: ENDPOINT,
             sendBeacon,
             fetch: fetchTransport,
-            debug
+            debug,
         })
 
         reporter.enqueue(event)
-        
+
         await expect(reporter.flush()).resolves.toBeUndefined()
         expect(sendBeacon).toHaveBeenCalledTimes(1)
         expect(fetchTransport).toHaveBeenCalledTimes(1)
-        expect(fetchTransport).toHaveBeenCalledWith(
-            ENDPOINT,
-            {
-                method: 'POST',
-                headers: {
-                    'content-type': 'application/json'
-                },
-                body: JSON.stringify({
-                    events: [event]
-                }),
-                keepalive: true,
-            }
-        )
+        expect(fetchTransport).toHaveBeenCalledWith(ENDPOINT, {
+            method: 'POST',
+            headers: {
+                'content-type': 'application/json',
+            },
+            body: JSON.stringify({
+                events: [event],
+            }),
+            keepalive: true,
+        })
         expect(debug).toHaveBeenCalledTimes(1)
         expect(debug).toHaveBeenCalledWith(
             'Beacon transport failed',
-            beaconError
+            beaconError,
         )
-
 
         await expect(reporter.flush()).resolves.toBeUndefined()
         expect(sendBeacon).toHaveBeenCalledTimes(1)
@@ -231,7 +201,7 @@ describe('Reporter', () => {
             endpoint: ENDPOINT,
             sendBeacon,
             fetch: fetchTransport,
-            debug: debugFn
+            debug: debugFn,
         })
 
         reporter.enqueue(event)
@@ -242,7 +212,7 @@ describe('Reporter', () => {
         expect(debugFn).toHaveBeenNthCalledWith(
             1,
             'Fetch transport failed',
-            networkError
+            networkError,
         )
 
         await expect(reporter.flush()).resolves.toBeUndefined()
@@ -252,47 +222,43 @@ describe('Reporter', () => {
         expect(debugFn).toHaveBeenNthCalledWith(
             2,
             'Fetch transport failed',
-            networkError
+            networkError,
         )
     })
 
     it('uses fetch when Beacon is unavailable', async () => {
         const event = makeEvent()
         const fetchTransport = vi.fn(async () => ({
-            ok: true
+            ok: true,
         }))
 
         const reporter = createReporter({
             endpoint: ENDPOINT,
-            fetch: fetchTransport
+            fetch: fetchTransport,
         })
 
         reporter.enqueue(event)
 
         await expect(reporter.flush()).resolves.toBeUndefined()
         expect(fetchTransport).toHaveBeenCalledTimes(1)
-        expect(fetchTransport).toHaveBeenCalledWith(
-            ENDPOINT,
-            {
-                method: 'POST',
-                headers: {
-                    'content-type': 'application/json'
-                },
-                body: JSON.stringify({
-                    events: [event]
-                }),
-                keepalive: true,
-            }
-        )
+        expect(fetchTransport).toHaveBeenCalledWith(ENDPOINT, {
+            method: 'POST',
+            headers: {
+                'content-type': 'application/json',
+            },
+            body: JSON.stringify({
+                events: [event],
+            }),
+            keepalive: true,
+        })
 
         await expect(reporter.flush()).resolves.toBeUndefined()
         expect(fetchTransport).toHaveBeenCalledTimes(1)
     })
 
     it('drains the queue in batches of at most 20 events per flush', async () => {
-        const events = Array.from(
-            {length: 21},
-            (_, index) => makeEvent(index)
+        const events = Array.from({ length: 21 }, (_, index) =>
+            makeEvent(index),
         )
 
         const sendBeacon = vi.fn(() => true)
@@ -311,12 +277,12 @@ describe('Reporter', () => {
         expect(sendBeacon).toHaveBeenNthCalledWith(
             1,
             ENDPOINT,
-            JSON.stringify({events: events.slice(0, 20)})
+            JSON.stringify({ events: events.slice(0, 20) }),
         )
         expect(sendBeacon).toHaveBeenNthCalledWith(
             2,
             ENDPOINT,
-            JSON.stringify({events: events.slice(20)})
+            JSON.stringify({ events: events.slice(20) }),
         )
 
         await expect(reporter.flush()).resolves.toBeUndefined()
@@ -332,7 +298,8 @@ describe('Reporter', () => {
             }),
             clearTimeout: vi.fn(),
         }
-        const fetchTransport = vi.fn()
+        const fetchTransport = vi
+            .fn()
             .mockResolvedValueOnce({ ok: false })
             .mockResolvedValueOnce({ ok: false })
             .mockResolvedValueOnce({ ok: true })
@@ -413,27 +380,21 @@ describe('Reporter', () => {
         const sendBeacon = vi.fn(() => false)
 
         // 一个函数，调用这个函数，可以让 pending Promise 完成
-        let resolveFetch:
-            | ((response: { ok: boolean }) => void)
-            | undefined
+        let resolveFetch: ((response: { ok: boolean }) => void) | undefined
 
         // 手动控制 Fetch 什么时候完成
-        const pendingResponse = new Promise<{ ok: boolean }>(
-            (resolve) => {
-                // 把 resolve 函数保存到外部变量 resolveFetch
-                // 这样后面的测试可以决定什么时候完成 Promise
-                resolveFetch = resolve
-            },
-        )
+        const pendingResponse = new Promise<{ ok: boolean }>((resolve) => {
+            // 把 resolve 函数保存到外部变量 resolveFetch
+            // 这样后面的测试可以决定什么时候完成 Promise
+            resolveFetch = resolve
+        })
 
-        const fetchTransport = vi.fn(
-            () => pendingResponse,
-        )
+        const fetchTransport = vi.fn(() => pendingResponse)
 
         const reporter = createReporter({
             endpoint: ENDPOINT,
             sendBeacon,
-            fetch: fetchTransport
+            fetch: fetchTransport,
         })
 
         reporter.enqueue(event)
@@ -450,7 +411,7 @@ describe('Reporter', () => {
         }
         // 修改 Promise 的状态，让异步执行成功
         resolveFetch({
-            ok: true
+            ok: true,
         })
 
         await Promise.all([firstFlush, secondFlush])
@@ -465,27 +426,21 @@ describe('Reporter', () => {
         const sendBeacon = vi.fn(() => false)
 
         // 一个函数，调用这个函数，可以让 pending Promise 完成
-        let resolveFetch:
-            | ((response: { ok: boolean }) => void)
-            | undefined
+        let resolveFetch: ((response: { ok: boolean }) => void) | undefined
 
         // 手动控制 Fetch 什么时候完成
-        const pendingResponse = new Promise<{ ok: boolean }>(
-            (resolve) => {
-                // 把 resolve 函数保存到外部变量 resolveFetch
-                // 这样后面的测试可以决定什么时候完成 Promise
-                resolveFetch = resolve
-            },
-        )
+        const pendingResponse = new Promise<{ ok: boolean }>((resolve) => {
+            // 把 resolve 函数保存到外部变量 resolveFetch
+            // 这样后面的测试可以决定什么时候完成 Promise
+            resolveFetch = resolve
+        })
 
-        const fetchTransport = vi.fn(
-            () => pendingResponse,
-        )
+        const fetchTransport = vi.fn(() => pendingResponse)
 
         const reporter = createReporter({
             endpoint: ENDPOINT,
             sendBeacon,
-            fetch: fetchTransport
+            fetch: fetchTransport,
         })
 
         reporter.enqueue(firstEvent)
@@ -494,74 +449,64 @@ describe('Reporter', () => {
 
         expect(sendBeacon).toHaveBeenCalledTimes(1)
         expect(fetchTransport).toHaveBeenCalledTimes(1)
-        expect(fetchTransport).toHaveBeenNthCalledWith(
-            1,
-            ENDPOINT,
-            {
-                method: 'POST',
-                headers: {
-                    'content-type': 'application/json',
-                },
-                body: JSON.stringify({
-                    events: [firstEvent],
-                }),
-                keepalive: true,
+        expect(fetchTransport).toHaveBeenNthCalledWith(1, ENDPOINT, {
+            method: 'POST',
+            headers: {
+                'content-type': 'application/json',
             },
-        )
+            body: JSON.stringify({
+                events: [firstEvent],
+            }),
+            keepalive: true,
+        })
 
         reporter.enqueue(secondEvent)
 
         if (resolveFetch === undefined) {
             throw new Error('Fetch resolver was not registered')
         }
-        
+
         resolveFetch({
             ok: true,
         })
-        
+
         await firstFlush
 
         await reporter.flush()
 
         expect(sendBeacon).toHaveBeenCalledTimes(2)
         expect(fetchTransport).toHaveBeenCalledTimes(2)
-        expect(fetchTransport).toHaveBeenNthCalledWith(
-            2,
-            ENDPOINT,
-            {
-                method: 'POST',
-                headers: {
-                    'content-type': 'application/json',
-                },
-                body: JSON.stringify({
-                    events: [secondEvent],
-                }),
-                keepalive: true,
+        expect(fetchTransport).toHaveBeenNthCalledWith(2, ENDPOINT, {
+            method: 'POST',
+            headers: {
+                'content-type': 'application/json',
             },
-        )
+            body: JSON.stringify({
+                events: [secondEvent],
+            }),
+            keepalive: true,
+        })
     })
 
     it('continues transport fallback when debug throws', async () => {
-        const event = makeEvent();
+        const event = makeEvent()
         const sendBeacon = vi.fn(() => {
             throw new Error('Beacon failed')
         })
-        
+
         const debug = vi.fn(() => {
             throw new Error('Debug failed')
         })
-        
-        const fetchTransport = vi.fn(
-            async () => ({
-                ok: true,
-            }),
-        )
+
+        const fetchTransport = vi.fn(async () => ({
+            ok: true,
+        }))
 
         const reporter = createReporter({
             endpoint: ENDPOINT,
             sendBeacon,
             fetch: fetchTransport,
-            debug
+            debug,
         })
 
         reporter.enqueue(event)
@@ -575,6 +520,38 @@ describe('Reporter', () => {
         expect(sendBeacon).toHaveBeenCalledTimes(1)
         expect(debug).toHaveBeenCalledTimes(1)
         expect(fetchTransport).toHaveBeenCalledTimes(1)
+    })
+    it('Beacon 和 fetch 都发送项目 Key', async () => {
+        const event = makeEvent()
+        const sendBeacon = vi.fn(() => false)
+        const fetchTransport = vi.fn(async () => ({
+            ok: true,
+        }))
 
+        const reporter = createReporter({
+            endpoint: ENDPOINT,
+            projectKey: 'ppk_test-project-key',
+            sendBeacon,
+            fetch: fetchTransport,
+        })
+
+        reporter.enqueue(event)
+        await reporter.flush()
+
+        const expectedBody = JSON.stringify({
+            projectKey: 'ppk_test-project-key',
+            events: [event],
+        })
+
+        expect(sendBeacon).toHaveBeenCalledWith(ENDPOINT, expectedBody)
+
+        expect(fetchTransport).toHaveBeenCalledWith(ENDPOINT, {
+            method: 'POST',
+            headers: {
+                'content-type': 'application/json',
+            },
+            body: expectedBody,
+            keepalive: true,
+        })
     })
 })

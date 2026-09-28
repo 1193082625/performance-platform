@@ -165,7 +165,10 @@ function isValidClsAttribution(value: unknown): boolean {
     }
 
     for (const field of ['previousRect', 'currentRect'] as const) {
-        if (value[field] !== undefined && !isValidLayoutShiftRect(value[field])) {
+        if (
+            value[field] !== undefined &&
+            !isValidLayoutShiftRect(value[field])
+        ) {
             return false
         }
     }
@@ -251,13 +254,16 @@ function isValidEventId(value: unknown): value is string {
 
 function getApplicationDiscardReason(
     value: unknown,
-    expectedAppId: string,
+    expectedAppId: string | undefined,
 ): DiscardReason | undefined {
     if (!isRecord(value)) {
         return 'invalid_app_id'
     }
 
-    if (!isBoundedString(value.id, 64) || value.id !== expectedAppId) {
+    if (
+        !isBoundedString(value.id, 64) ||
+        (expectedAppId !== undefined && value.id !== expectedAppId)
+    ) {
         return 'invalid_app_id'
     }
 

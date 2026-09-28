@@ -1,12 +1,6 @@
-import {
-    describe,
-    expect,
-    it,
-} from 'vitest'
+import { describe, expect, it } from 'vitest'
 
-import {
-    resolveMonitorConfig,
-} from './monitor-config'
+import { resolveMonitorConfig } from './monitor-config'
 
 describe('resolveMonitorConfig', () => {
     it('rejects a missing monitor endpoint', () => {
@@ -36,7 +30,8 @@ describe('resolveMonitorConfig', () => {
         {
             variable: 'VITE_APP_ID',
             options: {
-                VITE_MONITOR_ENDPOINT: 'http://localhost:5000/api/v1/events/batch',
+                VITE_MONITOR_ENDPOINT:
+                    'http://localhost:5000/api/v1/events/batch',
                 VITE_APP_VERSION: '0.1.0+test',
                 VITE_APP_ENVIRONMENT: 'test',
             },
@@ -44,21 +39,17 @@ describe('resolveMonitorConfig', () => {
         {
             variable: 'VITE_APP_VERSION',
             options: {
-                VITE_MONITOR_ENDPOINT: 'http://localhost:5000/api/v1/events/batch',
+                VITE_MONITOR_ENDPOINT:
+                    'http://localhost:5000/api/v1/events/batch',
                 VITE_APP_ID: 'demo-web',
                 VITE_APP_ENVIRONMENT: 'test',
             },
         },
-    ])(
-        'rejects a missing $variable',
-        ({ variable, options }) => {
-            expect(() => {
-                resolveMonitorConfig(options)
-            }).toThrowError(
-                `Missing required environment variable: ${variable}`,
-            )
-        },
-    )
+    ])('rejects a missing $variable', ({ variable, options }) => {
+        expect(() => {
+            resolveMonitorConfig(options)
+        }).toThrowError(`Missing required environment variable: ${variable}`)
+    })
     it('rejects a missing app environment', () => {
         expect(() => {
             resolveMonitorConfig({
@@ -80,53 +71,30 @@ describe('resolveMonitorConfig', () => {
                 VITE_APP_VERSION: '0.1.0+test',
                 VITE_APP_ENVIRONMENT: 'prodution',
             })
-        }).toThrowError(
-            'Unsupported application environment: prodution',
-        )
+        }).toThrowError('Unsupported application environment: prodution')
     })
     it('returns a normalized paint monitor config', () => {
         expect(
             resolveMonitorConfig({
                 VITE_MONITOR_ENDPOINT:
                     '  http://localhost:5000/api/v2/events/batch  ',
-
-                VITE_APP_ID:
-                    '  demo-web  ',
-
-                VITE_APP_VERSION:
-                    '  0.2.0+test  ',
-
-                VITE_APP_ENVIRONMENT:
-                    '  production  ',
-
-                VITE_MONITOR_SAMPLE_RATE:
-                    '  0.25  ',
+                VITE_APP_ID: '  demo-web  ',
+                VITE_APP_VERSION: '  0.2.0+test  ',
+                VITE_APP_ENVIRONMENT: '  production  ',
+                VITE_MONITOR_SAMPLE_RATE: '  0.25  ',
+                VITE_MONITOR_PROJECT_KEY: '  ppk_test-project-key  ',
             }),
         ).toEqual({
-            endpoint:
-                'http://localhost:5000/api/v2/events/batch',
-
-            appId:
-                'demo-web',
-
-            appVersion:
-                '0.2.0+test',
-
-            environment:
-                'production',
-
-            sampleRate:
-                0.25,
+            endpoint: 'http://localhost:5000/api/v2/events/batch',
+            appId: 'demo-web',
+            appVersion: '0.2.0+test',
+            environment: 'production',
+            sampleRate: 0.25,
+            projectKey: 'ppk_test-project-key',
         })
     })
 
-    it.each([
-        '0',
-        '-0.1',
-        '1.1',
-        'not-a-number',
-        'Infinity',
-    ])(
+    it.each(['0', '-0.1', '1.1', 'not-a-number', 'Infinity'])(
         'rejects invalid monitor sample rate %s',
         (sampleRate) => {
             expect(() => {
@@ -134,39 +102,40 @@ describe('resolveMonitorConfig', () => {
                     VITE_MONITOR_ENDPOINT:
                         'http://localhost:5000/api/v2/events/batch',
 
-                    VITE_APP_ID:
-                        'demo-web',
+                    VITE_APP_ID: 'demo-web',
 
-                    VITE_APP_VERSION:
-                        '0.2.0+test',
+                    VITE_APP_VERSION: '0.2.0+test',
 
-                    VITE_APP_ENVIRONMENT:
-                        'test',
+                    VITE_APP_ENVIRONMENT: 'test',
 
-                    VITE_MONITOR_SAMPLE_RATE:
-                        sampleRate,
+                    VITE_MONITOR_SAMPLE_RATE: sampleRate,
                 })
-            }).toThrowError(
-                `Invalid monitor sample rate: ${sampleRate}`,
-            )
+            }).toThrowError(`Invalid monitor sample rate: ${sampleRate}`)
         },
     )
 
     it('defaults the monitor sample rate to 1', () => {
         const config = resolveMonitorConfig({
-            VITE_MONITOR_ENDPOINT:
-                'http://localhost:5000/api/v2/events/batch',
-
-            VITE_APP_ID:
-                'demo-web',
-
-            VITE_APP_VERSION:
-                '0.2.0+test',
-
-            VITE_APP_ENVIRONMENT:
-                'test',
+            VITE_MONITOR_ENDPOINT: 'http://localhost:5000/api/v2/events/batch',
+            VITE_APP_ID: 'demo-web',
+            VITE_APP_VERSION: '0.2.0+test',
+            VITE_APP_ENVIRONMENT: 'test',
+            VITE_MONITOR_PROJECT_KEY: 'ppk_test-project-key',
         })
 
         expect(config.sampleRate).toBe(1)
+    })
+    it('Missing required environment variable: VITE_MONITOR_PROJECT_KEY', () => {
+        expect(() => {
+            resolveMonitorConfig({
+                VITE_MONITOR_ENDPOINT:
+                    'http://localhost:5000/api/v2/events/batch',
+                VITE_APP_ID: 'demo-web',
+                VITE_APP_VERSION: '0.2.0+test',
+                VITE_APP_ENVIRONMENT: 'test',
+            })
+        }).toThrowError(
+            'Missing required environment variable: VITE_MONITOR_PROJECT_KEY',
+        )
     })
 })

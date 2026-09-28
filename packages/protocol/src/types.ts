@@ -186,7 +186,7 @@ export interface PaintEventValidationContext {
 
 // 定义 V2 校验上下文
 export interface MetricEventValidationContext {
-    expectedAppId: string
+    expectedAppId?: string
     now: number
 }
 
@@ -196,6 +196,11 @@ export interface BatchRequestV1 {
 }
 
 export interface BatchRequestV2 {
+    events: MetricEventV2[]
+}
+
+export interface ProjectIngestBatchRequestV2 {
+    projectKey: string
     events: MetricEventV2[]
 }
 
@@ -240,6 +245,7 @@ export type ApiErrorCode =
     | 'INTERNAL_ERROR'
     | 'STORAGE_UNAVAILABLE' // PostgreSQL 不可用
     | 'UNSUPPORTED_METRIC'
+    | 'INVALID_PROJECT_KEY'
 
 // 统一的非成功响应
 export interface ApiErrorResponse {
@@ -472,8 +478,7 @@ export type LcpDiagnosticFinding = {
       }
 )
 
-export interface LcpDiagnosticAnalysisResponse
-    extends LcpDiagnosticResponse {
+export interface LcpDiagnosticAnalysisResponse extends LcpDiagnosticResponse {
     findings: LcpDiagnosticFinding[]
 }
 
@@ -524,8 +529,7 @@ export type ClsDiagnosticFinding = {
       }
 )
 
-export interface ClsDiagnosticAnalysisResponse
-    extends ClsDiagnosticResponse {
+export interface ClsDiagnosticAnalysisResponse extends ClsDiagnosticResponse {
     findings: ClsDiagnosticFinding[]
 }
 
@@ -593,8 +597,7 @@ export type InpDiagnosticFinding =
           evidence: InpTargetFindingEvidence
       }
 
-export interface InpDiagnosticAnalysisResponse
-    extends InpDiagnosticResponse {
+export interface InpDiagnosticAnalysisResponse extends InpDiagnosticResponse {
     findings: InpDiagnosticFinding[]
 }
 
@@ -615,47 +618,48 @@ interface WebVitalAlertEventBase {
     evidence: WebVitalAlertEvidence
 }
 
-export type WebVitalAlertEvent = WebVitalAlertEventBase & (
-    | {
-          ruleId: 'web-vital.lcp-p75'
-          metric: {
-              type: 'web.vital.lcp'
-              unit: 'ms'
-              metricVersion: 'lcp-v1'
-              statistic: 'p75'
-              value: number
-              threshold: number
-              operator: 'gt'
+export type WebVitalAlertEvent = WebVitalAlertEventBase &
+    (
+        | {
+              ruleId: 'web-vital.lcp-p75'
+              metric: {
+                  type: 'web.vital.lcp'
+                  unit: 'ms'
+                  metricVersion: 'lcp-v1'
+                  statistic: 'p75'
+                  value: number
+                  threshold: number
+                  operator: 'gt'
+              }
+              diagnosticFindings: LcpDiagnosticFinding[]
           }
-          diagnosticFindings: LcpDiagnosticFinding[]
-      }
-    | {
-          ruleId: 'web-vital.cls-p75'
-          metric: {
-              type: 'web.vital.cls'
-              unit: 'score'
-              metricVersion: 'cls-v1'
-              statistic: 'p75'
-              value: number
-              threshold: number
-              operator: 'gt'
+        | {
+              ruleId: 'web-vital.cls-p75'
+              metric: {
+                  type: 'web.vital.cls'
+                  unit: 'score'
+                  metricVersion: 'cls-v1'
+                  statistic: 'p75'
+                  value: number
+                  threshold: number
+                  operator: 'gt'
+              }
+              diagnosticFindings: ClsDiagnosticFinding[]
           }
-          diagnosticFindings: ClsDiagnosticFinding[]
-      }
-    | {
-          ruleId: 'web-vital.inp-p75'
-          metric: {
-              type: 'web.vital.inp'
-              unit: 'ms'
-              metricVersion: 'inp-v1'
-              statistic: 'p75'
-              value: number
-              threshold: number
-              operator: 'gt'
+        | {
+              ruleId: 'web-vital.inp-p75'
+              metric: {
+                  type: 'web.vital.inp'
+                  unit: 'ms'
+                  metricVersion: 'inp-v1'
+                  statistic: 'p75'
+                  value: number
+                  threshold: number
+                  operator: 'gt'
+              }
+              diagnosticFindings: InpDiagnosticFinding[]
           }
-          diagnosticFindings: InpDiagnosticFinding[]
-      }
-)
+    )
 
 export interface AlertEvaluationResponse {
     range: { from: string; to: string }

@@ -17,6 +17,7 @@ COPY packages/protocol packages/protocol
 COPY packages/sdk-browser packages/sdk-browser
 COPY apps/demo-web apps/demo-web
 
+ARG VITE_MONITOR_PROJECT_KEY
 ARG VITE_MONITOR_ENDPOINT
 ARG VITE_APP_ID
 ARG VITE_APP_VERSION
@@ -28,12 +29,14 @@ ENV VITE_APP_ID=$VITE_APP_ID
 ENV VITE_APP_VERSION=$VITE_APP_VERSION
 ENV VITE_APP_ENVIRONMENT=$VITE_APP_ENVIRONMENT
 ENV VITE_MONITOR_SAMPLE_RATE=$VITE_MONITOR_SAMPLE_RATE
+ENV VITE_MONITOR_PROJECT_KEY=$VITE_MONITOR_PROJECT_KEY
 
 RUN test -n "$VITE_MONITOR_ENDPOINT" \
     && test -n "$VITE_APP_ID" \
     && test -n "$VITE_APP_VERSION" \
     && test -n "$VITE_APP_ENVIRONMENT" \
-    && test -n "$VITE_MONITOR_SAMPLE_RATE"
+    && test -n "$VITE_MONITOR_SAMPLE_RATE" \
+    && test -n "$VITE_MONITOR_PROJECT_KEY"
 
 RUN pnpm \
     --filter @performance-platform/protocol \

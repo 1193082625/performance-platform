@@ -6,20 +6,15 @@ import { setupCounter } from './counter.ts'
 import { createPaintMonitor } from '@performance-platform/browser'
 import { resolveMonitorConfig } from './monitor-config.ts'
 
-
 const paintMonitor = createPaintMonitor(
-  resolveMonitorConfig({
-      VITE_MONITOR_ENDPOINT:
-          import.meta.env.VITE_MONITOR_ENDPOINT,
-      VITE_APP_ID:
-          import.meta.env.VITE_APP_ID,
-      VITE_APP_VERSION:
-          import.meta.env.VITE_APP_VERSION,
-      VITE_APP_ENVIRONMENT:
-          import.meta.env.VITE_APP_ENVIRONMENT,
-      VITE_MONITOR_SAMPLE_RATE:
-          import.meta.env.VITE_MONITOR_SAMPLE_RATE,
-  }),
+    resolveMonitorConfig({
+        VITE_MONITOR_ENDPOINT: import.meta.env.VITE_MONITOR_ENDPOINT,
+        VITE_APP_ID: import.meta.env.VITE_APP_ID,
+        VITE_APP_VERSION: import.meta.env.VITE_APP_VERSION,
+        VITE_APP_ENVIRONMENT: import.meta.env.VITE_APP_ENVIRONMENT,
+        VITE_MONITOR_SAMPLE_RATE: import.meta.env.VITE_MONITOR_SAMPLE_RATE,
+        VITE_MONITOR_PROJECT_KEY: import.meta.env.VITE_MONITOR_PROJECT_KEY,
+    }),
 )
 paintMonitor.start()
 
@@ -85,20 +80,20 @@ document.querySelector<HTMLDivElement>('#app')!.innerHTML = `
 setupCounter(document.querySelector<HTMLButtonElement>('#counter')!)
 
 document
-  .querySelector<HTMLButtonElement>('#inp-demo')!
-  .addEventListener('click', (event) => {
-    const endTime = performance.now() + 180
+    .querySelector<HTMLButtonElement>('#inp-demo')!
+    .addEventListener('click', (event) => {
+        const endTime = performance.now() + 180
 
-    while (performance.now() < endTime) {
-      // Intentionally block the demo page's main thread.
-    }
+        while (performance.now() < endTime) {
+            // Intentionally block the demo page's main thread.
+        }
 
-    const button = event.currentTarget as HTMLButtonElement
-    button.textContent = 'Slow interaction completed'
-  })
+        const button = event.currentTarget as HTMLButtonElement
+        button.textContent = 'Slow interaction completed'
+    })
 
 window.setTimeout(() => {
-  document
-    .querySelector('#layout-shift-demo')
-    ?.classList.add('layout-shift-demo--visible')
+    document
+        .querySelector('#layout-shift-demo')
+        ?.classList.add('layout-shift-demo--visible')
 }, 1_200)

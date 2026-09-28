@@ -7,6 +7,7 @@ import type {
     LcpDiagnosticRepository,
     ClsDiagnosticRepository,
     InpDiagnosticRepository,
+    ProjectKeyRepository,
 } from './event-repository.js'
 import type {
     MetricSeriesPoint,
@@ -143,13 +144,36 @@ function emptyStats(): MetricStats {
 export function createPostgresEventRepository(
     pool: Pool,
 ): EventRepository &
+    ProjectKeyRepository &
     MetricQueryRepository &
     MemoryHealthRepository &
     LcpDiagnosticRepository &
     ClsDiagnosticRepository &
     InpDiagnosticRepository {
     return {
-        async insertBatch(events) {
+        async findActiveProjectByKeyHash(keyHash) {
+            const result = await pool.query<{
+                project_id: string
+            }>(
+                `
+                SELECT project_id
+                FROM project_keys
+                WHERE key_hash = $1
+                    AND revoked_at IS NULL
+                LIMIT 1
+                `,
+                [keyHash],
+            )
+
+            const row = result.rows[0]
+            if (row === undefined) {
+                return undefined
+            }
+            return {
+                projectId: row.project_id,
+            }
+        },
+        async insertBatch(events, options) {
             if (events.length === 0) return
 
             const client = await pool.connect()
@@ -195,7 +219,8 @@ export function createPostgresEventRepository(
                                 metric_unit,
                                 sample_rate,
                                 metric_version,
-                                metric_attribution
+                                metric_attribution,
+                                project_id
                             )
                             VALUES (
                                 $1,
@@ -214,7 +239,8 @@ export function createPostgresEventRepository(
                                 $14,
                                 $15,
                                 $16,
-                                $17
+                                $17,
+                                $18
                             )
                             ON CONFLICT (event_id)
                             DO NOTHING
@@ -237,6 +263,7 @@ export function createPostgresEventRepository(
                             sampleRate,
                             metricVersion,
                             metricAttribution,
+                            options?.projectId,
                         ],
                     )
                 }

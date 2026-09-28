@@ -1,9 +1,11 @@
-import type {
-    Environment
-} from '@performance-platform/protocol'
+import type { Environment } from '@performance-platform/protocol'
 import type { SessionStorageLike } from './ids.type'
 import type { CreatePaintObserver } from './paintCollector.type'
-import type { FetchTransport, ReporterScheduler, SendBeacon } from './reporter.type'
+import type {
+    FetchTransport,
+    ReporterScheduler,
+    SendBeacon,
+} from './reporter.type'
 import type { ObserveLcp } from './lcpCollector.type'
 import type { ObserveCls } from './clsCollector.type.js'
 import type { ObserveInp } from './inpCollector.type.js'
@@ -16,7 +18,9 @@ export interface PaintMonitorConfig {
     environment: Environment // 上报时 环境
     endpoint: string // 上报地址
     sampleRate?: number
-    debug?: ( // SDK 内部诊断出口
+    projectKey?: string // 项目专属的上报凭证
+    debug?: (
+        // SDK 内部诊断出口
         message: string,
         error?: unknown,
     ) => void

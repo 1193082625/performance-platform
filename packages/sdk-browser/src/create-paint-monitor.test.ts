@@ -1,15 +1,16 @@
-import {
-    describe,
-    it,
-    expect,
-    vi,
-} from 'vitest'
-import type { PaintEntryListLike, PaintSample } from './types/paintCollector.type'
+import { describe, it, expect, vi } from 'vitest'
+import type {
+    PaintEntryListLike,
+    PaintSample,
+} from './types/paintCollector.type'
 import {
     createPaintMonitor,
-    createPaintMonitorWithDependencies
+    createPaintMonitorWithDependencies,
 } from './create-paint-monitor'
-import type { PageLifecycleLike, PaintMonitorDependencies } from './types/paintMonitor.type'
+import type {
+    PageLifecycleLike,
+    PaintMonitorDependencies,
+} from './types/paintMonitor.type'
 import { SESSION_ID_STORAGE_KEY } from './ids'
 import { createPaintCollector } from './paint-collector'
 
@@ -21,7 +22,8 @@ const ENDPOINT = '/api/v2/events/batch'
 
 describe('createPaintMonitor', () => {
     it('collects a paint sample and reports a complete event', async () => {
-        const randomUUID = vi.fn()
+        const randomUUID = vi
+            .fn()
             .mockReturnValueOnce(VIEW_ID)
             .mockReturnValueOnce(EVENT_ID)
 
@@ -32,8 +34,7 @@ describe('createPaintMonitor', () => {
 
         // 捕获 observer 回调
         let observerCallback:
-            | ((entryList: PaintEntryListLike) => void)
-            | undefined
+            ((entryList: PaintEntryListLike) => void) | undefined
 
         const createObserver = vi.fn((callback) => {
             observerCallback = callback
@@ -45,41 +46,40 @@ describe('createPaintMonitor', () => {
         })
 
         const sendBeacon = vi.fn(
-            (
-                _endpoint: string,
-                _body: string,
-            ): boolean => true,
+            (_endpoint: string, _body: string): boolean => true,
         )
 
-        const monitor = createPaintMonitorWithDependencies({
-            appId: 'demo-web',
-            appVersion: '0.1.0+test',
-            environment: 'test',
-            endpoint: ENDPOINT,
-        }, {
-            timeOrigin: 1_000_000,
-            randomUUID,
-            sessionStorage,
-            createObserver,
-            sendBeacon,
-        })
+        const monitor = createPaintMonitorWithDependencies(
+            {
+                appId: 'demo-web',
+                appVersion: '0.1.0+test',
+                projectKey: 'ppk_monitor_test',
+                environment: 'test',
+                endpoint: ENDPOINT,
+            },
+            {
+                timeOrigin: 1_000_000,
+                randomUUID,
+                sessionStorage,
+                createObserver,
+                sendBeacon,
+            },
+        )
 
         monitor.start()
 
         const callback = observerCallback
 
         if (callback === undefined) {
-            throw new Error(
-                'Observer callback was not registered',
-            )
+            throw new Error('Observer callback was not registered')
         }
         callback({
             getEntries: () => [
                 {
                     name: 'first-contentful-paint',
                     startTime: 260.4,
-                }
-            ]
+                },
+            ],
         })
 
         await monitor.flush()
@@ -89,23 +89,14 @@ describe('createPaintMonitor', () => {
         const call = sendBeacon.mock.calls[0]
 
         if (call === undefined) {
-            throw new Error(
-                'Beacon was not called',
-            )
+            throw new Error('Beacon was not called')
         }
 
-        const [
-            endpoint,
-            body,
-        ] = call
+        const [endpoint, body] = call
 
-        expect(endpoint).toBe(
-            ENDPOINT,
-        )
+        expect(endpoint).toBe(ENDPOINT)
 
-        expect(
-            JSON.parse(body),
-        ).toEqual({
+        expect(JSON.parse(body)).toEqual({
             events: [
                 {
                     schemaVersion: '2.0',
@@ -138,8 +129,9 @@ describe('createPaintMonitor', () => {
                         value: 260.4,
                         unit: 'ms',
                     },
-                }
-            ]
+                },
+            ],
+            projectKey: 'ppk_monitor_test',
         })
     })
 
@@ -151,7 +143,8 @@ describe('createPaintMonitor', () => {
      * 页面变 hidden 时发送队列。
      */
     it('registers the visibility listener once and flushes when hidden', async () => {
-        const randomUUID = vi.fn()
+        const randomUUID = vi
+            .fn()
             .mockReturnValueOnce(VIEW_ID)
             .mockReturnValueOnce(EVENT_ID)
 
@@ -162,8 +155,7 @@ describe('createPaintMonitor', () => {
 
         // 捕获 observer 回调
         let observerCallback:
-            | ((entryList: PaintEntryListLike) => void)
-            | undefined
+            ((entryList: PaintEntryListLike) => void) | undefined
 
         const disconnect = vi.fn()
 
@@ -176,12 +168,8 @@ describe('createPaintMonitor', () => {
             }
         })
 
-        const sendBeacon = vi.fn(
-            (
-                _endpoint: string,
-                _body: string,
-            ): boolean => false,
-        )
+        const sendBeacon = vi
+            .fn((_endpoint: string, _body: string): boolean => false)
             .mockReturnValueOnce(false)
             .mockReturnValueOnce(true)
 
@@ -189,44 +177,39 @@ describe('createPaintMonitor', () => {
 
         const pageLifecycle: PageLifecycleLike = {
             visibilityState: 'visible',
-            addEventListener: vi.fn(
-                (type, listener) => {
-                    lifecycleListeners.set(type, listener)
-                }
-            ),
+            addEventListener: vi.fn((type, listener) => {
+                lifecycleListeners.set(type, listener)
+            }),
             removeEventListener: vi.fn(() => {
-                throw new Error(
-                    'Failed to remove visibility listener'
-                )
+                throw new Error('Failed to remove visibility listener')
             }),
         }
 
-        const monitor = createPaintMonitorWithDependencies({
-            appId: 'demo-web',
-            appVersion: '0.1.0+test',
-            environment: 'test',
-            endpoint: ENDPOINT,
-        }, {
-            timeOrigin: 1_000_000,
-            randomUUID,
-            sessionStorage,
-            createObserver,
-            sendBeacon,
-            pageLifecycle
-        })
+        const monitor = createPaintMonitorWithDependencies(
+            {
+                appId: 'demo-web',
+                appVersion: '0.1.0+test',
+                environment: 'test',
+                endpoint: ENDPOINT,
+            },
+            {
+                timeOrigin: 1_000_000,
+                randomUUID,
+                sessionStorage,
+                createObserver,
+                sendBeacon,
+                pageLifecycle,
+            },
+        )
 
         monitor.start()
         monitor.start()
 
-        expect(
-            pageLifecycle.addEventListener
-        ).toHaveBeenCalledTimes(2)
+        expect(pageLifecycle.addEventListener).toHaveBeenCalledTimes(2)
 
-        expect(
-            pageLifecycle.addEventListener
-        ).toHaveBeenCalledWith(
+        expect(pageLifecycle.addEventListener).toHaveBeenCalledWith(
             'visibilitychange',
-            expect.any(Function)
+            expect.any(Function),
         )
 
         const callback = observerCallback
@@ -238,9 +221,9 @@ describe('createPaintMonitor', () => {
             getEntries: () => [
                 {
                     name: 'first-contentful-paint',
-                    startTime: 260.4
-                }
-            ]
+                    startTime: 260.4,
+                },
+            ],
         })
         // 等待自动 flush 完整结束；第一次 Beacon 返回 false，事件留在队列
         await monitor.flush()
@@ -248,9 +231,7 @@ describe('createPaintMonitor', () => {
         const listener = lifecycleListeners.get('visibilitychange')
 
         if (listener === undefined) {
-            throw new Error(
-                'Visibility listener was not registered',
-            )
+            throw new Error('Visibility listener was not registered')
         }
 
         listener()
@@ -268,9 +249,7 @@ describe('createPaintMonitor', () => {
 
         expect(sendBeacon).toHaveBeenLastCalledWith(
             ENDPOINT,
-            expect.stringContaining(
-                '"type":"web.paint.fcp"',
-            ),
+            expect.stringContaining('"type":"web.paint.fcp"'),
         )
 
         expect(() => monitor.destroy()).not.toThrow()
@@ -280,7 +259,7 @@ describe('createPaintMonitor', () => {
         expect(pageLifecycle.removeEventListener).toHaveBeenCalledTimes(2)
         expect(pageLifecycle.removeEventListener).toHaveBeenCalledWith(
             'visibilitychange',
-            listener
+            listener,
         )
         expect(pageLifecycle.removeEventListener).toHaveBeenCalledWith(
             'pagehide',
@@ -297,19 +276,16 @@ describe('createPaintMonitor', () => {
         const disconnect = vi.fn()
 
         let observerCallback:
-            | ((entryList: PaintEntryListLike) => void)
-            | undefined
+            ((entryList: PaintEntryListLike) => void) | undefined
 
         // 伪造浏览器的 PerformanceObserver 构造函数
         // 模拟一个可以被 new 调用的构造函数，const observer = new PerformanceObserverMock()，执行new时，js 会自动创建一个新对象，并让函数内部的this指向这个对象
-        const PerformanceObserverMock = vi.fn(function(
+        const PerformanceObserverMock = vi.fn(function (
             this: {
-                observe: typeof observe,
+                observe: typeof observe
                 disconnect: typeof disconnect
             },
-            callback: (
-                entryList: PaintEntryListLike,
-            ) => void,
+            callback: (entryList: PaintEntryListLike) => void,
         ) {
             observerCallback = callback
             this.observe = observe
@@ -317,50 +293,35 @@ describe('createPaintMonitor', () => {
         })
 
         // 相当于临时设置 globalThis.PerformanceObserver = PerformanceObserverMock
-        vi.stubGlobal(
-            'PerformanceObserver',
-            PerformanceObserverMock
-        )
+        vi.stubGlobal('PerformanceObserver', PerformanceObserverMock)
 
         const sessionStorageMock = {
             getItem: vi.fn(() => SESSION_ID),
             setItem: vi.fn(),
         }
-        vi.stubGlobal(
-            'sessionStorage',
-            sessionStorageMock,
-        )
+        vi.stubGlobal('sessionStorage', sessionStorageMock)
 
         const navigatorMock = {
-            sendBeacon: vi.fn(function (
-                this: unknown,
-            ) {
+            sendBeacon: vi.fn(function (this: unknown) {
                 expect(this).toBe(navigatorMock)
                 return false
             }),
         }
         vi.stubGlobal('navigator', navigatorMock)
 
-        const fetchMock = vi.fn(
-            async () => ({ok: true})
-        )
+        const fetchMock = vi.fn(async () => ({ ok: true }))
         vi.stubGlobal('fetch', fetchMock)
 
         // document 页面生成周期
         const lifecycleListeners = new Map<string, () => void>()
         const documentMock = {
             visibilityState: 'visible',
-            addEventListener: vi.fn(
-                (type: string, listener: () => void) => {
-                    lifecycleListeners.set(type, listener)
-                },
-            ),
+            addEventListener: vi.fn((type: string, listener: () => void) => {
+                lifecycleListeners.set(type, listener)
+            }),
             removeEventListener: vi.fn(),
         }
-        vi.stubGlobal(
-            'document',
-            documentMock
-        )
+        vi.stubGlobal('document', documentMock)
         let pageHideListener: (() => void) | undefined
         const windowMock = {
             addEventListener: vi.fn((type: string, listener: () => void) => {
@@ -386,11 +347,9 @@ describe('createPaintMonitor', () => {
 
             monitor.start()
 
-            expect(
-                documentMock.addEventListener
-            ).toHaveBeenCalledWith(
+            expect(documentMock.addEventListener).toHaveBeenCalledWith(
                 'visibilitychange',
-                expect.any(Function)
+                expect.any(Function),
             )
             expect(windowMock.addEventListener).toHaveBeenCalledWith(
                 'pagehide',
@@ -399,17 +358,15 @@ describe('createPaintMonitor', () => {
 
             const callback = observerCallback
             if (callback === undefined) {
-                throw new Error(
-                    'Observer callback was not registered'
-                )
+                throw new Error('Observer callback was not registered')
             }
             callback({
                 getEntries: () => [
                     {
                         name: 'first-contentful-paint',
-                        startTime: 260.4
-                    }
-                ]
+                        startTime: 260.4,
+                    },
+                ],
             })
 
             const listener = lifecycleListeners.get('visibilitychange')
@@ -419,7 +376,6 @@ describe('createPaintMonitor', () => {
             documentMock.visibilityState = 'hidden'
             listener()
 
-
             expect(monitor).toEqual({
                 start: expect.any(Function),
                 flush: expect.any(Function),
@@ -428,44 +384,35 @@ describe('createPaintMonitor', () => {
             expect(PerformanceObserverMock).toHaveBeenCalledTimes(1)
             expect(observe).toHaveBeenCalledWith({
                 type: 'paint',
-                buffered: true
+                buffered: true,
             })
 
-            expect(
-                sessionStorageMock.getItem
-            ).toHaveBeenCalledWith(
-                SESSION_ID_STORAGE_KEY
+            expect(sessionStorageMock.getItem).toHaveBeenCalledWith(
+                SESSION_ID_STORAGE_KEY,
             )
 
             expect(navigatorMock.sendBeacon).toHaveBeenCalledWith(
                 ENDPOINT,
-                expect.stringContaining(
-                    '"type":"web.paint.fcp"'
-                )
+                expect.stringContaining('"type":"web.paint.fcp"'),
             )
 
             // 测试不能直接 await listener()，因为它返回 void
             // 可以等待 fetch 断言最终成立
             await vi.waitFor(() => {
-                expect(fetchMock).toHaveBeenCalledWith(
-                    ENDPOINT,
-                    {
-                        method: 'POST',
-                        headers: {
-                            'content-type': 'application/json',
-                        },
-                        body: expect.stringContaining(
-                            '"type":"web.paint.fcp"',
-                        ),
-                        keepalive: true,
-                    }
-                )
+                expect(fetchMock).toHaveBeenCalledWith(ENDPOINT, {
+                    method: 'POST',
+                    headers: {
+                        'content-type': 'application/json',
+                    },
+                    body: expect.stringContaining('"type":"web.paint.fcp"'),
+                    keepalive: true,
+                })
             })
 
             monitor.destroy()
             expect(documentMock.removeEventListener).toHaveBeenCalledWith(
                 'visibilitychange',
-                listener
+                listener,
             )
             expect(windowMock.removeEventListener).toHaveBeenCalledWith(
                 'pagehide',
@@ -478,26 +425,23 @@ describe('createPaintMonitor', () => {
     })
 
     it('flushes the current paint entries automatically', async () => {
-        const randomUUID = vi.fn()
+        const randomUUID = vi
+            .fn()
             .mockReturnValueOnce(VIEW_ID)
             .mockReturnValueOnce(EVENT_ID)
 
         let observerCallback:
-            | ((entryList: PaintEntryListLike) => void)
-            | undefined
+            ((entryList: PaintEntryListLike) => void) | undefined
         const createObserver = vi.fn((callback) => {
             observerCallback = callback
             return {
                 observe: vi.fn(),
-                disconnect: vi.fn()
+                disconnect: vi.fn(),
             }
         })
 
         const sendBeacon = vi.fn(
-            (
-                _endpoint: string,
-                _body: string,
-            ): boolean => true,
+            (_endpoint: string, _body: string): boolean => true,
         )
 
         const monitor = createPaintMonitorWithDependencies(
@@ -523,9 +467,7 @@ describe('createPaintMonitor', () => {
         const callback = observerCallback
 
         if (callback === undefined) {
-            throw new Error(
-                'Observer callback was not registered',
-            )
+            throw new Error('Observer callback was not registered')
         }
         callback({
             getEntries: () => [
@@ -540,21 +482,13 @@ describe('createPaintMonitor', () => {
         })
         const call = sendBeacon.mock.calls[0]
         if (call === undefined) {
-            throw new Error(
-                'Expected sendBeacon to be called',
-            )
+            throw new Error('Expected sendBeacon to be called')
         }
         const [, body] = call
         const request = JSON.parse(body)
         expect(
-            request.events.map(
-                (event: {
-                    type: string
-                }) => event.type,
-            ),
-        ).toEqual([
-            'web.paint.fcp',
-        ])
+            request.events.map((event: { type: string }) => event.type),
+        ).toEqual(['web.paint.fcp'])
     })
 
     it('does not start collection for an unsampled session', () => {
@@ -563,42 +497,36 @@ describe('createPaintMonitor', () => {
         const observeCls = vi.fn()
         const observeInp = vi.fn()
 
-        const monitor =
-            createPaintMonitorWithDependencies(
-                {
-                    appId: 'demo-web',
-                    appVersion: '0.2.0',
-                    environment: 'test',
-                    endpoint: ENDPOINT,
-                    sampleRate: 0.5,
+        const monitor = createPaintMonitorWithDependencies(
+            {
+                appId: 'demo-web',
+                appVersion: '0.2.0',
+                environment: 'test',
+                endpoint: ENDPOINT,
+                sampleRate: 0.5,
+            },
+            {
+                timeOrigin: 1_000_000,
+
+                randomUUID: vi.fn(() => VIEW_ID),
+
+                // session-a 的固定哈希采样值约为 0.638，大于 0.5，所以不应启动采集器
+                sessionStorage: {
+                    getItem: vi.fn(() => 'session-a'),
+
+                    setItem: vi.fn(),
                 },
-                {
-                    timeOrigin: 1_000_000,
 
-                    randomUUID:
-                        vi.fn(() => VIEW_ID),
-
-                    // session-a 的固定哈希采样值约为 0.638，大于 0.5，所以不应启动采集器
-                    sessionStorage: {
-                        getItem:
-                            vi.fn(() => 'session-a'),
-
-                        setItem:
-                            vi.fn(),
-                    },
-
-                    createObserver,
-                    observeLcp,
-                    observeCls,
-                    observeInp,
-                },
-            )
+                createObserver,
+                observeLcp,
+                observeCls,
+                observeInp,
+            },
+        )
 
         monitor.start()
 
-        expect(
-            createObserver,
-        ).not.toHaveBeenCalled()
+        expect(createObserver).not.toHaveBeenCalled()
         expect(observeLcp).not.toHaveBeenCalled()
         expect(observeCls).not.toHaveBeenCalled()
         expect(observeInp).not.toHaveBeenCalled()
@@ -616,80 +544,69 @@ describe('createPaintMonitor', () => {
                 },
                 {
                     timeOrigin: 1_000_000,
-                    randomUUID:
-                        vi.fn(() => VIEW_ID),
+                    randomUUID: vi.fn(() => VIEW_ID),
                 },
             )
         }).toThrow(RangeError)
     })
 
     it('reports the configured sample rate for a sampled session', async () => {
-        const randomUUID = vi.fn()
+        const randomUUID = vi
+            .fn()
             .mockReturnValueOnce(VIEW_ID)
             .mockReturnValueOnce(EVENT_ID)
 
         let observerCallback:
-            | ((entryList: PaintEntryListLike) => void)
-            | undefined
+            ((entryList: PaintEntryListLike) => void) | undefined
 
-        const createObserver = vi.fn(
-            (callback) => {
-                observerCallback = callback
+        const createObserver = vi.fn((callback) => {
+            observerCallback = callback
 
-                return {
-                    observe: vi.fn(),
-                    disconnect: vi.fn(),
-                }
+            return {
+                observe: vi.fn(),
+                disconnect: vi.fn(),
+            }
+        })
+
+        const sendBeacon = vi.fn(() => true)
+
+        const monitor = createPaintMonitorWithDependencies(
+            {
+                appId: 'demo-web',
+                appVersion: '0.2.0',
+                environment: 'test',
+                endpoint: ENDPOINT,
+                sampleRate: 0.5,
+            },
+            {
+                timeOrigin: 1_000_000,
+                randomUUID,
+
+                sessionStorage: {
+                    getItem: vi.fn(() => 'session-0'),
+
+                    setItem: vi.fn(),
+                },
+
+                createObserver,
+                sendBeacon,
             },
         )
-
-        const sendBeacon =
-            vi.fn(() => true)
-
-        const monitor =
-            createPaintMonitorWithDependencies(
-                {
-                    appId: 'demo-web',
-                    appVersion: '0.2.0',
-                    environment: 'test',
-                    endpoint: ENDPOINT,
-                    sampleRate: 0.5,
-                },
-                {
-                    timeOrigin: 1_000_000,
-                    randomUUID,
-
-                    sessionStorage: {
-                        getItem:
-                            vi.fn(() => 'session-0'),
-
-                        setItem:
-                            vi.fn(),
-                    },
-
-                    createObserver,
-                    sendBeacon,
-                },
-            )
 
         monitor.start()
 
         const callback = observerCallback
 
         if (callback === undefined) {
-            throw new Error(
-                'Observer callback was not registered',
-            )
+            throw new Error('Observer callback was not registered')
         }
 
         callback({
             getEntries: () => [
                 {
-                    name:
-                        'first-contentful-paint',
+                    name: 'first-contentful-paint',
 
-                    startTime:
-                        260.4,
+                    startTime: 260.4,
                 },
             ],
         })
@@ -699,31 +616,24 @@ describe('createPaintMonitor', () => {
         expect(sendBeacon).toHaveBeenCalledWith(
             ENDPOINT,
 
-            expect.stringContaining(
-                '"sampleRate":0.5',
-            ),
+            expect.stringContaining('"sampleRate":0.5'),
         )
     })
 
     it('reports the final LCP metric as a V2 event', async () => {
-        const randomUUID = vi.fn()
+        const randomUUID = vi
+            .fn()
             .mockReturnValueOnce(VIEW_ID)
             .mockReturnValueOnce(EVENT_ID)
 
-        let lcpCallback:
-            | ((metric: { value: number }) => void)
-            | undefined
+        let lcpCallback: ((metric: { value: number }) => void) | undefined
 
         const observeLcp = vi.fn((callback) => {
             lcpCallback = callback
         })
 
         const sendBeacon = vi.fn(
-
-            (
-                _endpoint: string,
-                _body: string,
-            ): boolean => true,
+            (_endpoint: string, _body: string): boolean => true,
         )
 
         const monitor = createPaintMonitorWithDependencies(
@@ -752,9 +662,7 @@ describe('createPaintMonitor', () => {
         const callback = lcpCallback
 
         if (callback === undefined) {
-            throw new Error(
-                'LCP callback was not registered',
-            )
+            throw new Error('LCP callback was not registered')
         }
 
         callback({
@@ -767,9 +675,7 @@ describe('createPaintMonitor', () => {
         const call = sendBeacon.mock.calls[0]
 
         if (call === undefined) {
-            throw new Error(
-                'Expected sendBeacon to be called',
-            )
+            throw new Error('Expected sendBeacon to be called')
         }
 
         const [endpoint, body] = call
@@ -815,25 +721,20 @@ describe('createPaintMonitor', () => {
     })
 
     it('reports the final CLS metric as a V2 event', async () => {
-        const randomUUID = vi.fn()
+        const randomUUID = vi
+            .fn()
             .mockReturnValueOnce(VIEW_ID)
             .mockReturnValueOnce(EVENT_ID)
 
         let clsCallback:
-            | ((metric: {
-                value: number
-                lastEntryStartTime: number
-            }) => void)
+            | ((metric: { value: number; lastEntryStartTime: number }) => void)
             | undefined
 
         const observeCls = vi.fn((callback) => {
             clsCallback = callback
         })
         const sendBeacon = vi.fn(
-            (
-                _endpoint: string,
-                _body: string,
-            ): boolean => true,
+            (_endpoint: string, _body: string): boolean => true,
         )
 
         const monitor = createPaintMonitorWithDependencies(
@@ -915,24 +816,22 @@ describe('createPaintMonitor', () => {
     })
 
     it('reports the final INP metric as a V2 event', async () => {
-        const randomUUID = vi.fn()
+        const randomUUID = vi
+            .fn()
             .mockReturnValueOnce(VIEW_ID)
             .mockReturnValueOnce(EVENT_ID)
 
         let inpCallback:
             | ((metric: {
-                value: number
-                interactionStartTime: number
-            }) => void)
+                  value: number
+                  interactionStartTime: number
+              }) => void)
             | undefined
         const observeInp = vi.fn((callback) => {
             inpCallback = callback
         })
         const sendBeacon = vi.fn(
-            (
-                _endpoint: string,
-                _body: string,
-            ): boolean => true,
+            (_endpoint: string, _body: string): boolean => true,
         )
         const monitor = createPaintMonitorWithDependencies(
             {
@@ -1013,23 +912,15 @@ describe('createPaintMonitor', () => {
     })
 
     it('reports one memory snapshot as three V2 events', async () => {
-        const randomUUID = vi.fn()
+        const randomUUID = vi
+            .fn()
             .mockReturnValueOnce(VIEW_ID)
-            .mockReturnValueOnce(
-                '11111111-1111-4111-8111-111111111111',
-            )
-            .mockReturnValueOnce(
-                '22222222-2222-4222-8222-222222222222',
-            )
-            .mockReturnValueOnce(
-                '33333333-3333-4333-8333-333333333333',
-            )
+            .mockReturnValueOnce('11111111-1111-4111-8111-111111111111')
+            .mockReturnValueOnce('22222222-2222-4222-8222-222222222222')
+            .mockReturnValueOnce('33333333-3333-4333-8333-333333333333')
 
         const sendBeacon = vi.fn(
-            (
-                _endpoint: string,
-                _body: string,
-            ): boolean => true,
+            (_endpoint: string, _body: string): boolean => true,
         )
 
         const monitor = createPaintMonitorWithDependencies(
@@ -1067,9 +958,7 @@ describe('createPaintMonitor', () => {
         const call = sendBeacon.mock.calls[0]
 
         if (call === undefined) {
-            throw new Error(
-                'Expected sendBeacon to be called',
-            )
+            throw new Error('Expected sendBeacon to be called')
         }
 
         const [, body] = call
@@ -1078,9 +967,7 @@ describe('createPaintMonitor', () => {
         expect(payload.events).toHaveLength(3)
 
         expect(
-            payload.events.map(
-                (event: { type: string }) => event.type,
-            ),
+            payload.events.map((event: { type: string }) => event.type),
         ).toEqual([
             'web.memory.used_heap',
             'web.memory.total_heap',
@@ -1134,11 +1021,18 @@ describe('createPaintMonitor', () => {
                 },
                 {
                     timeOrigin: 1_000_000,
-                    randomUUID: vi.fn()
+                    randomUUID: vi
+                        .fn()
                         .mockReturnValueOnce(VIEW_ID)
-                        .mockReturnValueOnce('11111111-1111-4111-8111-111111111111')
-                        .mockReturnValueOnce('22222222-2222-4222-8222-222222222222')
-                        .mockReturnValueOnce('33333333-3333-4333-8333-333333333333'),
+                        .mockReturnValueOnce(
+                            '11111111-1111-4111-8111-111111111111',
+                        )
+                        .mockReturnValueOnce(
+                            '22222222-2222-4222-8222-222222222222',
+                        )
+                        .mockReturnValueOnce(
+                            '33333333-3333-4333-8333-333333333333',
+                        ),
                     sessionStorage: {
                         getItem: vi.fn(() => SESSION_ID),
                         setItem: vi.fn(),
@@ -1179,18 +1073,16 @@ describe('createPaintMonitor', () => {
     it('finalizes all Web Vitals before starting the pagehide flush', async () => {
         const lifecycleListeners = new Map<string, () => void>()
         let lcpCallback: ((metric: { value: number }) => void) | undefined
-        let clsCallback: ((metric: {
-            value: number
-            lastEntryStartTime: number
-        }) => void) | undefined
-        let inpCallback: ((metric: {
-            value: number
-            interactionStartTime: number
-        }) => void) | undefined
-        const sendBeacon = vi.fn((
-            _endpoint: string,
-            _body: string,
-        ) => true)
+        let clsCallback:
+            | ((metric: { value: number; lastEntryStartTime: number }) => void)
+            | undefined
+        let inpCallback:
+            | ((metric: {
+                  value: number
+                  interactionStartTime: number
+              }) => void)
+            | undefined
+        const sendBeacon = vi.fn((_endpoint: string, _body: string) => true)
         const monitor = createPaintMonitorWithDependencies(
             {
                 appId: 'demo-web',
@@ -1200,18 +1092,27 @@ describe('createPaintMonitor', () => {
             },
             {
                 timeOrigin: 1_000_000,
-                randomUUID: vi.fn()
+                randomUUID: vi
+                    .fn()
                     .mockReturnValueOnce(VIEW_ID)
                     .mockReturnValueOnce('11111111-1111-4111-8111-111111111111')
                     .mockReturnValueOnce('22222222-2222-4222-8222-222222222222')
-                    .mockReturnValueOnce('33333333-3333-4333-8333-333333333333'),
+                    .mockReturnValueOnce(
+                        '33333333-3333-4333-8333-333333333333',
+                    ),
                 sessionStorage: {
                     getItem: vi.fn(() => SESSION_ID),
                     setItem: vi.fn(),
                 },
-                observeLcp: (callback) => { lcpCallback = callback },
-                observeCls: (callback) => { clsCallback = callback },
-                observeInp: (callback) => { inpCallback = callback },
+                observeLcp: (callback) => {
+                    lcpCallback = callback
+                },
+                observeCls: (callback) => {
+                    clsCallback = callback
+                },
+                observeInp: (callback) => {
+                    inpCallback = callback
+                },
                 sendBeacon,
                 pageLifecycle: {
                     visibilityState: 'visible',

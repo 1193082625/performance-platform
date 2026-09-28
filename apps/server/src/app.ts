@@ -18,6 +18,7 @@ import type {
     LcpDiagnosticRepository,
     ClsDiagnosticRepository,
     InpDiagnosticRepository,
+    ProjectKeyRepository,
 } from './repositories/event-repository.js'
 
 import { createMetricQueryService } from './services/metric-query-service.js'
@@ -35,6 +36,8 @@ import { createInpDiagnosticService } from './services/inp-diagnostic-service.js
 import { registerInpDiagnosticRoutes } from './routes/inp-diagnostic.js'
 import { createAlertEvaluationService } from './services/alert-evaluation-service.js'
 import { registerAlertEvaluationRoutes } from './routes/alert-evaluation.js'
+import { createProjectKeyAuthenticationService } from './services/project-key-authentication-service.js'
+import { createProjectMetricEventIngestionService } from './services/project-metric-event-ingestion-service.js'
 
 interface BuildAppOptions {
     eventRepository: EventRepository
@@ -47,6 +50,7 @@ interface BuildAppOptions {
     now: () => number
     corsOrigins?: string[]
     logLevel?: string
+    projectKeyRepository?: ProjectKeyRepository
 }
 
 export function buildApp(options: BuildAppOptions): FastifyInstance {
@@ -109,6 +113,21 @@ export function buildApp(options: BuildAppOptions): FastifyInstance {
         now: options.now,
     })
 
+    const projectKeyAuthenticationService =
+        options.projectKeyRepository === undefined
+            ? undefined
+            : createProjectKeyAuthenticationService(
+                  options.projectKeyRepository,
+              )
+
+    const projectMetricIngestionService =
+        options.projectKeyRepository === undefined
+            ? undefined
+            : createProjectMetricEventIngestionService({
+                  repository: options.eventRepository,
+                  now: options.now,
+              })
+
     const metricsService = createPaintMetricsService({
         repository: options.eventRepository,
         appId: options.appId,
@@ -130,6 +149,14 @@ export function buildApp(options: BuildAppOptions): FastifyInstance {
     app.register(registerEventRoutes, {
         ingestionService,
         metricIngestionService,
+
+        ...(projectKeyAuthenticationService === undefined ||
+        projectMetricIngestionService === undefined
+            ? {}
+            : {
+                  projectKeyAuthenticationService,
+                  projectMetricIngestionService,
+              }),
     })
 
     app.register(registerMetricsRoutes, {

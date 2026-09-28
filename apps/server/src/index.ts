@@ -20,6 +20,7 @@ const app = buildApp({
     now: Date.now,
     corsOrigins: config.corsOrigins,
     logLevel: config.logLevel,
+    projectKeyRepository: repository,
 })
 
 async function shutdown(signal: string): Promise<void> {

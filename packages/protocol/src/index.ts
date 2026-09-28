@@ -51,6 +51,7 @@ export type {
     InpDiagnosticFinding,
     AlertEvaluationResponse,
     WebVitalAlertEvent,
+    ProjectIngestBatchRequestV2,
 } from './types.js'
 
 export {

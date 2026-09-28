@@ -1,18 +1,13 @@
 import { describe, it, expect } from 'vitest'
-import type {
-    MetricEventV2,
-    MetricEventValidationContext,
-} from './types'
+import type { MetricEventV2, MetricEventValidationContext } from './types'
 
-import {
-    validateMetricBatch,
-} from './validate'
+import { validateMetricBatch } from './validate'
 
 const NOW = Date.UTC(2026, 8, 2, 10, 0, 0)
 
 const validationContext: MetricEventValidationContext = {
     expectedAppId: 'demo-web',
-    now: NOW
+    now: NOW,
 }
 
 function makeMetricEvent(): MetricEventV2 {
@@ -53,13 +48,40 @@ function makeMetricEvent(): MetricEventV2 {
 describe('validateMetricBatch', () => {
     it('accepts a batch of valid metric events', () => {
         const event = makeMetricEvent()
-    
+
         expect(
             validateMetricBatch(
                 {
                     events: [event],
                 },
                 validationContext,
+            ),
+        ).toEqual({
+            ok: true,
+            value: {
+                acceptedEvents: [event],
+                discarded: 0,
+                reasons: {},
+            },
+        })
+    })
+    it('未提供 expectedAppId 时接受任意合法应用 ID', () => {
+        const event = {
+            ...makeMetricEvent(),
+            application: {
+                ...makeMetricEvent().application,
+                id: 'another-web-app',
+            },
+        }
+
+        expect(
+            validateMetricBatch(
+                {
+                    events: [event],
+                },
+                {
+                    now: NOW,
+                },
             ),
         ).toEqual({
             ok: true,
@@ -85,9 +107,7 @@ describe('validateMetricBatch', () => {
             events: [],
         },
     ])('rejects invalid batch %#', (input) => {
-        expect(
-            validateMetricBatch(input, validationContext),
-        ).toEqual({
+        expect(validateMetricBatch(input, validationContext)).toEqual({
             ok: false,
             code: 'INVALID_BATCH',
         })
@@ -100,7 +120,7 @@ describe('validateMetricBatch', () => {
             },
             () => makeMetricEvent(),
         )
-    
+
         expect(
             validateMetricBatch(
                 {
@@ -116,19 +136,16 @@ describe('validateMetricBatch', () => {
 
     it('accepts valid events and counts discarded events', () => {
         const validEvent = makeMetricEvent()
-    
+
         const invalidEvent = {
             ...makeMetricEvent(),
             sampleRate: 0,
         }
-    
+
         expect(
             validateMetricBatch(
                 {
-                    events: [
-                        validEvent,
-                        invalidEvent,
-                    ],
+                    events: [validEvent, invalidEvent],
                 },
                 validationContext,
             ),
@@ -149,19 +166,16 @@ describe('validateMetricBatch', () => {
             ...makeMetricEvent(),
             sampleRate: 0,
         }
-    
+
         const invalidMetricVersionEvent = {
             ...makeMetricEvent(),
             metricVersion: 'cls-v1',
         }
-    
+
         expect(
             validateMetricBatch(
                 {
-                    events: [
-                        invalidSampleRateEvent,
-                        invalidMetricVersionEvent,
-                    ],
+                    events: [invalidSampleRateEvent, invalidMetricVersionEvent],
                 },
                 validationContext,
             ),
@@ -183,19 +197,16 @@ describe('validateMetricBatch', () => {
             ...makeMetricEvent(),
             sampleRate: 0,
         }
-    
+
         const secondInvalidEvent = {
             ...makeMetricEvent(),
             sampleRate: 2,
         }
-    
+
         expect(
             validateMetricBatch(
                 {
-                    events: [
-                        firstInvalidEvent,
-                        secondInvalidEvent,
-                    ],
+                    events: [firstInvalidEvent, secondInvalidEvent],
                 },
                 validationContext,
             ),
@@ -218,7 +229,7 @@ describe('validateMetricBatch', () => {
             },
             () => makeMetricEvent(),
         )
-    
+
         expect(
             validateMetricBatch(
                 {
