@@ -15,6 +15,7 @@ import type {
 } from '@performance-platform/protocol'
 
 export interface PaintMetricsQuery {
+    projectId?: string
     appId: string
     from: Date
     to: Date
@@ -71,6 +72,7 @@ export interface ProjectKeyRepository {
 }
 
 export interface MetricQuery {
+    projectId?: string
     appId: string
     metric: MetricDefinition
     from: Date
@@ -84,8 +86,32 @@ export interface MetricQueryRepository {
 
 export interface MemoryHealthRepository {
     queryLatestViewMemorySnapshots(input: {
+        projectId?: string
         appId: string
         from: Date
         to: Date
     }): Promise<MemoryHealthSnapshot[]>
+}
+export interface ScopedMetricQuery {
+    projectId: string
+    appId: string
+    metric: MetricDefinition
+    from: Date
+    to: Date
+    interval: MetricsInterval
+}
+
+export interface ScopedMemoryHealthQuery {
+    projectId: string
+    appId: string
+    from: Date
+    to: Date
+}
+
+export interface DashboardRepository {
+    queryDashboardMetric(query: ScopedMetricQuery): Promise<MetricQueryResponse>
+
+    queryDashboardLatestViewMemorySnapshots(
+        query: ScopedMemoryHealthQuery,
+    ): Promise<MemoryHealthSnapshot[]>
 }

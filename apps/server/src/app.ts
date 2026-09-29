@@ -57,6 +57,8 @@ import { createProjectAppService } from './services/project-app-service.js'
 import { registerProjectAppRoutes } from './routes/project-apps.js'
 import { createProjectAppKeyService } from './services/project-app-key-service.js'
 import { registerProjectAppKeyRoutes } from './routes/project-app-keys.js'
+import { createDashboardQueryService } from './services/dashboard-query-service.js'
+import { registerDashboardQueryRoutes } from './routes/dashboard-query.js'
 
 interface BuildAppOptions {
     eventRepository: EventRepository
@@ -301,6 +303,21 @@ export function buildApp(options: BuildAppOptions): FastifyInstance {
                 app.register(registerProjectAppRoutes, {
                     projectAppService,
                 })
+
+                if (options.memoryHealthRepository !== undefined) {
+                    const dashboardQueryService = createDashboardQueryService({
+                        sessions: sessionAuthenticationService,
+                        projects: options.projectRepository,
+                        apps: options.projectAppRepository,
+                        metricRepository: options.metricQueryRepository,
+                        memoryHealthRepository: options.memoryHealthRepository,
+                        now: options.now,
+                    })
+
+                    app.register(registerDashboardQueryRoutes, {
+                        dashboardQueryService,
+                    })
+                }
 
                 if (options.projectAppKeyRepository !== undefined) {
                     const projectAppKeyService = createProjectAppKeyService(

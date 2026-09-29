@@ -2,14 +2,12 @@ import {
     evaluateMemoryHealth,
     type MemoryHealthAssessment,
 } from '@performance-platform/protocol'
-import type {
-    MemoryHealthRepository,
-} from '../repositories/event-repository.js'
+import type { MemoryHealthRepository } from '../repositories/event-repository.js'
 
 const DEFAULT_RANGE_MS = 24 * 60 * 60 * 1_000
 const MAX_RANGE_MS = 30 * 24 * 60 * 60 * 1_000
 
-type MemoryHealthQueryResult =
+export type MemoryHealthQueryResult =
     | { ok: true; value: MemoryHealthAssessment }
     | { ok: false; code: 'INVALID_DATE'; field: 'from' | 'to' }
     | { ok: false; code: 'INVALID_TIME_RANGE' }
@@ -32,6 +30,7 @@ function parseDate(value: unknown, fallback: number): Date {
 
 export function createMemoryHealthService(options: {
     repository: MemoryHealthRepository
+    projectId?: string
     appId: string
     now(): number
 }): MemoryHealthService {
@@ -56,8 +55,11 @@ export function createMemoryHealthService(options: {
             }
 
             try {
-                const snapshots = await options.repository
-                    .queryLatestViewMemorySnapshots({
+                const snapshots =
+                    await options.repository.queryLatestViewMemorySnapshots({
+                        ...(options.projectId === undefined
+                            ? {}
+                            : { projectId: options.projectId }),
                         appId: options.appId,
                         from,
                         to,

@@ -97,6 +97,24 @@ describe('PostgresEventRepository', () => {
             `,
             [TEST_PROJECT_ID, 'repository-test-project', TEST_USER_ID],
         )
+        await pool.query(
+            `
+            INSERT INTO project_apps (
+                project_id,
+                app_id,
+                name,
+                platform
+            )
+            VALUES ($1, $2, $3, $4)
+            ON CONFLICT (project_id, app_id) DO NOTHING
+            `,
+            [
+                TEST_PROJECT_ID,
+                EVENT.application.id,
+                'repository-test-web-app',
+                'web',
+            ],
+        )
     })
 
     afterAll(async () => {
@@ -736,6 +754,115 @@ describe('PostgresEventRepository', () => {
         })
     })
 
+    it('isolates same app memory snapshots by projectId', async () => {
+        const otherProjectId = '-2'
+        const observedAt = EVENT_TIMESTAMP + 60_000
+
+        await pool.query(
+            'INSERT INTO projects (id, name, owner_id) VALUES ($1, $2, $3) ON CONFLICT (id) DO NOTHING',
+            [otherProjectId, 'other-memory-project', TEST_USER_ID],
+        )
+        await pool.query(
+            'INSERT INTO project_apps (project_id, app_id, name, platform) VALUES ($1, $2, $3, $4) ON CONFLICT (project_id, app_id) DO NOTHING',
+            [
+                otherProjectId,
+                EVENT.application.id,
+                'other-memory-web-app',
+                'web',
+            ],
+        )
+
+        const createEvent = (
+            eventId: string,
+            type: 'web.memory.used_heap' | 'web.memory.heap_limit',
+            value: number,
+        ): MetricEventV2 => ({
+            schemaVersion: '2.0',
+            eventId,
+            type,
+            timestamp: observedAt,
+            sampleRate: 1,
+            metricVersion: 'memory-v1',
+            application: EVENT.application,
+            runtime: EVENT.runtime,
+            session: {
+                sessionId: 'isolated-memory-session',
+                viewId: 'isolated-memory-view',
+            },
+            payload: { value, unit: 'byte' },
+        })
+
+        await repository.insertBatch(
+            [
+                createEvent(
+                    '20000000-0000-4000-8000-000000000001',
+                    'web.memory.used_heap',
+                    100 * 1024 ** 2,
+                ),
+                createEvent(
+                    '20000000-0000-4000-8000-000000000002',
+                    'web.memory.heap_limit',
+                    1024 * 1024 ** 2,
+                ),
+            ],
+            PROJECT_INSERT_OPTIONS,
+        )
+        await repository.insertBatch(
+            [
+                createEvent(
+                    '20000000-0000-4000-8000-000000000003',
+                    'web.memory.used_heap',
+                    900 * 1024 ** 2,
+                ),
+                createEvent(
+                    '20000000-0000-4000-8000-000000000004',
+                    'web.memory.heap_limit',
+                    2048 * 1024 ** 2,
+                ),
+            ],
+            { projectId: otherProjectId },
+        )
+
+        const query = {
+            appId: EVENT.application.id,
+            from: new Date(EVENT_TIMESTAMP),
+            to: new Date(observedAt + 1),
+        }
+
+        await expect(
+            repository.queryLatestViewMemorySnapshots({
+                ...query,
+                projectId: TEST_PROJECT_ID,
+            }),
+        ).resolves.toEqual([
+            {
+                observedAt,
+                usedHeap: 100 * 1024 ** 2,
+                heapLimit: 1024 * 1024 ** 2,
+            },
+        ])
+        await expect(
+            repository.queryLatestViewMemorySnapshots({
+                ...query,
+                projectId: otherProjectId,
+            }),
+        ).resolves.toEqual([
+            {
+                observedAt,
+                usedHeap: 900 * 1024 ** 2,
+                heapLimit: 2048 * 1024 ** 2,
+            },
+        ])
+
+        await pool.query('DELETE FROM metric_events WHERE project_id = $1', [
+            otherProjectId,
+        ])
+        await pool.query('DELETE FROM project_apps WHERE project_id = $1', [
+            otherProjectId,
+        ])
+        await pool.query('DELETE FROM projects WHERE id = $1', [otherProjectId])
+    })
+
     it('stores LCP attribution', async () => {
         const attribution = {
             timeToFirstByte: 800,
@@ -1161,5 +1288,89 @@ describe('PostgresEventRepository', () => {
             },
             dominantTarget: null,
         })
+    })
+    it('按 projectId 隔离同名应用的指标数据', async () => {
+        const otherProjectId = '-2'
+
+        await pool.query(
+            `
+            INSERT INTO projects (id, name, owner_id)
+            VALUES ($1, $2, $3)
+            ON CONFLICT (id) DO NOTHING
+            `,
+            [otherProjectId, 'other-project', TEST_USER_ID],
+        )
+
+        await pool.query(
+            `
+            INSERT INTO project_apps (
+                project_id,
+                app_id,
+                name,
+                platform
+            )
+            VALUES ($1, $2, $3, $4)
+            ON CONFLICT (project_id, app_id) DO NOTHING
+            `,
+            [
+                otherProjectId,
+                EVENT.application.id,
+                'other-project-web-app',
+                'web',
+            ],
+        )
+
+        const otherProjectEvent: PaintEventV1 = {
+            ...EVENT,
+            eventId: '90000000-0000-4000-8000-000000000001',
+            payload: {
+                value: 900,
+                unit: 'ms',
+            },
+        }
+
+        await repository.insertBatch([EVENT], PROJECT_INSERT_OPTIONS)
+        await repository.insertBatch([otherProjectEvent], {
+            projectId: otherProjectId,
+        })
+
+        const query = {
+            appId: EVENT.application.id,
+            metric: {
+                type: 'web.paint.fcp' as const,
+                unit: 'ms' as const,
+                metricVersion: 'paint-v1' as const,
+            },
+            from: QUERY_FROM,
+            to: QUERY_TO,
+            interval: 'hour' as const,
+        }
+
+        const ownResult = await repository.queryMetric({
+            ...query,
+            projectId: TEST_PROJECT_ID,
+        })
+
+        const otherResult = await repository.queryMetric({
+            ...query,
+            projectId: otherProjectId,
+        })
+
+        expect(ownResult.summary).toMatchObject({
+            count: 1,
+            average: EVENT.payload.value,
+        })
+
+        expect(otherResult.summary).toMatchObject({
+            count: 1,
+            average: otherProjectEvent.payload.value,
+        })
+        await pool.query(`DELETE FROM metric_events WHERE project_id = $1`, [
+            otherProjectId,
+        ])
+        await pool.query(`DELETE FROM project_apps WHERE project_id = $1`, [
+            otherProjectId,
+        ])
+        await pool.query(`DELETE FROM projects WHERE id = $1`, [otherProjectId])
     })
 })

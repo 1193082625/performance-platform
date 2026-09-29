@@ -1,8 +1,13 @@
-import type { MetricQueryResponse, MetricDefinition, WebMetric } from "@performance-platform/protocol";
-import type { MetricQueryRepository } from "../repositories/event-repository.js";
+import type {
+    MetricQueryResponse,
+    MetricDefinition,
+    WebMetric,
+} from '@performance-platform/protocol'
+import type { MetricQueryRepository } from '../repositories/event-repository.js'
 
 interface MetricQueryServiceOptions {
     repository: MetricQueryRepository
+    projectId?: string
     appId: string
     now(): number
 }
@@ -68,77 +73,60 @@ const METRIC_DEFINITIONS = {
 
 export type MetricQueryResult =
     | {
-        ok: true
-        value: MetricQueryResponse
-    }
+          ok: true
+          value: MetricQueryResponse
+      }
     | {
-        ok: false
-        code: 'UNSUPPORTED_METRIC'
-    }
+          ok: false
+          code: 'UNSUPPORTED_METRIC'
+      }
     | {
-        ok: false
-        code: 'INVALID_DATE'
-        field: 'from' | 'to'
-    }
+          ok: false
+          code: 'INVALID_DATE'
+          field: 'from' | 'to'
+      }
     | {
-        ok: false
-        code: 'INVALID_INTERVAL'
-    }
+          ok: false
+          code: 'INVALID_INTERVAL'
+      }
     | {
-        ok: false
-        code: 'INVALID_TIME_RANGE'
-    }
+          ok: false
+          code: 'INVALID_TIME_RANGE'
+      }
     | {
-        ok: false
-        code: 'TIME_RANGE_TOO_LARGE'
-    }
+          ok: false
+          code: 'TIME_RANGE_TOO_LARGE'
+      }
     | {
-        ok: false
-        code: 'STORAGE_UNAVAILABLE'
-        cause: unknown
-    }
+          ok: false
+          code: 'STORAGE_UNAVAILABLE'
+          cause: unknown
+      }
 
 export interface MetricQueryService {
-    query(
-        input: unknown
-    ): Promise<MetricQueryResult>
+    query(input: unknown): Promise<MetricQueryResult>
 }
 
-function isRecord(
-    value: unknown,
-): value is Record<string, unknown> {
-    return (
-        typeof value === 'object'
-        && value !== null
-        && !Array.isArray(value)
-    )
+function isRecord(value: unknown): value is Record<string, unknown> {
+    return typeof value === 'object' && value !== null && !Array.isArray(value)
 }
 
-function resolveMetricDefinition(
-    value: unknown,
-): MetricDefinition | undefined {
+function resolveMetricDefinition(value: unknown): MetricDefinition | undefined {
     if (
-        typeof value !== 'string'
-        || !Object.hasOwn(
-            METRIC_DEFINITIONS,
-            value,
-        )
+        typeof value !== 'string' ||
+        !Object.hasOwn(METRIC_DEFINITIONS, value)
     ) {
         return undefined
     }
 
-    return METRIC_DEFINITIONS[
-        value as WebMetric
-    ]
+    return METRIC_DEFINITIONS[value as WebMetric]
 }
 
 export function createMetricQueryService(
-    options: MetricQueryServiceOptions
+    options: MetricQueryServiceOptions,
 ): MetricQueryService {
     return {
-        async query(
-            input: unknown
-        ): Promise<MetricQueryResult> {
+        async query(input: unknown): Promise<MetricQueryResult> {
             const params = isRecord(input) ? input : {}
 
             const metric = resolveMetricDefinition(params.type)
@@ -146,25 +134,24 @@ export function createMetricQueryService(
             if (metric === undefined) {
                 return {
                     ok: false,
-                    code: "UNSUPPORTED_METRIC",
+                    code: 'UNSUPPORTED_METRIC',
                 }
             }
 
             const now = options.now()
 
-            const from = params.from === undefined
-                ? new Date(
-                    now - DEFAULT_RANGE_MS
-                )
-                : typeof params.from === 'string'
-                    ? new Date(params.from)
-                    : new Date(Number.NaN)
+            const from =
+                params.from === undefined
+                    ? new Date(now - DEFAULT_RANGE_MS)
+                    : typeof params.from === 'string'
+                      ? new Date(params.from)
+                      : new Date(Number.NaN)
 
             if (!Number.isFinite(from.getTime())) {
                 return {
                     ok: false,
                     code: 'INVALID_DATE',
-                    field: 'from'
+                    field: 'from',
                 }
             }
 
@@ -172,9 +159,9 @@ export function createMetricQueryService(
                 params.to === undefined
                     ? new Date(now)
                     : typeof params.to === 'string'
-                        ? new Date(params.to)
-                        : new Date(Number.NaN)
-            
+                      ? new Date(params.to)
+                      : new Date(Number.NaN)
+
             if (!Number.isFinite(to.getTime())) {
                 return {
                     ok: false,
@@ -186,55 +173,57 @@ export function createMetricQueryService(
             if (from.getTime() >= to.getTime()) {
                 return {
                     ok: false,
-                    code: 'INVALID_TIME_RANGE'
+                    code: 'INVALID_TIME_RANGE',
                 }
             }
             const rangeDuration = to.getTime() - from.getTime()
             if (rangeDuration > MAX_RANGE_MS) {
                 return {
                     ok: false,
-                    code: 'TIME_RANGE_TOO_LARGE'
+                    code: 'TIME_RANGE_TOO_LARGE',
                 }
             }
 
             if (
-                params.interval !== undefined
-                && (
-                    typeof params.interval !== 'string'
-                    || !['minute', 'hour', 'day'].includes(params.interval)
-                )
+                params.interval !== undefined &&
+                (typeof params.interval !== 'string' ||
+                    !['minute', 'hour', 'day'].includes(params.interval))
             ) {
                 return {
                     ok: false,
-                    code: 'INVALID_INTERVAL'
+                    code: 'INVALID_INTERVAL',
                 }
             }
 
-            const interval = params.interval === 'minute'
-                || params.interval === 'hour'
-                || params.interval === 'day'
+            const interval =
+                params.interval === 'minute' ||
+                params.interval === 'hour' ||
+                params.interval === 'day'
                     ? params.interval
                     : 'hour'
 
             try {
                 const value = await options.repository.queryMetric({
+                    ...(options.projectId === undefined
+                        ? {}
+                        : { projectId: options.projectId }),
                     appId: options.appId,
                     metric,
                     from,
                     to,
-                    interval: interval
+                    interval: interval,
                 })
                 return {
                     ok: true,
                     value,
                 }
-            } catch(cause) {
+            } catch (cause) {
                 return {
                     ok: false,
                     code: 'STORAGE_UNAVAILABLE',
                     cause,
                 }
             }
-        }
+        },
     }
 }

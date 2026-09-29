@@ -347,10 +347,11 @@ export function createPostgresEventRepository(
                             WHERE event_type = 'web.paint.fcp'
                         ) AS fcp_p90
                 FROM metric_events
-                WHERE app_id = $1
-                    AND event_time >= $2
-                    AND event_time < $3`,
-                [query.appId, query.from, query.to],
+                WHERE ($1::bigint IS NULL OR project_id = $1)
+                    AND app_id = $2
+                    AND event_time >= $3
+                    AND event_time < $4`,
+                [query.projectId ?? null, query.appId, query.from, query.to],
             )
 
             const row = result.rows[0]
@@ -384,7 +385,7 @@ export function createPostgresEventRepository(
                     date_bin(
                         ${intervalSql},
                         event_time,
-                        $2::timestamptz
+                        $3::timestamptz
                     ) AS bucket_time,
 
                     count(*) FILTER (
@@ -441,13 +442,14 @@ export function createPostgresEventRepository(
 
                 FROM metric_events
 
-                WHERE app_id = $1
-                    AND event_time >= $2
-                    AND event_time < $3
+                WHERE ($1::bigint IS NULL OR project_id = $1)
+                    AND app_id = $2
+                    AND event_time >= $3
+                    AND event_time < $4
 
                 GROUP BY bucket_time
                 ORDER BY bucket_time`,
-                [query.appId, query.from, query.to],
+                [query.projectId ?? null, query.appId, query.from, query.to],
             )
 
             // 把数据库结果做成索引
@@ -508,6 +510,7 @@ export function createPostgresEventRepository(
         },
         async queryMetric(query) {
             const values = [
+                query.projectId ?? null,
                 query.appId,
                 query.from,
                 query.to,
@@ -536,12 +539,13 @@ export function createPostgresEventRepository(
                                 ORDER BY metric_value
                             ) AS p90
                     FROM metric_events
-                    WHERE app_id = $1
-                        AND event_time >= $2
-                        AND event_time < $3
-                        AND event_type = $4
-                        AND metric_unit = $5
-                        AND metric_version = $6`,
+                    WHERE ($1::bigint IS NULL OR project_id = $1)
+                        AND app_id = $2
+                        AND event_time >= $3
+                        AND event_time < $4
+                        AND event_type = $5
+                        AND metric_unit = $6
+                        AND metric_version = $7`,
                 values,
             )
 
@@ -566,7 +570,7 @@ export function createPostgresEventRepository(
                         date_bin(
                             ${intervalSql},
                             event_time,
-                            $2::timestamptz
+                            $3::timestamptz
                         ) AS bucket_time,
 
                         count(*) AS count,
@@ -588,12 +592,13 @@ export function createPostgresEventRepository(
                             ) AS p90
 
                     FROM metric_events
-                    WHERE app_id = $1
-                        AND event_time >= $2
-                        AND event_time < $3
-                        AND event_type = $4
-                        AND metric_unit = $5
-                        AND metric_version = $6
+                    WHERE ($1::bigint IS NULL OR project_id = $1)
+                        AND app_id = $2
+                        AND event_time >= $3
+                        AND event_time < $4
+                        AND event_type = $5
+                        AND metric_unit = $6
+                        AND metric_version = $7
 
                     GROUP BY bucket_time
                     ORDER BY bucket_time`,
@@ -654,9 +659,10 @@ export function createPostgresEventRepository(
                 `WITH latest_view AS (
                     SELECT session_id, view_id
                     FROM metric_events
-                    WHERE app_id = $1
-                        AND event_time >= $2
-                        AND event_time < $3
+                    WHERE ($1::bigint IS NULL OR project_id = $1)
+                        AND app_id = $2
+                        AND event_time >= $3
+                        AND event_time < $4
                         AND event_type = 'web.memory.used_heap'
                     ORDER BY event_time DESC
                     LIMIT 1
@@ -671,9 +677,10 @@ export function createPostgresEventRepository(
                     ) AS heap_limit
                 FROM metric_events
                 JOIN latest_view USING (session_id, view_id)
-                WHERE app_id = $1
-                    AND event_time >= $2
-                    AND event_time < $3
+                WHERE ($1::bigint IS NULL OR project_id = $1)
+                    AND app_id = $2
+                    AND event_time >= $3
+                    AND event_time < $4
                     AND event_type IN (
                         'web.memory.used_heap',
                         'web.memory.heap_limit'
@@ -686,7 +693,7 @@ export function createPostgresEventRepository(
                     WHERE event_type = 'web.memory.heap_limit'
                 ) > 0
                 ORDER BY event_time`,
-                [query.appId, query.from, query.to],
+                [query.projectId ?? null, query.appId, query.from, query.to],
             )
 
             return result.rows.map((row) => ({
