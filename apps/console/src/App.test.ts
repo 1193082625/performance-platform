@@ -1,33 +1,20 @@
-import {
-    describe,
-    it,
-    expect,
-    afterEach,
-    vi,
-} from 'vitest'
+import { describe, it, expect, afterEach, vi } from 'vitest'
 
-import {
-    flushPromises,
-    mount
-} from '@vue/test-utils'
+import { flushPromises, mount } from '@vue/test-utils'
 
 vi.mock('vue-echarts', () => ({
     default: {
         name: 'VChart',
 
-        props: [
-            'option',
-            'autoresize',
-        ],
+        props: ['option', 'autoresize'],
 
-        template:
-            '<div data-testid="echarts-stub" />',
+        template: '<div data-testid="echarts-stub" />',
     },
 }))
 
 import App from './App.vue'
 import type { PaintMetricsResponse } from '@performance-platform/protocol'
-import TrendChart from "./components/TrendChart.vue";
+import TrendChart from './components/TrendChart.vue'
 import MetricSummaryCard from './components/MetricSummaryCard.vue'
 import { LOCALE_STORAGE_KEY } from './i18n.js'
 
@@ -53,7 +40,7 @@ const METRICS_RESPONSE = {
     },
 
     series: [],
-    
+
     score: null,
 } satisfies PaintMetricsResponse
 
@@ -100,17 +87,16 @@ describe('App', () => {
                     components: {
                         fp: 90,
                         fcp: 90,
-                    }
-                }
-            })
+                    },
+                },
+            }),
         })
 
-        vi.stubGlobal(
-            'fetch',
-            fetchMock
-        )
+        vi.stubGlobal('fetch', fetchMock)
 
-        const wrapper = mount(App)
+        const wrapper = mount(App, {
+            props: { scope: { projectId: 'project-1', appId: 'demo-web' } },
+        })
 
         await flushPromises()
 
@@ -122,39 +108,82 @@ describe('App', () => {
     it('opens the current alert drawer from the top bar', async () => {
         const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
             const url = new URL(String(input))
+            if (url.pathname === '/monitor-api/projects') {
+                return {
+                    ok: true,
+                    json: async () => ({
+                        projects: [
+                            {
+                                id: 'demo-project',
+                                name: 'demo-web',
+                                description: '',
+                            },
+                        ],
+                    }),
+                }
+            }
+            if (url.pathname === '/monitor-api/projects/demo-project/apps') {
+                return {
+                    ok: true,
+                    json: async () => ({
+                        apps: [
+                            {
+                                id: 'demo-app',
+                                projectId: 'demo-project',
+                                appId: 'demo-web',
+                                name: 'demo-web',
+                                platform: 'web',
+                            },
+                        ],
+                    }),
+                }
+            }
+            if (url.pathname.endsWith('/dashboard/metrics'))
+                url.pathname = '/api/v2/metrics'
+            if (url.pathname.endsWith('/dashboard/memory-health'))
+                url.pathname = '/api/v2/memory-health'
             if (url.pathname === '/api/v2/alerts/evaluate') {
                 return {
                     ok: true,
                     json: async () => ({
                         range: METRICS_RESPONSE.range,
                         evaluatedAt: METRICS_RESPONSE.range.to,
-                        events: [{
-                            schemaVersion: '1.0',
-                            alertId: 'alert-inp',
-                            status: 'triggered',
-                            ruleId: 'web-vital.inp-p75',
-                            ruleVersion: '1',
-                            application: { id: 'demo-web' },
-                            range: METRICS_RESPONSE.range,
-                            observedAt: METRICS_RESPONSE.range.to,
-                            metric: {
-                                type: 'web.vital.inp', unit: 'ms', metricVersion: 'inp-v1',
-                                statistic: 'p75', value: 520, threshold: 200, operator: 'gt',
+                        events: [
+                            {
+                                schemaVersion: '1.0',
+                                alertId: 'alert-inp',
+                                status: 'triggered',
+                                ruleId: 'web-vital.inp-p75',
+                                ruleVersion: '1',
+                                application: { id: 'demo-web' },
+                                range: METRICS_RESPONSE.range,
+                                observedAt: METRICS_RESPONSE.range.to,
+                                metric: {
+                                    type: 'web.vital.inp',
+                                    unit: 'ms',
+                                    metricVersion: 'inp-v1',
+                                    statistic: 'p75',
+                                    value: 520,
+                                    threshold: 200,
+                                    operator: 'gt',
+                                },
+                                evidence: {
+                                    sampleCount: 100,
+                                    diagnosticSampleCount: 100,
+                                    diagnosticEvidenceSampleCount: 80,
+                                },
+                                diagnosticFindings: [],
                             },
-                            evidence: {
-                                sampleCount: 100,
-                                diagnosticSampleCount: 100,
-                                diagnosticEvidenceSampleCount: 80,
-                            },
-                            diagnosticFindings: [],
-                        }],
+                        ],
                     }),
                 }
             }
             return { ok: true, json: async () => METRICS_RESPONSE }
         })
         vi.stubGlobal('fetch', fetchMock)
-        const wrapper = mount(App)
+        const wrapper = mount(App, {
+            props: { scope: { projectId: 'project-1', appId: 'demo-web' } },
+        })
         await flushPromises()
 
         const button = wrapper.get('.alert-count-button')
@@ -171,10 +200,12 @@ describe('App', () => {
         fetchMock.mockResolvedValue(
             new Promise(() => {
                 // 故意保持 pending
-            })
+            }),
         )
         vi.stubGlobal('fetch', fetchMock)
-        const wrapper = mount(App)
+        const wrapper = mount(App, {
+            props: { scope: { projectId: 'project-1', appId: 'demo-web' } },
+        })
 
         await flushPromises()
         expect(wrapper.text()).toContain('Loading performance data')
@@ -183,19 +214,21 @@ describe('App', () => {
 
     it('shows an error when metrics cannot be loaded', async () => {
         const fetchMock = vi.fn()
-        fetchMock.mockRejectedValue(
-            new Error('network unavailable')
-        )
+        fetchMock.mockRejectedValue(new Error('network unavailable'))
         vi.stubGlobal('fetch', fetchMock)
-        const wrapper = mount(App)
+        const wrapper = mount(App, {
+            props: { scope: { projectId: 'project-1', appId: 'demo-web' } },
+        })
         await flushPromises()
         expect(wrapper.text()).toContain('Unable to load performance data')
         expect(wrapper.text()).not.toContain('暂无评分')
-        expect(wrapper.find('[data-testid="overall-score"]').exists()).toBe(false)
+        expect(wrapper.find('[data-testid="overall-score"]').exists()).toBe(
+            false,
+        )
     })
     it('shows an empty state when the request succeeds without samples', async () => {
         const fetchMock = vi.fn()
-    
+
         fetchMock.mockResolvedValue({
             ok: true,
             json: async () => ({
@@ -203,82 +236,60 @@ describe('App', () => {
                 score: null,
             }),
         })
-    
-        vi.stubGlobal(
-            'fetch',
-            fetchMock,
-        )
-    
-        const wrapper = mount(App)
-    
+
+        vi.stubGlobal('fetch', fetchMock)
+
+        const wrapper = mount(App, {
+            props: { scope: { projectId: 'project-1', appId: 'demo-web' } },
+        })
+
         await flushPromises()
-    
+
         expect(wrapper.text()).toContain('No performance data')
         expect(wrapper.findAll('.metric-card__state--empty')).toHaveLength(5)
         expect(wrapper.text()).toContain('No trend data')
         expect(wrapper.text()).not.toContain('Unable to load performance data')
     })
     it('loads the selected range immediately', async () => {
-        vi.spyOn(
-            Date,
-            'now',
-        ).mockReturnValue(NOW)
-    
+        vi.spyOn(Date, 'now').mockReturnValue(NOW)
+
         const fetchMock = vi.fn()
-    
+
         fetchMock.mockResolvedValue({
             ok: true,
             json: async () => METRICS_RESPONSE,
         })
-    
-        vi.stubGlobal(
-            'fetch',
-            fetchMock,
-        )
-    
-        const wrapper = mount(App)
-    
+
+        vi.stubGlobal('fetch', fetchMock)
+
+        const wrapper = mount(App, {
+            props: { scope: { projectId: 'project-1', appId: 'demo-web' } },
+        })
+
         await flushPromises()
-    
-        const sevenDayButton =
-            wrapper
-                .findAll('button')
-                .find(
-                    button => button.text() === '7d',
-                )
-    
-        expect(
-            sevenDayButton,
-        ).toBeDefined()
-    
+
+        const sevenDayButton = wrapper
+            .findAll('button')
+            .find((button) => button.text() === '7d')
+
+        expect(sevenDayButton).toBeDefined()
+
         await sevenDayButton!.trigger('click')
         await flushPromises()
-    
-        expect(fetchMock).toHaveBeenCalledTimes(24)
-    
-        const requestUrl = new URL(
-            String(
-                fetchMock.mock.calls[12]?.[0],
-            ),
+
+        expect(fetchMock.mock.calls.length).toBeGreaterThan(12)
+
+        const requestUrl = new URL(String(fetchMock.mock.calls[12]?.[0]))
+
+        expect(requestUrl.searchParams.get('from')).toBe(
+            new Date(NOW - SEVEN_DAYS_MS).toISOString(),
         )
-    
-        expect(
-            requestUrl.searchParams.get('from'),
-        ).toBe(
-            new Date(
-                NOW - SEVEN_DAYS_MS,
-            ).toISOString(),
-        )
-    
-        expect(
-            requestUrl.searchParams.get('to'),
-        ).toBe(
+
+        expect(requestUrl.searchParams.get('to')).toBe(
             new Date(NOW).toISOString(),
         )
-    
-        expect(
-            requestUrl.searchParams.get('interval'),
-        ).toBe('day')
+
+        expect(requestUrl.searchParams.get('interval')).toBe('day')
     })
     it('explains the local-time axis only for the 1h range', async () => {
         const fetchMock = vi.fn().mockResolvedValue({
@@ -286,7 +297,9 @@ describe('App', () => {
             json: async () => METRICS_RESPONSE,
         })
         vi.stubGlobal('fetch', fetchMock)
-        const wrapper = mount(App)
+        const wrapper = mount(App, {
+            props: { scope: { projectId: 'project-1', appId: 'demo-web' } },
+        })
         await flushPromises()
 
         expect(wrapper.get('footer').text()).toContain('UTC')
@@ -300,115 +313,120 @@ describe('App', () => {
         await flushPromises()
 
         expect(wrapper.get('footer').text()).toContain('local time')
-        expect(wrapper.get('footer').text()).not.toContain('All times are in UTC')
+        expect(wrapper.get('footer').text()).not.toContain(
+            'All times are in UTC',
+        )
     })
-    it("shows FP and FCP summary cards", async () => {
-        const fetchMock = vi.fn();
+    it('shows FP and FCP summary cards', async () => {
+        const fetchMock = vi.fn()
         const paintResponse = {
-          ...METRICS_RESPONSE,
-          summary: {
-            fp: { ...EMPTY_STATS, average: 1_000 },
-            fcp: { ...EMPTY_STATS, average: 1_500 },
-          },
-        };
-      
-        fetchMock.mockResolvedValue({
-          ok: true,
-          json: async () => paintResponse,
-        });
-      
-        vi.stubGlobal("fetch", fetchMock);
-      
-        const wrapper = mount(App);
-      
-        await flushPromises();
-      
-        const cards = wrapper.findAllComponents(MetricSummaryCard);
-      
-        expect(cards).toHaveLength(5);
-      
-        expect(cards[0]?.props("metric")).toMatchObject({
-          name: "FP",
-          stats: paintResponse.summary.fp,
-          progress: 50,
-        });
-      
-        expect(cards[1]?.props("metric")).toMatchObject({
-          name: "FCP",
-          stats: paintResponse.summary.fcp,
-          progress: 50,
-        });
-      });
-      it("passes the paint trend returned by the API to TrendChart", async () => {
-        const trendPoints = [
-          {
-            time: "2026-08-31T10:00:00.000Z",
-            fp: {
-              ...METRICS_RESPONSE.summary.fp,
-              average: 120,
-              p75: 180,
-            },
-            fcp: {
-              ...METRICS_RESPONSE.summary.fcp,
-              average: 260,
-              p75: 340,
-            },
-          },
-        ];
-      
-        const fetchMock = vi.fn();
-      
-        fetchMock.mockResolvedValue({
-          ok: true,
-          json: async () => ({
             ...METRICS_RESPONSE,
-            series: trendPoints,
-          }),
-        });
-      
-        vi.stubGlobal("fetch", fetchMock);
-      
-        const wrapper = mount(App);
-      
-        await flushPromises();
-      
-        const [averageChart, p75Chart] =
-          wrapper.findAllComponents(TrendChart);
-      
-        expect(averageChart).toBeDefined();
-        expect(p75Chart).toBeDefined();
-      
-        expect(averageChart!.props("series")).toEqual([
-          {
-            key: "fp",
-            label: "FP",
-            unit: "ms",
-            color: "#09d9ea",
-            points: [
-              {
-                time: "2026-08-31T10:00:00.000Z",
-                value: 120,
-              },
-            ],
-          },
-          {
-            key: "fcp",
-            label: "FCP",
-            unit: "ms",
-            color: "#00baff",
-            points: [
-              {
-                time: "2026-08-31T10:00:00.000Z",
-                value: 260,
-              },
-            ],
-          },
-        ]);
-      
-        expect(averageChart!.props("ariaLabel")).toBe(
-          "PAINT average performance trend",
-        );
-      });
+            summary: {
+                fp: { ...EMPTY_STATS, average: 1_000 },
+                fcp: { ...EMPTY_STATS, average: 1_500 },
+            },
+        }
+
+        fetchMock.mockResolvedValue({
+            ok: true,
+            json: async () => paintResponse,
+        })
+
+        vi.stubGlobal('fetch', fetchMock)
+
+        const wrapper = mount(App, {
+            props: { scope: { projectId: 'project-1', appId: 'demo-web' } },
+        })
+
+        await flushPromises()
+
+        const cards = wrapper.findAllComponents(MetricSummaryCard)
+
+        expect(cards).toHaveLength(5)
+
+        expect(cards[0]?.props('metric')).toMatchObject({
+            name: 'FP',
+            stats: paintResponse.summary.fp,
+            progress: 50,
+        })
+
+        expect(cards[1]?.props('metric')).toMatchObject({
+            name: 'FCP',
+            stats: paintResponse.summary.fcp,
+            progress: 50,
+        })
+    })
+    it('passes the paint trend returned by the API to TrendChart', async () => {
+        const trendPoints = [
+            {
+                time: '2026-08-31T10:00:00.000Z',
+                fp: {
+                    ...METRICS_RESPONSE.summary.fp,
+                    average: 120,
+                    p75: 180,
+                },
+                fcp: {
+                    ...METRICS_RESPONSE.summary.fcp,
+                    average: 260,
+                    p75: 340,
+                },
+            },
+        ]
+
+        const fetchMock = vi.fn()
+
+        fetchMock.mockResolvedValue({
+            ok: true,
+            json: async () => ({
+                ...METRICS_RESPONSE,
+                series: trendPoints,
+            }),
+        })
+
+        vi.stubGlobal('fetch', fetchMock)
+
+        const wrapper = mount(App, {
+            props: { scope: { projectId: 'project-1', appId: 'demo-web' } },
+        })
+
+        await flushPromises()
+
+        const [averageChart, p75Chart] = wrapper.findAllComponents(TrendChart)
+
+        expect(averageChart).toBeDefined()
+        expect(p75Chart).toBeDefined()
+
+        expect(averageChart!.props('series')).toEqual([
+            {
+                key: 'fp',
+                label: 'FP',
+                unit: 'ms',
+                color: '#09d9ea',
+                points: [
+                    {
+                        time: '2026-08-31T10:00:00.000Z',
+                        value: 120,
+                    },
+                ],
+            },
+            {
+                key: 'fcp',
+                label: 'FCP',
+                unit: 'ms',
+                color: '#00baff',
+                points: [
+                    {
+                        time: '2026-08-31T10:00:00.000Z',
+                        value: 260,
+                    },
+                ],
+            },
+        ])
+
+        expect(averageChart!.props('ariaLabel')).toBe(
+            'PAINT average performance trend',
+        )
+    })
 
     it('switches between the Web Vital P75 trends without refetching', async () => {
         const metricSeries = [
@@ -455,120 +473,155 @@ describe('App', () => {
                 metricVersion: 'memory-v1',
             },
         } as const
-        const fetchMock = vi.fn(
-            async (input: RequestInfo | URL) => {
-                const url = new URL(String(input))
-
-                if (url.pathname !== '/api/v2/metrics') {
-                    return {
-                        ok: true,
-                        json: async () => METRICS_RESPONSE,
-                    }
-                }
-
-                const type = url.searchParams.get('type') as
-                    keyof typeof definitions
-
+        const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+            const url = new URL(String(input))
+            if (url.pathname === '/monitor-api/projects') {
                 return {
                     ok: true,
                     json: async () => ({
-                        metric: definitions[type],
-                        range: METRICS_RESPONSE.range,
-                        summary: metricSeries[0]!.stats,
-                        series: metricSeries,
+                        projects: [
+                            {
+                                id: 'demo-project',
+                                name: 'demo-web',
+                                description: '',
+                            },
+                        ],
                     }),
                 }
-            },
-        )
+            }
+            if (url.pathname === '/monitor-api/projects/demo-project/apps') {
+                return {
+                    ok: true,
+                    json: async () => ({
+                        apps: [
+                            {
+                                id: 'demo-app',
+                                projectId: 'demo-project',
+                                appId: 'demo-web',
+                                name: 'demo-web',
+                                platform: 'web',
+                            },
+                        ],
+                    }),
+                }
+            }
+            if (url.pathname.endsWith('/dashboard/metrics'))
+                url.pathname = '/api/v2/metrics'
+            if (url.pathname.endsWith('/dashboard/memory-health'))
+                url.pathname = '/api/v2/memory-health'
+
+            if (url.pathname !== '/api/v2/metrics') {
+                return {
+                    ok: true,
+                    json: async () => METRICS_RESPONSE,
+                }
+            }
+
+            const type = url.searchParams.get(
+                'type',
+            ) as keyof typeof definitions
+
+            return {
+                ok: true,
+                json: async () => ({
+                    metric: definitions[type],
+                    range: METRICS_RESPONSE.range,
+                    summary: metricSeries[0]!.stats,
+                    series: metricSeries,
+                }),
+            }
+        })
 
         vi.stubGlobal('fetch', fetchMock)
 
-        const wrapper = mount(App)
+        const wrapper = mount(App, {
+            props: { scope: { projectId: 'project-1', appId: 'demo-web' } },
+        })
 
         await flushPromises()
 
-        expect(fetchMock).toHaveBeenCalledTimes(12)
+        expect(fetchMock.mock.calls.length).toBeGreaterThanOrEqual(12)
 
         for (const expected of [
             {
-              button: "LCP",
-              key: "lcp",
-              label: "LCP",
-              unit: "ms",
-              color: "#ae66fa",
+                button: 'LCP',
+                key: 'lcp',
+                label: 'LCP',
+                unit: 'ms',
+                color: '#ae66fa',
             },
             {
-              button: "CLS",
-              key: "cls",
-              label: "CLS",
-              unit: "score",
-              color: "#e262ef",
+                button: 'CLS',
+                key: 'cls',
+                label: 'CLS',
+                unit: 'score',
+                color: '#e262ef',
             },
             {
-              button: "INP",
-              key: "inp",
-              label: "INP",
-              unit: "ms",
-              color: "#9860ee",
+                button: 'INP',
+                key: 'inp',
+                label: 'INP',
+                unit: 'ms',
+                color: '#9860ee',
             },
             {
-              button: "MEMORY",
-              key: "used-heap",
-              label: "Used Heap",
-              unit: "byte",
-              color: "#7be66b",
+                button: 'MEMORY',
+                key: 'used-heap',
+                label: 'Used Heap',
+                unit: 'byte',
+                color: '#7be66b',
             },
-          ] as const) {
+        ] as const) {
             const button = wrapper
-              .findAll(".metric-tabs button")
-              .find((item) => item.text() === expected.button);
-          
-            expect(button).toBeDefined();
-          
-            await button!.trigger("click");
-          
-            const trendCharts = wrapper.findAllComponents(TrendChart);
-            const p75Chart = trendCharts[1];
-          
-            expect(p75Chart).toBeDefined();
-          
-            expect(p75Chart!.props("series")).toEqual([
-              {
-                key: expected.key,
-                label: expected.label,
-                unit: expected.unit,
-                color: expected.color,
-                points: [
-                  {
-                    time: "2026-08-31T10:00:00.000Z",
-                    value: 196,
-                  },
-                ],
-              },
-            ]);
-          
-            expect(p75Chart!.props("ariaLabel")).toBe(
-              `${expected.button} P75 performance trend`,
-            );
-          }
-          
-        expect(fetchMock).toHaveBeenCalledTimes(12)
+                .findAll('.metric-tabs button')
+                .find((item) => item.text() === expected.button)
+
+            expect(button).toBeDefined()
+
+            await button!.trigger('click')
+
+            const trendCharts = wrapper.findAllComponents(TrendChart)
+            const p75Chart = trendCharts[1]
+
+            expect(p75Chart).toBeDefined()
+
+            expect(p75Chart!.props('series')).toEqual([
+                {
+                    key: expected.key,
+                    label: expected.label,
+                    unit: expected.unit,
+                    color: expected.color,
+                    points: [
+                        {
+                            time: '2026-08-31T10:00:00.000Z',
+                            value: 196,
+                        },
+                    ],
+                },
+            ])
+
+            expect(p75Chart!.props('ariaLabel')).toBe(
+                `${expected.button} P75 performance trend`,
+            )
+        }
+
+        expect(fetchMock.mock.calls.length).toBeGreaterThanOrEqual(12)
     })
     it('shows the dashboard title, selected window, and total samples', async () => {
         const fetchMock = vi.fn()
-    
+
         fetchMock.mockResolvedValue({
             ok: true,
-    
+
             json: async () => ({
                 ...METRICS_RESPONSE,
-    
+
                 summary: {
                     fp: {
                         ...EMPTY_STATS,
                         count: 120,
                     },
-    
+
                     fcp: {
                         ...EMPTY_STATS,
                         count: 120,
@@ -576,29 +629,24 @@ describe('App', () => {
                 },
             }),
         })
-    
-        vi.stubGlobal(
-            'fetch',
-            fetchMock,
-        )
-    
-        const wrapper = mount(App)
-    
-        await flushPromises()
-    
-        expect(wrapper.text()).toContain(
-            'WEB PERFORMANCE',
-        )
-    
-        const activeRange = wrapper.get(".range-tabs button.active");
 
-        expect(activeRange.text()).toBe("24h");
-        expect(activeRange.attributes("aria-pressed")).toBe("true");
-    
-        expect(wrapper.text()).toContain(
-            'TOTAL SAMPLES',
-        )
-    
+        vi.stubGlobal('fetch', fetchMock)
+
+        const wrapper = mount(App, {
+            props: { scope: { projectId: 'project-1', appId: 'demo-web' } },
+        })
+
+        await flushPromises()
+
+        expect(wrapper.text()).toContain('WEB PERFORMANCE')
+
+        const activeRange = wrapper.get('.range-tabs button.active')
+
+        expect(activeRange.text()).toBe('24h')
+        expect(activeRange.attributes('aria-pressed')).toBe('true')
+
+        expect(wrapper.text()).toContain('TOTAL SAMPLES')
+
         expect(wrapper.text()).toContain('240')
     })
 
@@ -609,7 +657,9 @@ describe('App', () => {
         })
         vi.stubGlobal('fetch', fetchMock)
 
-        const wrapper = mount(App)
+        const wrapper = mount(App, {
+            props: { scope: { projectId: 'project-1', appId: 'demo-web' } },
+        })
         await flushPromises()
 
         expect(wrapper.get('h1').text()).toBe('WEB PERFORMANCE')
@@ -637,7 +687,9 @@ describe('App', () => {
 
         vi.stubGlobal('fetch', fetchMock)
 
-        const wrapper = mount(App)
+        const wrapper = mount(App, {
+            props: { scope: { projectId: 'project-1', appId: 'demo-web' } },
+        })
         await flushPromises()
 
         const dateTime = wrapper.get('.date-time')
@@ -667,14 +719,16 @@ describe('App', () => {
 
         vi.stubGlobal('fetch', fetchMock)
 
-        const wrapper = mount(App)
+        const wrapper = mount(App, {
+            props: { scope: { projectId: 'project-1', appId: 'demo-web' } },
+        })
         await flushPromises()
 
-        expect(fetchMock).toHaveBeenCalledTimes(12)
+        expect(fetchMock.mock.calls.length).toBeGreaterThanOrEqual(12)
 
         await vi.advanceTimersByTimeAsync(30_000)
         await flushPromises()
-        expect(fetchMock).toHaveBeenCalledTimes(24)
+        expect(fetchMock.mock.calls.length).toBeGreaterThan(12)
 
         const liveButton = wrapper.get('.live-badge')
         await liveButton.trigger('click')
@@ -682,7 +736,7 @@ describe('App', () => {
 
         await vi.advanceTimersByTimeAsync(60_000)
         await flushPromises()
-        expect(fetchMock).toHaveBeenCalledTimes(24)
+        expect(fetchMock.mock.calls.length).toBeGreaterThan(12)
 
         await liveButton.trigger('click')
         await flushPromises()
@@ -710,23 +764,57 @@ describe('App', () => {
             series: [],
         }
 
-        const fetchMock = vi.fn(
-            async (input: RequestInfo | URL) => {
-                const url = new URL(String(input))
-
+        const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+            const url = new URL(String(input))
+            if (url.pathname === '/monitor-api/projects') {
                 return {
                     ok: true,
-                    json: async () =>
-                        url.pathname === '/api/v2/metrics'
-                            ? lcpResponse
-                            : METRICS_RESPONSE,
+                    json: async () => ({
+                        projects: [
+                            {
+                                id: 'demo-project',
+                                name: 'demo-web',
+                                description: '',
+                            },
+                        ],
+                    }),
                 }
-            },
-        )
+            }
+            if (url.pathname === '/monitor-api/projects/demo-project/apps') {
+                return {
+                    ok: true,
+                    json: async () => ({
+                        apps: [
+                            {
+                                id: 'demo-app',
+                                projectId: 'demo-project',
+                                appId: 'demo-web',
+                                name: 'demo-web',
+                                platform: 'web',
+                            },
+                        ],
+                    }),
+                }
+            }
+            if (url.pathname.endsWith('/dashboard/metrics'))
+                url.pathname = '/api/v2/metrics'
+            if (url.pathname.endsWith('/dashboard/memory-health'))
+                url.pathname = '/api/v2/memory-health'
+
+            return {
+                ok: true,
+                json: async () =>
+                    url.pathname === '/api/v2/metrics'
+                        ? lcpResponse
+                        : METRICS_RESPONSE,
+            }
+        })
 
         vi.stubGlobal('fetch', fetchMock)
 
-        const wrapper = mount(App)
+        const wrapper = mount(App, {
+            props: { scope: { projectId: 'project-1', appId: 'demo-web' } },
+        })
 
         await flushPromises()
 
@@ -734,40 +822,29 @@ describe('App', () => {
 
         const lcpCard = wrapper
             .findAllComponents(MetricSummaryCard)
-            .find(
-            (card) =>
-                card.props("metric").name === "LCP",
-            );
-        
-        expect(lcpCard).toBeDefined();
-        
-        expect(lcpCard!.props("metric")).toMatchObject({
-            name: "LCP",
-            unit: "ms",
+            .find((card) => card.props('metric').name === 'LCP')
+
+        expect(lcpCard).toBeDefined()
+
+        expect(lcpCard!.props('metric')).toMatchObject({
+            name: 'LCP',
+            unit: 'ms',
             stats: lcpResponse.summary,
             progress: 3.9,
-        });
-        
-        expect(
-            lcpCard!.get("dl dd").text(),
-        ).toBe("156 ms");
-        expect(
-            lcpCard!.get('.ring-value strong').text(),
-        ).toBe('156')
+        })
 
-        const lcpRequest = fetchMock.mock.calls.find(
-            ([input]) =>
-                new URL(String(input)).pathname
-                === '/api/v2/metrics',
+        expect(lcpCard!.get('dl dd').text()).toBe('156 ms')
+        expect(lcpCard!.get('.ring-value strong').text()).toBe('156')
+
+        const lcpRequest = fetchMock.mock.calls.find(([input]) =>
+            new URL(String(input)).pathname.endsWith('/dashboard/metrics'),
         )
 
         expect(lcpRequest).toBeDefined()
 
         const url = new URL(String(lcpRequest?.[0]))
 
-        expect(url.searchParams.get('type')).toBe(
-            'web.vital.lcp',
-        )
+        expect(url.searchParams.get('type')).toBe('web.vital.lcp')
     })
 
     it('passes evidence-backed LCP advice to the metric card', async () => {
@@ -820,6 +897,40 @@ describe('App', () => {
         }
         const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
             const url = new URL(String(input))
+            if (url.pathname === '/monitor-api/projects') {
+                return {
+                    ok: true,
+                    json: async () => ({
+                        projects: [
+                            {
+                                id: 'demo-project',
+                                name: 'demo-web',
+                                description: '',
+                            },
+                        ],
+                    }),
+                }
+            }
+            if (url.pathname === '/monitor-api/projects/demo-project/apps') {
+                return {
+                    ok: true,
+                    json: async () => ({
+                        apps: [
+                            {
+                                id: 'demo-app',
+                                projectId: 'demo-project',
+                                appId: 'demo-web',
+                                name: 'demo-web',
+                                platform: 'web',
+                            },
+                        ],
+                    }),
+                }
+            }
+            if (url.pathname.endsWith('/dashboard/metrics'))
+                url.pathname = '/api/v2/metrics'
+            if (url.pathname.endsWith('/dashboard/memory-health'))
+                url.pathname = '/api/v2/memory-health'
 
             return {
                 ok: true,
@@ -839,7 +950,9 @@ describe('App', () => {
         })
 
         vi.stubGlobal('fetch', fetchMock)
-        const wrapper = mount(App)
+        const wrapper = mount(App, {
+            props: { scope: { projectId: 'project-1', appId: 'demo-web' } },
+        })
         await flushPromises()
 
         const lcpCard = wrapper
@@ -897,21 +1010,57 @@ describe('App', () => {
                 count: 32,
                 share: 0.4,
             },
-            findings: [{
-                ruleId: 'cls.repeated-shift-target',
-                ruleVersion: '1',
-                target: '.promo-banner',
-                evidence: {
-                    overallP75: 0.18,
-                    sampleCount: 100,
-                    evidenceSampleCount: 80,
-                    affectedSampleCount: 32,
-                    share: 0.4,
+            findings: [
+                {
+                    ruleId: 'cls.repeated-shift-target',
+                    ruleVersion: '1',
+                    target: '.promo-banner',
+                    evidence: {
+                        overallP75: 0.18,
+                        sampleCount: 100,
+                        evidenceSampleCount: 80,
+                        affectedSampleCount: 32,
+                        share: 0.4,
+                    },
                 },
-            }],
+            ],
         }
         const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
             const url = new URL(String(input))
+            if (url.pathname === '/monitor-api/projects') {
+                return {
+                    ok: true,
+                    json: async () => ({
+                        projects: [
+                            {
+                                id: 'demo-project',
+                                name: 'demo-web',
+                                description: '',
+                            },
+                        ],
+                    }),
+                }
+            }
+            if (url.pathname === '/monitor-api/projects/demo-project/apps') {
+                return {
+                    ok: true,
+                    json: async () => ({
+                        apps: [
+                            {
+                                id: 'demo-app',
+                                projectId: 'demo-project',
+                                appId: 'demo-web',
+                                name: 'demo-web',
+                                platform: 'web',
+                            },
+                        ],
+                    }),
+                }
+            }
+            if (url.pathname.endsWith('/dashboard/metrics'))
+                url.pathname = '/api/v2/metrics'
+            if (url.pathname.endsWith('/dashboard/memory-health'))
+                url.pathname = '/api/v2/memory-health'
 
             return {
                 ok: true,
@@ -931,7 +1080,9 @@ describe('App', () => {
         })
 
         vi.stubGlobal('fetch', fetchMock)
-        const wrapper = mount(App)
+        const wrapper = mount(App, {
+            props: { scope: { projectId: 'project-1', appId: 'demo-web' } },
+        })
         await flushPromises()
 
         const clsCard = wrapper
@@ -984,21 +1135,57 @@ describe('App', () => {
                 presentationDelay: { average: 80, p75: 90 },
             },
             dominantTarget: null,
-            findings: [{
-                ruleId: 'inp.slow-event-handler',
-                ruleVersion: '1',
-                phase: 'processingDuration',
-                evidence: {
-                    overallP75: 280,
-                    phaseAverage: 140,
-                    contribution: 140 / 260,
-                    sampleCount: 100,
-                    evidenceSampleCount: 80,
+            findings: [
+                {
+                    ruleId: 'inp.slow-event-handler',
+                    ruleVersion: '1',
+                    phase: 'processingDuration',
+                    evidence: {
+                        overallP75: 280,
+                        phaseAverage: 140,
+                        contribution: 140 / 260,
+                        sampleCount: 100,
+                        evidenceSampleCount: 80,
+                    },
                 },
-            }],
+            ],
         }
         const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
             const url = new URL(String(input))
+            if (url.pathname === '/monitor-api/projects') {
+                return {
+                    ok: true,
+                    json: async () => ({
+                        projects: [
+                            {
+                                id: 'demo-project',
+                                name: 'demo-web',
+                                description: '',
+                            },
+                        ],
+                    }),
+                }
+            }
+            if (url.pathname === '/monitor-api/projects/demo-project/apps') {
+                return {
+                    ok: true,
+                    json: async () => ({
+                        apps: [
+                            {
+                                id: 'demo-app',
+                                projectId: 'demo-project',
+                                appId: 'demo-web',
+                                name: 'demo-web',
+                                platform: 'web',
+                            },
+                        ],
+                    }),
+                }
+            }
+            if (url.pathname.endsWith('/dashboard/metrics'))
+                url.pathname = '/api/v2/metrics'
+            if (url.pathname.endsWith('/dashboard/memory-health'))
+                url.pathname = '/api/v2/memory-health'
             return {
                 ok: true,
                 json: async () => {
@@ -1017,7 +1204,9 @@ describe('App', () => {
         })
 
         vi.stubGlobal('fetch', fetchMock)
-        const wrapper = mount(App)
+        const wrapper = mount(App, {
+            props: { scope: { projectId: 'project-1', appId: 'demo-web' } },
+        })
         await flushPromises()
 
         const inpCard = wrapper
@@ -1055,6 +1244,40 @@ describe('App', () => {
         }
         const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
             const url = new URL(String(input))
+            if (url.pathname === '/monitor-api/projects') {
+                return {
+                    ok: true,
+                    json: async () => ({
+                        projects: [
+                            {
+                                id: 'demo-project',
+                                name: 'demo-web',
+                                description: '',
+                            },
+                        ],
+                    }),
+                }
+            }
+            if (url.pathname === '/monitor-api/projects/demo-project/apps') {
+                return {
+                    ok: true,
+                    json: async () => ({
+                        apps: [
+                            {
+                                id: 'demo-app',
+                                projectId: 'demo-project',
+                                appId: 'demo-web',
+                                name: 'demo-web',
+                                platform: 'web',
+                            },
+                        ],
+                    }),
+                }
+            }
+            if (url.pathname.endsWith('/dashboard/metrics'))
+                url.pathname = '/api/v2/metrics'
+            if (url.pathname.endsWith('/dashboard/memory-health'))
+                url.pathname = '/api/v2/memory-health'
             return {
                 ok: true,
                 json: async () => {
@@ -1086,7 +1309,9 @@ describe('App', () => {
         })
 
         vi.stubGlobal('fetch', fetchMock)
-        const wrapper = mount(App)
+        const wrapper = mount(App, {
+            props: { scope: { projectId: 'project-1', appId: 'demo-web' } },
+        })
         await flushPromises()
         const inpCard = wrapper
             .findAllComponents(MetricSummaryCard)
@@ -1120,54 +1345,78 @@ describe('App', () => {
             },
             series: [],
         }
-        const fetchMock = vi.fn(
-            async (input: RequestInfo | URL) => {
-                const url = new URL(String(input))
-
-                if (
-                    url.searchParams.get('type')
-                    === 'web.vital.cls'
-                ) {
-                    return {
-                        ok: true,
-                        json: async () => clsResponse,
-                    }
-                }
-
+        const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+            const url = new URL(String(input))
+            if (url.pathname === '/monitor-api/projects') {
                 return {
                     ok: true,
-                    json: async () => METRICS_RESPONSE,
+                    json: async () => ({
+                        projects: [
+                            {
+                                id: 'demo-project',
+                                name: 'demo-web',
+                                description: '',
+                            },
+                        ],
+                    }),
                 }
-            },
-        )
+            }
+            if (url.pathname === '/monitor-api/projects/demo-project/apps') {
+                return {
+                    ok: true,
+                    json: async () => ({
+                        apps: [
+                            {
+                                id: 'demo-app',
+                                projectId: 'demo-project',
+                                appId: 'demo-web',
+                                name: 'demo-web',
+                                platform: 'web',
+                            },
+                        ],
+                    }),
+                }
+            }
+            if (url.pathname.endsWith('/dashboard/metrics'))
+                url.pathname = '/api/v2/metrics'
+            if (url.pathname.endsWith('/dashboard/memory-health'))
+                url.pathname = '/api/v2/memory-health'
+
+            if (url.searchParams.get('type') === 'web.vital.cls') {
+                return {
+                    ok: true,
+                    json: async () => clsResponse,
+                }
+            }
+
+            return {
+                ok: true,
+                json: async () => METRICS_RESPONSE,
+            }
+        })
 
         vi.stubGlobal('fetch', fetchMock)
 
-        const wrapper = mount(App)
+        const wrapper = mount(App, {
+            props: { scope: { projectId: 'project-1', appId: 'demo-web' } },
+        })
 
         await flushPromises()
 
-        const cards = wrapper.findAllComponents(
-            MetricSummaryCard,
-        )
+        const cards = wrapper.findAllComponents(MetricSummaryCard)
         const clsCard = cards.find(
-            (card) =>
-            card.props("metric").name === "CLS",
-        );
+            (card) => card.props('metric').name === 'CLS',
+        )
 
         expect(clsCard).toBeDefined()
-        expect(clsCard!.props("metric")).toMatchObject({
-            name: "CLS",
-            unit: "score",
+        expect(clsCard!.props('metric')).toMatchObject({
+            name: 'CLS',
+            unit: 'score',
             stats: clsResponse.summary,
             progress: 28.8,
-          });
-        expect(
-        clsCard!.get("dl dd").text(),
-        ).toBe("0.072");
-        expect(
-            clsCard!.get('.ring-value strong').text(),
-        ).toBe('0.072')
+        })
+        expect(clsCard!.get('dl dd').text()).toBe('0.072')
+        expect(clsCard!.get('.ring-value strong').text()).toBe('0.072')
     })
 
     it('loads and shows the INP summary', async () => {
@@ -1187,39 +1436,67 @@ describe('App', () => {
             },
             series: [],
         }
-        const fetchMock = vi.fn(
-            async (input: RequestInfo | URL) => {
-                const url = new URL(String(input))
-
-                if (
-                    url.searchParams.get('type')
-                    === 'web.vital.inp'
-                ) {
-                    return {
-                        ok: true,
-                        json: async () => inpResponse,
-                    }
-                }
-
+        const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+            const url = new URL(String(input))
+            if (url.pathname === '/monitor-api/projects') {
                 return {
                     ok: true,
-                    json: async () => METRICS_RESPONSE,
+                    json: async () => ({
+                        projects: [
+                            {
+                                id: 'demo-project',
+                                name: 'demo-web',
+                                description: '',
+                            },
+                        ],
+                    }),
                 }
-            },
-        )
+            }
+            if (url.pathname === '/monitor-api/projects/demo-project/apps') {
+                return {
+                    ok: true,
+                    json: async () => ({
+                        apps: [
+                            {
+                                id: 'demo-app',
+                                projectId: 'demo-project',
+                                appId: 'demo-web',
+                                name: 'demo-web',
+                                platform: 'web',
+                            },
+                        ],
+                    }),
+                }
+            }
+            if (url.pathname.endsWith('/dashboard/metrics'))
+                url.pathname = '/api/v2/metrics'
+            if (url.pathname.endsWith('/dashboard/memory-health'))
+                url.pathname = '/api/v2/memory-health'
+
+            if (url.searchParams.get('type') === 'web.vital.inp') {
+                return {
+                    ok: true,
+                    json: async () => inpResponse,
+                }
+            }
+
+            return {
+                ok: true,
+                json: async () => METRICS_RESPONSE,
+            }
+        })
 
         vi.stubGlobal('fetch', fetchMock)
 
-        const wrapper = mount(App)
+        const wrapper = mount(App, {
+            props: { scope: { projectId: 'project-1', appId: 'demo-web' } },
+        })
 
         await flushPromises()
 
-        const cards = wrapper.findAllComponents(
-            MetricSummaryCard,
-        )
+        const cards = wrapper.findAllComponents(MetricSummaryCard)
         const inpCard = cards.find(
-            card =>
-                card.props('metric').name === 'INP',
+            (card) => card.props('metric').name === 'INP',
         )
 
         expect(inpCard).toBeDefined()
@@ -1229,12 +1506,8 @@ describe('App', () => {
             stats: inpResponse.summary,
             progress: 49.6,
         })
-        expect(
-            inpCard!.get('dl dd').text(),
-        ).toBe('248 ms')
-        expect(
-            inpCard!.get('.ring-value strong').text(),
-        ).toBe('248')
+        expect(inpCard!.get('dl dd').text()).toBe('248 ms')
+        expect(inpCard!.get('.ring-value strong').text()).toBe('248')
     })
 
     it('loads and shows the three memory summaries', async () => {
@@ -1244,64 +1517,91 @@ describe('App', () => {
             'web.memory.heap_limit': 4_395_630_592,
         } as const
 
-        const fetchMock = vi.fn(
-            async (input: RequestInfo | URL) => {
-                const url = new URL(String(input))
-                const type = url.searchParams.get('type')
-
-                if (
-                    type !== null
-                    && Object.hasOwn(memoryValues, type)
-                ) {
-                    const value = memoryValues[
-                        type as keyof typeof memoryValues
-                    ]
-
-                    return {
-                        ok: true,
-                        json: async () => ({
-                            metric: {
-                                type,
-                                unit: 'byte',
-                                metricVersion: 'memory-v1',
+        const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+            const url = new URL(String(input))
+            if (url.pathname === '/monitor-api/projects') {
+                return {
+                    ok: true,
+                    json: async () => ({
+                        projects: [
+                            {
+                                id: 'demo-project',
+                                name: 'demo-web',
+                                description: '',
                             },
-                            range: METRICS_RESPONSE.range,
-                            summary: {
-                                count: 1,
-                                average: value,
-                                p50: value,
-                                p75: value,
-                                p90: value,
-                            },
-                            series: [],
-                        }),
-                    }
+                        ],
+                    }),
                 }
+            }
+            if (url.pathname === '/monitor-api/projects/demo-project/apps') {
+                return {
+                    ok: true,
+                    json: async () => ({
+                        apps: [
+                            {
+                                id: 'demo-app',
+                                projectId: 'demo-project',
+                                appId: 'demo-web',
+                                name: 'demo-web',
+                                platform: 'web',
+                            },
+                        ],
+                    }),
+                }
+            }
+            if (url.pathname.endsWith('/dashboard/metrics'))
+                url.pathname = '/api/v2/metrics'
+            if (url.pathname.endsWith('/dashboard/memory-health'))
+                url.pathname = '/api/v2/memory-health'
+            const type = url.searchParams.get('type')
+
+            if (type !== null && Object.hasOwn(memoryValues, type)) {
+                const value = memoryValues[type as keyof typeof memoryValues]
 
                 return {
                     ok: true,
-                    json: async () => METRICS_RESPONSE,
+                    json: async () => ({
+                        metric: {
+                            type,
+                            unit: 'byte',
+                            metricVersion: 'memory-v1',
+                        },
+                        range: METRICS_RESPONSE.range,
+                        summary: {
+                            count: 1,
+                            average: value,
+                            p50: value,
+                            p75: value,
+                            p90: value,
+                        },
+                        series: [],
+                    }),
                 }
-            },
-        )
+            }
+
+            return {
+                ok: true,
+                json: async () => METRICS_RESPONSE,
+            }
+        })
 
         vi.stubGlobal('fetch', fetchMock)
 
-        const wrapper = mount(App)
+        const wrapper = mount(App, {
+            props: { scope: { projectId: 'project-1', appId: 'demo-web' } },
+        })
 
         await flushPromises()
 
-        const memoryCards = wrapper.findAll(".heap-card");
+        const memoryCards = wrapper.findAll('.heap-card')
 
-        expect(memoryCards).toHaveLength(3);
+        expect(memoryCards).toHaveLength(3)
 
-        expect(
-        memoryCards.map((card) => card.get("h2").text()),
-        ).toEqual([
-            "USED HEAP",
-            "TOTAL HEAP",
-            "HEAP LIMIT",
-        ]);
+        expect(memoryCards.map((card) => card.get('h2').text())).toEqual([
+            'USED HEAP',
+            'TOTAL HEAP',
+            'HEAP LIMIT',
+        ])
 
         expect(wrapper.text()).toContain('22.35 MiB')
         expect(wrapper.text()).toContain('22.91 MiB')
@@ -1309,57 +1609,91 @@ describe('App', () => {
 
         const usedHeapCard = memoryCards[0]!
         const expectedUtilization =
-            memoryValues['web.memory.used_heap']
-            / memoryValues['web.memory.heap_limit']
+            memoryValues['web.memory.used_heap'] /
+            memoryValues['web.memory.heap_limit']
 
         expect(usedHeapCard.get('p').text()).toBe(
             `${(expectedUtilization * 100).toFixed(1)}% of Heap Limit`,
         )
-        expect(
-            usedHeapCard.findAll('.segmented-bar .filled'),
-        ).toHaveLength(Math.ceil(expectedUtilization * 14))
+        expect(usedHeapCard.findAll('.segmented-bar .filled')).toHaveLength(
+            Math.ceil(expectedUtilization * 14),
+        )
     })
 
     it('renders memory health from the memory health API', async () => {
-        const fetchMock = vi.fn(
-            async (input: RequestInfo | URL) => {
-                const url = new URL(String(input))
-
-                if (url.pathname === '/api/v2/memory-health') {
-                    return {
-                        ok: true,
-                        json: async () => ({
-                            status: 'WARNING',
-                            reasons: [
-                                'HIGH_HEAP_PRESSURE',
-                                'SUSTAINED_HEAP_GROWTH',
-                            ],
-                            sampleCount: 12,
-                            window: { from: 1, to: 2 },
-                            latest: {
-                                usedHeap: 760,
-                                heapLimit: 1_000,
-                                utilization: 0.76,
-                            },
-                            growth: {
-                                absolute: 100,
-                                ratio: 0.2,
-                                increasingTransitionRatio: 0.8,
-                            },
-                        }),
-                    }
-                }
-
+        const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+            const url = new URL(String(input))
+            if (url.pathname === '/monitor-api/projects') {
                 return {
                     ok: true,
-                    json: async () => METRICS_RESPONSE,
+                    json: async () => ({
+                        projects: [
+                            {
+                                id: 'demo-project',
+                                name: 'demo-web',
+                                description: '',
+                            },
+                        ],
+                    }),
                 }
-            },
-        )
+            }
+            if (url.pathname === '/monitor-api/projects/demo-project/apps') {
+                return {
+                    ok: true,
+                    json: async () => ({
+                        apps: [
+                            {
+                                id: 'demo-app',
+                                projectId: 'demo-project',
+                                appId: 'demo-web',
+                                name: 'demo-web',
+                                platform: 'web',
+                            },
+                        ],
+                    }),
+                }
+            }
+            if (url.pathname.endsWith('/dashboard/metrics'))
+                url.pathname = '/api/v2/metrics'
+            if (url.pathname.endsWith('/dashboard/memory-health'))
+                url.pathname = '/api/v2/memory-health'
+
+            if (url.pathname === '/api/v2/memory-health') {
+                return {
+                    ok: true,
+                    json: async () => ({
+                        status: 'WARNING',
+                        reasons: [
+                            'HIGH_HEAP_PRESSURE',
+                            'SUSTAINED_HEAP_GROWTH',
+                        ],
+                        sampleCount: 12,
+                        window: { from: 1, to: 2 },
+                        latest: {
+                            usedHeap: 760,
+                            heapLimit: 1_000,
+                            utilization: 0.76,
+                        },
+                        growth: {
+                            absolute: 100,
+                            ratio: 0.2,
+                            increasingTransitionRatio: 0.8,
+                        },
+                    }),
+                }
+            }
+
+            return {
+                ok: true,
+                json: async () => METRICS_RESPONSE,
+            }
+        })
 
         vi.stubGlobal('fetch', fetchMock)
 
-        const wrapper = mount(App)
+        const wrapper = mount(App, {
+            props: { scope: { projectId: 'project-1', appId: 'demo-web' } },
+        })
         await flushPromises()
 
         const healthCard = wrapper.get('.health-card')

@@ -5,15 +5,18 @@
         <Icon name="pulse" />
         <h1>{{ t('app.title') }}</h1>
       </div>
-      <button
-        class="live-badge"
-        :class="{ paused: !live }"
-        @click="toggleLive"
-        :aria-pressed="live"
-        :title="live ? t('app.pauseRefresh') : t('app.resumeRefresh')"
-      >
-        <i></i>{{ live ? t('app.live') : t('app.paused') }}
-      </button>
+      <div class="monitor-context">
+        <div>
+          <span class="eyebrow">APPLICATION MONITORING</span>
+          <h2>
+            {{ selectedApp?.name }}
+            <small>{{ selectedApp?.platform?.toUpperCase() }}</small>
+          </h2>
+        </div>
+        <button class="secondary" type="button" @click="$emit('go-apps')">
+          切换应用
+        </button>
+      </div>
       <div class="sample-total">
         <span>{{ t('app.totalSamples') }}</span>
         <strong>{{ n(totalSamples) }}</strong>
@@ -220,7 +223,9 @@ import {
   ref,
 } from 'vue'
 import { createPaintMetricsApi } from './api/metrics.js'
-import { createMetricQueryApi } from './api/metric-query.js'
+import { createDashboardMetricQueryApi } from './api/dashboard-metric-query.js'
+import { createDashboardMemoryHealthApi } from './api/dashboard-memory-health.js'
+import type { DashboardApp, DashboardScope } from './api/dashboard-scope.js'
 import { createLcpDiagnosticApi } from './api/lcp-diagnostic.js'
 import { createClsDiagnosticApi } from './api/cls-diagnostic.js'
 import { createInpDiagnosticApi } from './api/inp-diagnostic.js'
@@ -234,7 +239,7 @@ import {
   type MetricsRange,
 } from './composables/metrics-range.js'
 import MetricSummaryCard from './components/MetricSummaryCard.vue'
-import { createMemoryHealthApi } from './api/memory-health.js'
+
 import type {
   LcpDiagnosticAnalysisResponse,
   ClsDiagnosticAnalysisResponse,
@@ -297,10 +302,30 @@ const metricsApi = createPaintMetricsApi({
   fetch: window.fetch.bind(window),
 })
 
-const metricQueryApi = createMetricQueryApi({
+const dashboardMetricQueryApi = createDashboardMetricQueryApi({
   baseUrl: window.location.origin,
   fetch: window.fetch.bind(window),
 })
+const dashboardMemoryHealthApi = createDashboardMemoryHealthApi({
+  baseUrl: window.location.origin,
+  fetch: window.fetch.bind(window),
+})
+const props = defineProps<{
+  scope: DashboardScope
+  selectedApp: DashboardApp
+}>()
+const dashboardScope = computed(() => props.scope)
+const selectedApp = computed(() => props.selectedApp)
+
+const emit = defineEmits(['go-apps'])
+
+async function queryDashboardMetric(
+  params: Parameters<typeof dashboardMetricQueryApi.query>[1],
+) {
+  if (dashboardScope.value === null)
+    throw new Error('No dashboard application selected')
+  return dashboardMetricQueryApi.query(dashboardScope.value, params)
+}
 const lcpDiagnosticApi = createLcpDiagnosticApi({
   baseUrl: window.location.origin,
   fetch: window.fetch.bind(window),
@@ -407,10 +432,7 @@ async function loadAlertEvaluationRange(
     }
   }
 }
-const memoryHealthApi = createMemoryHealthApi({
-  baseUrl: window.location.origin,
-  fetch: window.fetch.bind(window),
-})
+
 const memoryHealth = ref<MemoryHealthAssessment | null>(null)
 const memoryHealthLoading = ref(false)
 const memoryHealthError = ref<string | null>(null)
@@ -483,15 +505,18 @@ const memoryHealthView = computed(() => {
   }
 })
 
-async function loadMemoryHealth(
-  range: MetricsRange = '24h',
-): Promise<void> {
+async function loadMemoryHealth(range: MetricsRange = '24h'): Promise<void> {
   const requestId = ++latestMemoryHealthRequestId
   const { from, to } = resolveMetricsRange(range, Date.now())
   memoryHealthLoading.value = true
   memoryHealthError.value = null
   try {
-    const response = await memoryHealthApi.query({ from, to })
+    if (dashboardScope.value === null)
+      throw new Error('No dashboard application selected')
+    const response = await dashboardMemoryHealthApi.query(
+      dashboardScope.value,
+      { from, to },
+    )
 
     if (requestId === latestMemoryHealthRequestId) {
       memoryHealth.value = response
@@ -518,7 +543,7 @@ const {
   loadRange: loadLcpRange,
 } = useMetricQuery({
   type: 'web.vital.lcp',
-  query: metricQueryApi.query,
+  query: queryDashboardMetric,
 })
 
 const {
@@ -528,7 +553,7 @@ const {
   loadRange: loadClsRange,
 } = useMetricQuery({
   type: 'web.vital.cls',
-  query: metricQueryApi.query,
+  query: queryDashboardMetric,
 })
 
 const {
@@ -538,7 +563,7 @@ const {
   loadRange: loadInpRange,
 } = useMetricQuery({
   type: 'web.vital.inp',
-  query: metricQueryApi.query,
+  query: queryDashboardMetric,
 })
 
 function resolveDataState(
@@ -688,7 +713,7 @@ const {
   loadRange: loadUsedHeapRange,
 } = useMetricQuery({
   type: 'web.memory.used_heap',
-  query: metricQueryApi.query,
+  query: queryDashboardMetric,
 })
 
 const {
@@ -698,7 +723,7 @@ const {
   loadRange: loadTotalHeapRange,
 } = useMetricQuery({
   type: 'web.memory.total_heap',
-  query: metricQueryApi.query,
+  query: queryDashboardMetric,
 })
 
 const {
@@ -708,7 +733,7 @@ const {
   loadRange: loadHeapLimitRange,
 } = useMetricQuery({
   type: 'web.memory.heap_limit',
-  query: metricQueryApi.query,
+  query: queryDashboardMetric,
 })
 
 function formatHeapAverage(value: number | null | undefined): string {

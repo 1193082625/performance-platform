@@ -100,6 +100,15 @@ try {
         projectId = project.id
     }
 
+    await pool.query(
+        `
+        INSERT INTO project_apps (project_id, app_id, name, platform)
+        VALUES ($1, $2, $3, $4)
+        ON CONFLICT (project_id, app_id) DO NOTHING
+        `,
+        [projectId, 'demo-web', 'demo-web', 'web'],
+    )
+
     const existingKeyResult = await pool.query<{
         id: string
         key_prefix: string
