@@ -49,6 +49,7 @@ export function createAlertEvaluationService(options: {
     lcpDiagnosticRepository: LcpDiagnosticRepository
     clsDiagnosticRepository: ClsDiagnosticRepository
     inpDiagnosticRepository: InpDiagnosticRepository
+    projectId?: string
     appId: string
     now(): number
 }): AlertEvaluationService {
@@ -73,7 +74,15 @@ export function createAlertEvaluationService(options: {
             }
 
             try {
-                const metricInput = { appId: options.appId, from, to, interval: 'hour' as const }
+                const metricInput = {
+                    ...(options.projectId === undefined
+                        ? {}
+                        : { projectId: options.projectId }),
+                    appId: options.appId,
+                    from,
+                    to,
+                    interval: 'hour' as const,
+                }
                 const [lcp, cls, inp, lcpDiagnostic, clsDiagnostic, inpDiagnostic] =
                     await Promise.all([
                         options.metricRepository.queryMetric({ ...metricInput, metric: METRICS.lcp }),

@@ -54,6 +54,9 @@
       <button class="secondary" type="button" @click="emit('go-apps')">
         切换应用
       </button>
+      <button class="secondary" type="button" @click="emit('manage-keys')">
+        应用密钥
+      </button>
     </div>
     <div class="workspace-account">
       <span>欢迎你，{{ userName }}</span>
@@ -87,6 +90,7 @@ const props = defineProps<{
 const emit = defineEmits<{
   'select-range': [range: MetricsRange]
   'go-apps': []
+  'manage-keys': []
   'sign-out': []
   'open-alerts': []
 }>()
@@ -119,8 +123,6 @@ const selectedApp = computed(() => props.selectedApp)
   align-items: center;
   gap: 20px;
   padding: 24px 32px;
-  background: #0a131d;
-  border-bottom: 1px solid #233541;
 }
 .monitor-context h2 {
   margin-top: 7px;

@@ -12,6 +12,26 @@ interface DashboardParams {
     appId: string
 }
 
+type DashboardRouteResult =
+    | { ok: true; value: unknown }
+    | {
+          ok: false
+          reason:
+              | 'UNAUTHENTICATED'
+              | 'PROJECT_NOT_FOUND'
+              | 'PROJECT_APP_NOT_FOUND'
+      }
+    | {
+          ok: false
+          code:
+              | 'UNSUPPORTED_METRIC'
+              | 'INVALID_DATE'
+              | 'INVALID_INTERVAL'
+              | 'INVALID_TIME_RANGE'
+              | 'TIME_RANGE_TOO_LARGE'
+              | 'STORAGE_UNAVAILABLE'
+      }
+
 function accessFailure(
     reason: 'UNAUTHENTICATED' | 'PROJECT_NOT_FOUND' | 'PROJECT_APP_NOT_FOUND',
 ): { statusCode: number; message: string } {
@@ -96,6 +116,44 @@ export async function registerDashboardQueryRoutes(
     app: FastifyInstance,
     options: DashboardQueryRoutesOptions,
 ): Promise<void> {
+    function sendResult(
+        result: DashboardRouteResult,
+        requestId: string,
+        reply: { status: (statusCode: number) => { send: (body: unknown) => unknown } },
+    ): unknown {
+        if (result.ok) return reply.status(200).send(result.value)
+
+        if ('reason' in result) {
+            const failure = accessFailure(result.reason)
+            return reply
+                .status(failure.statusCode)
+                .send(
+                    createApiErrorResponse(
+                        result.reason,
+                        failure.message,
+                        requestId,
+                    ),
+                )
+        }
+
+        const failure = queryFailure(result.code, requestId)
+        return reply.status(failure.statusCode).send(failure.body)
+    }
+
+    app.get<{ Params: DashboardParams }>(
+        '/monitor-api/projects/:projectId/apps/:appId/dashboard/paint',
+        async (request, reply) => {
+            reply.header('Cache-Control', 'no-store')
+            const result = await options.dashboardQueryService.queryPaint(
+                request.cookies[SESSION_COOKIE_NAME],
+                request.params.projectId,
+                request.params.appId,
+                request.query,
+            )
+            return sendResult(result, request.id, reply)
+        },
+    )
+
     app.get<{ Params: DashboardParams }>(
         '/monitor-api/projects/:projectId/apps/:appId/dashboard/metrics',
         async (request, reply) => {
@@ -107,23 +165,7 @@ export async function registerDashboardQueryRoutes(
                 request.query,
             )
 
-            if (result.ok) return reply.status(200).send(result.value)
-
-            if ('reason' in result) {
-                const failure = accessFailure(result.reason)
-                return reply
-                    .status(failure.statusCode)
-                    .send(
-                        createApiErrorResponse(
-                            result.reason,
-                            failure.message,
-                            request.id,
-                        ),
-                    )
-            }
-
-            const failure = queryFailure(result.code, request.id)
-            return reply.status(failure.statusCode).send(failure.body)
+            return sendResult(result, request.id, reply)
         },
     )
 
@@ -139,23 +181,30 @@ export async function registerDashboardQueryRoutes(
                     request.query,
                 )
 
-            if (result.ok) return reply.status(200).send(result.value)
-
-            if ('reason' in result) {
-                const failure = accessFailure(result.reason)
-                return reply
-                    .status(failure.statusCode)
-                    .send(
-                        createApiErrorResponse(
-                            result.reason,
-                            failure.message,
-                            request.id,
-                        ),
-                    )
-            }
-
-            const failure = queryFailure(result.code, request.id)
-            return reply.status(failure.statusCode).send(failure.body)
+            return sendResult(result, request.id, reply)
         },
     )
+
+    const diagnostics = [
+        ['lcp', 'queryLcpDiagnostic'],
+        ['cls', 'queryClsDiagnostic'],
+        ['inp', 'queryInpDiagnostic'],
+        ['alerts', 'evaluateAlerts'],
+    ] as const
+
+    for (const [name, method] of diagnostics) {
+        app.get<{ Params: DashboardParams }>(
+            `/monitor-api/projects/:projectId/apps/:appId/dashboard/${name}`,
+            async (request, reply) => {
+                reply.header('Cache-Control', 'no-store')
+                const result = await options.dashboardQueryService[method](
+                    request.cookies[SESSION_COOKIE_NAME],
+                    request.params.projectId,
+                    request.params.appId,
+                    request.query,
+                )
+                return sendResult(result, request.id, reply)
+            },
+        )
+    }
 }

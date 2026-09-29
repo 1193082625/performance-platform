@@ -33,6 +33,7 @@ function parseDate(value: unknown, fallback: number): Date {
 
 export function createInpDiagnosticService(options: {
     repository: InpDiagnosticRepository
+    projectId?: string
     appId: string
     now(): number
 }): InpDiagnosticService {
@@ -58,6 +59,9 @@ export function createInpDiagnosticService(options: {
 
             try {
                 const diagnostic = await options.repository.queryInpDiagnostics({
+                    ...(options.projectId === undefined
+                        ? {}
+                        : { projectId: options.projectId }),
                     appId: options.appId,
                     from,
                     to,

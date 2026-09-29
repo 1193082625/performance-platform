@@ -1,4 +1,5 @@
 import type { PaintMetricsQueryParams, PaintMetricsResponse } from "@performance-platform/protocol"
+import type { DashboardScope } from './dashboard-scope.js'
 
 
 interface CreatePaintMetricsApiOptions {
@@ -8,6 +9,7 @@ interface CreatePaintMetricsApiOptions {
 
 export interface PaintMetricsApi {
     query(
+        scope: DashboardScope,
         params: PaintMetricsQueryParams,
     ): Promise<PaintMetricsResponse>
 }
@@ -17,10 +19,11 @@ export function createPaintMetricsApi(
 ): PaintMetricsApi {
     return {
         async query(
+            scope: DashboardScope,
             params: PaintMetricsQueryParams,
         ): Promise<PaintMetricsResponse> {
             const url = new URL(
-                '/api/v1/metrics/paint',
+                `/monitor-api/projects/${encodeURIComponent(scope.projectId)}/apps/${encodeURIComponent(scope.appId)}/dashboard/paint`,
                 options.baseUrl,
             )
 
@@ -48,6 +51,7 @@ export function createPaintMetricsApi(
             const response = await options.fetch(
                 url.toString(),
                 {
+                    credentials: 'include',
                     headers: {
                         accept: 'application/json',
                     },

@@ -24,6 +24,7 @@ export interface PaintMetricsQuery {
 
 export interface LcpDiagnosticRepository {
     queryLcpDiagnostics(input: {
+        projectId?: string
         appId: string
         from: Date
         to: Date
@@ -32,6 +33,7 @@ export interface LcpDiagnosticRepository {
 
 export interface ClsDiagnosticRepository {
     queryClsDiagnostics(input: {
+        projectId?: string
         appId: string
         from: Date
         to: Date
@@ -40,6 +42,7 @@ export interface ClsDiagnosticRepository {
 
 export interface InpDiagnosticRepository {
     queryInpDiagnostics(input: {
+        projectId?: string
         appId: string
         from: Date
         to: Date

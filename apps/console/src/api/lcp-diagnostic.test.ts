@@ -4,6 +4,8 @@ import type { LcpDiagnosticAnalysisResponse } from '@performance-platform/protoc
 
 import { createLcpDiagnosticApi } from './lcp-diagnostic.js'
 
+const SCOPE = { projectId: 'project-1', appId: 'app-1' }
+
 const RESPONSE = {
     metric: {
         type: 'web.vital.lcp',
@@ -39,7 +41,7 @@ describe('createLcpDiagnosticApi', () => {
         })
 
         await expect(
-            api.query({
+            api.query(SCOPE, {
                 from: RESPONSE.range.from,
                 to: RESPONSE.range.to,
             }),
@@ -47,9 +49,9 @@ describe('createLcpDiagnosticApi', () => {
 
         const [requestedUrl, init] = fetcher.mock.calls[0]!
         const url = new URL(String(requestedUrl))
-        expect(url.pathname).toBe('/api/v2/diagnostics/lcp')
+        expect(url.pathname).toBe('/monitor-api/projects/project-1/apps/app-1/dashboard/lcp')
         expect(Object.fromEntries(url.searchParams)).toEqual(RESPONSE.range)
-        expect(init).toEqual({ headers: { accept: 'application/json' } })
+        expect(init).toEqual({ credentials: 'include', headers: { accept: 'application/json' } })
     })
 
     it('rejects a non-successful response', async () => {
@@ -61,7 +63,7 @@ describe('createLcpDiagnosticApi', () => {
             fetch: fetcher,
         })
 
-        await expect(api.query()).rejects.toThrow(
+        await expect(api.query(SCOPE)).rejects.toThrow(
             'LCP diagnostic query failed with status 503',
         )
     })

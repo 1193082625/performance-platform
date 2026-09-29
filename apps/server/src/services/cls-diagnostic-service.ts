@@ -33,6 +33,7 @@ function parseDate(value: unknown, fallback: number): Date {
 
 export function createClsDiagnosticService(options: {
     repository: ClsDiagnosticRepository
+    projectId?: string
     appId: string
     now(): number
 }): ClsDiagnosticService {
@@ -58,6 +59,9 @@ export function createClsDiagnosticService(options: {
 
             try {
                 const diagnostic = await options.repository.queryClsDiagnostics({
+                    ...(options.projectId === undefined
+                        ? {}
+                        : { projectId: options.projectId }),
                     appId: options.appId,
                     from,
                     to,

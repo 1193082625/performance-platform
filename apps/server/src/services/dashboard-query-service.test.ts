@@ -3,6 +3,10 @@ import type { MetricQueryResponse } from '@performance-platform/protocol'
 import type {
     MemoryHealthRepository,
     MetricQueryRepository,
+    LcpDiagnosticRepository,
+    ClsDiagnosticRepository,
+    InpDiagnosticRepository,
+    EventRepository,
 } from '../repositories/event-repository.js'
 import type { ProjectAppRepository } from '../repositories/project-app-repository.js'
 import type { ProjectRepository } from '../repositories/project-repository.js'
@@ -41,13 +45,29 @@ function setup() {
     const queryLatestViewMemorySnapshots = vi
         .fn<MemoryHealthRepository['queryLatestViewMemorySnapshots']>()
         .mockResolvedValue([])
+    const queryLcpDiagnostics = vi
+        .fn<LcpDiagnosticRepository['queryLcpDiagnostics']>()
+        .mockResolvedValue({} as never)
+    const queryClsDiagnostics = vi
+        .fn<ClsDiagnosticRepository['queryClsDiagnostics']>()
+        .mockResolvedValue({} as never)
+    const queryInpDiagnostics = vi
+        .fn<InpDiagnosticRepository['queryInpDiagnostics']>()
+        .mockResolvedValue({} as never)
+    const queryPaintMetrics = vi
+        .fn<EventRepository['queryPaintMetrics']>()
+        .mockResolvedValue({} as never)
 
     const service = createDashboardQueryService({
         sessions: { authenticate },
         projects: { findProjectOwnedByUser },
         apps: { findProjectApp },
+        eventRepository: { queryPaintMetrics, insertBatch: vi.fn() },
         metricRepository: { queryMetric },
         memoryHealthRepository: { queryLatestViewMemorySnapshots },
+        lcpDiagnosticRepository: { queryLcpDiagnostics },
+        clsDiagnosticRepository: { queryClsDiagnostics },
+        inpDiagnosticRepository: { queryInpDiagnostics },
         now: () => NOW,
     })
 

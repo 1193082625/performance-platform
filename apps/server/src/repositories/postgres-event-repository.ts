@@ -775,12 +775,13 @@ export function createPostgresEventRepository(
                     ) AS render_delay_p75
 
                 FROM metric_events
-                WHERE app_id = $1
-                    AND event_time >= $2
-                    AND event_time < $3
+                WHERE ($1::TEXT IS NULL OR project_id = $1)
+                    AND app_id = $2
+                    AND event_time >= $3
+                    AND event_time < $4
                     AND event_type = 'web.vital.lcp'
                 `,
-                [input.appId, input.from, input.to],
+                [input.projectId ?? null, input.appId, input.from, input.to],
             )
 
             const row = result.rows[0]
@@ -831,9 +832,10 @@ export function createPostgresEventRepository(
                 WITH cls_events AS (
                     SELECT metric_value, metric_attribution
                     FROM metric_events
-                    WHERE app_id = $1
-                        AND event_time >= $2
-                        AND event_time < $3
+                    WHERE ($1::TEXT IS NULL OR project_id = $1)
+                        AND app_id = $2
+                        AND event_time >= $3
+                        AND event_time < $4
                         AND event_type = 'web.vital.cls'
                 ),
                 target_counts AS (
@@ -877,7 +879,7 @@ export function createPostgresEventRepository(
                     ) AS dominant_target_count
                 FROM cls_events
                 `,
-                [input.appId, input.from, input.to],
+                [input.projectId ?? null, input.appId, input.from, input.to],
             )
 
             const row = result.rows[0]
@@ -930,9 +932,10 @@ export function createPostgresEventRepository(
                 WITH inp_events AS (
                     SELECT metric_value, metric_attribution
                     FROM metric_events
-                    WHERE app_id = $1
-                        AND event_time >= $2
-                        AND event_time < $3
+                    WHERE ($1::TEXT IS NULL OR project_id = $1)
+                        AND app_id = $2
+                        AND event_time >= $3
+                        AND event_time < $4
                         AND event_type = 'web.vital.inp'
                 ),
                 target_counts AS (
@@ -974,7 +977,7 @@ export function createPostgresEventRepository(
                     ) AS dominant_target_count
                 FROM inp_events
                 `,
-                [input.appId, input.from, input.to],
+                [input.projectId ?? null, input.appId, input.from, input.to],
             )
 
             const row = result.rows[0]

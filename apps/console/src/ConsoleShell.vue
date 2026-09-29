@@ -25,8 +25,15 @@
         :user-name="userName || ''"
         @go-apps="goApps"
         @sign-out="signOut"
+        @manage-keys="showKeyManager = true"
       />
     </template>
+    <AppKeyManager
+      v-if="selectedProject && selectedApp && showKeyManager"
+      :project-id="selectedProject.id"
+      :app="selectedApp"
+      @close="showKeyManager = false"
+    />
     <section v-else class="selection-page">
       <header v-frame class="selection-heading tech-frame">
         <div>
@@ -170,7 +177,7 @@
         </div>
         <div v-else class="selection-empty">
           <h2>这个项目还没有应用</h2>
-          <p>创建 Web 应用并接入数据后，即可查看性能监控。</p>
+          <p>创建应用并接入数据后，即可查看性能监控。</p>
           <button class="primary" type="button" @click="showAppForm = true">
             创建第一个应用
           </button>
@@ -195,6 +202,7 @@ import {
 import Loading from './components/Loading.vue'
 import Login from './views/Login.vue'
 import Header from './components/Header.vue'
+import AppKeyManager from './components/AppKeyManager.vue'
 
 const options = {
   baseUrl: window.location.origin,
@@ -209,6 +217,7 @@ const apps = ref<DashboardApp[]>([])
 const selectedProjectId = ref('')
 const selectedApp = ref<DashboardApp | null>(null)
 const showAppForm = ref(false)
+const showKeyManager = ref(false)
 const projectsLoading = ref(false)
 const appsError = ref(false)
 let appsRequestId = 0
@@ -241,12 +250,14 @@ function goProjects(): void {
   apps.value = []
   appsLoading.value = false
   showAppForm.value = false
+  showKeyManager.value = false
   showProjectForm.value = false
   managementError.value = ''
   appsError.value = false
 }
 function goApps(): void {
   selectedApp.value = null
+  showKeyManager.value = false
   managementError.value = ''
 }
 async function loadApps(): Promise<void> {
@@ -664,6 +675,7 @@ onMounted(() => {
   border-radius: 0;
   text-align: center;
   color: #8fa5b8;
+  width: 17%;
 }
 .selection-empty h2 {
   color: #e0eaf4;

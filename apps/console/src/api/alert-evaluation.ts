@@ -1,4 +1,5 @@
 import type { AlertEvaluationResponse } from '@performance-platform/protocol'
+import type { DashboardScope } from './dashboard-scope.js'
 
 interface AlertEvaluationQueryParams {
     from?: string
@@ -11,13 +12,18 @@ export function createAlertEvaluationApi(options: {
 }) {
     return {
         async query(
+            scope: DashboardScope,
             params: AlertEvaluationQueryParams = {},
         ): Promise<AlertEvaluationResponse> {
-            const url = new URL('/api/v2/alerts/evaluate', options.baseUrl)
+            const url = new URL(
+                `/monitor-api/projects/${encodeURIComponent(scope.projectId)}/apps/${encodeURIComponent(scope.appId)}/dashboard/alerts`,
+                options.baseUrl,
+            )
             if (params.from !== undefined) url.searchParams.set('from', params.from)
             if (params.to !== undefined) url.searchParams.set('to', params.to)
 
             const response = await options.fetch(url.toString(), {
+                credentials: 'include',
                 headers: { accept: 'application/json' },
             })
             if (!response.ok) {

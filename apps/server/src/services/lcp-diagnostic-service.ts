@@ -7,6 +7,7 @@ const MAX_RANGE_MS = 30 * 24 * 60 * 60 * 1_000
 
 interface LcpDiagnosticServiceOptions {
     repository: LcpDiagnosticRepository
+    projectId?: string
     appId: string
     now(): number
 }
@@ -102,6 +103,9 @@ export function createLcpDiagnosticService(
 
             try {
                 const diagnostic = await options.repository.queryLcpDiagnostics({
+                    ...(options.projectId === undefined
+                        ? {}
+                        : { projectId: options.projectId }),
                     appId: options.appId,
                     from,
                     to,

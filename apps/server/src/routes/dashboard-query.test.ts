@@ -12,13 +12,36 @@ function setup() {
     const queryMetric = vi
         .fn<DashboardQueryService['queryMetric']>()
         .mockResolvedValue({ ok: true, value: { metric: 'result' } } as never)
+    const queryPaint = vi
+        .fn<DashboardQueryService['queryPaint']>()
+        .mockResolvedValue({ ok: true, value: {} } as never)
     const queryMemoryHealth = vi
         .fn<DashboardQueryService['queryMemoryHealth']>()
         .mockResolvedValue({ ok: true, value: { status: 'healthy' } } as never)
+    const queryLcpDiagnostic = vi
+        .fn<DashboardQueryService['queryLcpDiagnostic']>()
+        .mockResolvedValue({ ok: true, value: {} } as never)
+    const queryClsDiagnostic = vi
+        .fn<DashboardQueryService['queryClsDiagnostic']>()
+        .mockResolvedValue({ ok: true, value: {} } as never)
+    const queryInpDiagnostic = vi
+        .fn<DashboardQueryService['queryInpDiagnostic']>()
+        .mockResolvedValue({ ok: true, value: {} } as never)
+    const evaluateAlerts = vi
+        .fn<DashboardQueryService['evaluateAlerts']>()
+        .mockResolvedValue({ ok: true, value: {} } as never)
     const app = Fastify()
     app.register(cookie)
     app.register(registerDashboardQueryRoutes, {
-        dashboardQueryService: { queryMetric, queryMemoryHealth },
+        dashboardQueryService: {
+            queryMetric,
+            queryPaint,
+            queryMemoryHealth,
+            queryLcpDiagnostic,
+            queryClsDiagnostic,
+            queryInpDiagnostic,
+            evaluateAlerts,
+        },
     })
 
     return { app, queryMetric, queryMemoryHealth }
@@ -47,6 +70,25 @@ test('returns a scoped metric query result for the current session', async () =>
         APP_ID,
         { type: 'web.paint.fcp' },
     )
+})
+
+test('routes scoped paint and diagnostic requests through the same session boundary', async () => {
+    current = setup()
+    const { app } = current
+    const response = await app.inject({
+        method: 'GET',
+        url: `/monitor-api/projects/${PROJECT_ID}/apps/${APP_ID}/dashboard/lcp?from=2030-01-01T00:00:00.000Z`,
+        headers: { cookie: `pp_session=${TOKEN}` },
+    })
+
+    expect(response.statusCode).toBe(200)
+
+    const paintResponse = await app.inject({
+        method: 'GET',
+        url: `/monitor-api/projects/${PROJECT_ID}/apps/${APP_ID}/dashboard/paint`,
+        headers: { cookie: `pp_session=${TOKEN}` },
+    })
+    expect(paintResponse.statusCode).toBe(200)
 })
 
 test('returns 401 when the dashboard query has no valid session', async () => {

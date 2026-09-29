@@ -5,8 +5,6 @@ import Fastify, { type FastifyInstance, type FastifyError } from 'fastify'
 import { createApiErrorResponse } from './http/api-error.js'
 
 import { registerEventRoutes } from './routes/events.js'
-import { createPaintMetricsService } from './services/paint-metrics-service.js'
-import { registerMetricsRoutes } from './routes/metrics.js'
 import { registerHealthRoutes } from './routes/health.js'
 import cors from '@fastify/cors'
 import type {
@@ -18,21 +16,6 @@ import type {
     InpDiagnosticRepository,
 } from './repositories/event-repository.js'
 
-import { createMetricQueryService } from './services/metric-query-service.js'
-
-import { registerMetricQueryRoutes } from './routes/metric-query.js'
-import { createMemoryHealthService } from './services/memory-health-service.js'
-import { registerMemoryHealthRoutes } from './routes/memory-health.js'
-
-import { createLcpDiagnosticService } from './services/lcp-diagnostic-service.js'
-
-import { registerLcpDiagnosticRoutes } from './routes/lcp-diagnostic.js'
-import { createClsDiagnosticService } from './services/cls-diagnostic-service.js'
-import { registerClsDiagnosticRoutes } from './routes/cls-diagnostic.js'
-import { createInpDiagnosticService } from './services/inp-diagnostic-service.js'
-import { registerInpDiagnosticRoutes } from './routes/inp-diagnostic.js'
-import { createAlertEvaluationService } from './services/alert-evaluation-service.js'
-import { registerAlertEvaluationRoutes } from './routes/alert-evaluation.js'
 import { createProjectMetricEventIngestionService } from './services/project-metric-event-ingestion-service.js'
 import type { UserRepository } from './repositories/user-repository.js'
 import { createRegisterService } from './services/register-service.js'
@@ -143,18 +126,6 @@ export function buildApp(options: BuildAppOptions): FastifyInstance {
                   now: options.now,
               })
 
-    const metricsService = createPaintMetricsService({
-        repository: options.eventRepository,
-        appId: options.appId,
-        now: options.now,
-    })
-
-    const metricQueryService = createMetricQueryService({
-        repository: options.metricQueryRepository,
-        appId: options.appId,
-        now: options.now,
-    })
-
     app.register(cookie)
     app.register(registerHealthRoutes)
 
@@ -171,78 +142,6 @@ export function buildApp(options: BuildAppOptions): FastifyInstance {
                   projectMetricIngestionService,
               }),
     })
-
-    app.register(registerMetricsRoutes, {
-        metricsService,
-    })
-
-    app.register(registerMetricQueryRoutes, {
-        metricQueryService,
-    })
-
-    if (options.lcpDiagnosticRepository !== undefined) {
-        const lcpDiagnosticService = createLcpDiagnosticService({
-            repository: options.lcpDiagnosticRepository,
-            appId: options.appId,
-            now: options.now,
-        })
-
-        app.register(registerLcpDiagnosticRoutes, {
-            lcpDiagnosticService,
-        })
-    }
-
-    if (options.clsDiagnosticRepository !== undefined) {
-        const clsDiagnosticService = createClsDiagnosticService({
-            repository: options.clsDiagnosticRepository,
-            appId: options.appId,
-            now: options.now,
-        })
-
-        app.register(registerClsDiagnosticRoutes, {
-            clsDiagnosticService,
-        })
-    }
-
-    if (options.inpDiagnosticRepository !== undefined) {
-        const inpDiagnosticService = createInpDiagnosticService({
-            repository: options.inpDiagnosticRepository,
-            appId: options.appId,
-            now: options.now,
-        })
-
-        app.register(registerInpDiagnosticRoutes, {
-            inpDiagnosticService,
-        })
-    }
-
-    if (
-        options.lcpDiagnosticRepository !== undefined &&
-        options.clsDiagnosticRepository !== undefined &&
-        options.inpDiagnosticRepository !== undefined
-    ) {
-        const alertEvaluationService = createAlertEvaluationService({
-            metricRepository: options.metricQueryRepository,
-            lcpDiagnosticRepository: options.lcpDiagnosticRepository,
-            clsDiagnosticRepository: options.clsDiagnosticRepository,
-            inpDiagnosticRepository: options.inpDiagnosticRepository,
-            appId: options.appId,
-            now: options.now,
-        })
-        app.register(registerAlertEvaluationRoutes, { alertEvaluationService })
-    }
-
-    if (options.memoryHealthRepository !== undefined) {
-        const memoryHealthService = createMemoryHealthService({
-            repository: options.memoryHealthRepository,
-            appId: options.appId,
-            now: options.now,
-        })
-
-        app.register(registerMemoryHealthRoutes, {
-            memoryHealthService,
-        })
-    }
 
     if (options.userRepository !== undefined) {
         const registerService = createRegisterService(options.userRepository)
@@ -304,13 +203,22 @@ export function buildApp(options: BuildAppOptions): FastifyInstance {
                     projectAppService,
                 })
 
-                if (options.memoryHealthRepository !== undefined) {
+                if (
+                    options.memoryHealthRepository !== undefined &&
+                    options.lcpDiagnosticRepository !== undefined &&
+                    options.clsDiagnosticRepository !== undefined &&
+                    options.inpDiagnosticRepository !== undefined
+                ) {
                     const dashboardQueryService = createDashboardQueryService({
                         sessions: sessionAuthenticationService,
                         projects: options.projectRepository,
                         apps: options.projectAppRepository,
+                        eventRepository: options.eventRepository,
                         metricRepository: options.metricQueryRepository,
                         memoryHealthRepository: options.memoryHealthRepository,
+                        lcpDiagnosticRepository: options.lcpDiagnosticRepository,
+                        clsDiagnosticRepository: options.clsDiagnosticRepository,
+                        inpDiagnosticRepository: options.inpDiagnosticRepository,
                         now: options.now,
                     })
 

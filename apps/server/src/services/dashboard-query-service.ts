@@ -1,7 +1,15 @@
 import type {
     MemoryHealthRepository,
     MetricQueryRepository,
+    LcpDiagnosticRepository,
+    ClsDiagnosticRepository,
+    InpDiagnosticRepository,
 } from '../repositories/event-repository.js'
+import type { EventRepository } from '../repositories/event-repository.js'
+import {
+    createPaintMetricsService,
+    type PaintMetricsService,
+} from './paint-metrics-service.js'
 import type { ProjectAppRepository } from '../repositories/project-app-repository.js'
 import type { ProjectRepository } from '../repositories/project-repository.js'
 import {
@@ -13,6 +21,22 @@ import {
     type MetricQueryResult,
 } from './metric-query-service.js'
 import type { SessionAuthenticationService } from './session-authentication-service.js'
+import {
+    createLcpDiagnosticService,
+    type LcpDiagnosticService,
+} from './lcp-diagnostic-service.js'
+import {
+    createClsDiagnosticService,
+    type ClsDiagnosticService,
+} from './cls-diagnostic-service.js'
+import {
+    createInpDiagnosticService,
+    type InpDiagnosticService,
+} from './inp-diagnostic-service.js'
+import {
+    createAlertEvaluationService,
+    type AlertEvaluationService,
+} from './alert-evaluation-service.js'
 
 export type DashboardAccessFailure = {
     ok: false
@@ -23,9 +47,25 @@ type DashboardScopeResult = { ok: true } | DashboardAccessFailure
 
 export type DashboardMetricQueryResult =
     DashboardAccessFailure | MetricQueryResult
+export type DashboardPaintQueryResult =
+    | DashboardAccessFailure
+    | Awaited<ReturnType<PaintMetricsService['query']>>
 
 export type DashboardMemoryHealthQueryResult =
     DashboardAccessFailure | MemoryHealthQueryResult
+
+export type DashboardLcpDiagnosticResult =
+    | DashboardAccessFailure
+    | Awaited<ReturnType<LcpDiagnosticService['query']>>
+export type DashboardClsDiagnosticResult =
+    | DashboardAccessFailure
+    | Awaited<ReturnType<ClsDiagnosticService['query']>>
+export type DashboardInpDiagnosticResult =
+    | DashboardAccessFailure
+    | Awaited<ReturnType<InpDiagnosticService['query']>>
+export type DashboardAlertEvaluationResult =
+    | DashboardAccessFailure
+    | Awaited<ReturnType<AlertEvaluationService['evaluate']>>
 
 export interface DashboardQueryService {
     queryMetric(
@@ -34,12 +74,42 @@ export interface DashboardQueryService {
         appId: string,
         input: unknown,
     ): Promise<DashboardMetricQueryResult>
+    queryPaint(
+        sessionToken: string | undefined,
+        projectId: string,
+        appId: string,
+        input: unknown,
+    ): Promise<DashboardPaintQueryResult>
     queryMemoryHealth(
         sessionToken: string | undefined,
         projectId: string,
         appId: string,
         input: unknown,
     ): Promise<DashboardMemoryHealthQueryResult>
+    queryLcpDiagnostic(
+        sessionToken: string | undefined,
+        projectId: string,
+        appId: string,
+        input: unknown,
+    ): Promise<DashboardLcpDiagnosticResult>
+    queryClsDiagnostic(
+        sessionToken: string | undefined,
+        projectId: string,
+        appId: string,
+        input: unknown,
+    ): Promise<DashboardClsDiagnosticResult>
+    queryInpDiagnostic(
+        sessionToken: string | undefined,
+        projectId: string,
+        appId: string,
+        input: unknown,
+    ): Promise<DashboardInpDiagnosticResult>
+    evaluateAlerts(
+        sessionToken: string | undefined,
+        projectId: string,
+        appId: string,
+        input: unknown,
+    ): Promise<DashboardAlertEvaluationResult>
 }
 
 export function createDashboardQueryService(options: {
@@ -47,7 +117,11 @@ export function createDashboardQueryService(options: {
     projects: Pick<ProjectRepository, 'findProjectOwnedByUser'>
     apps: Pick<ProjectAppRepository, 'findProjectApp'>
     metricRepository: MetricQueryRepository
+    eventRepository: EventRepository
     memoryHealthRepository: MemoryHealthRepository
+    lcpDiagnosticRepository: LcpDiagnosticRepository
+    clsDiagnosticRepository: ClsDiagnosticRepository
+    inpDiagnosticRepository: InpDiagnosticRepository
     now(): number
 }): DashboardQueryService {
     async function authorize(
@@ -94,6 +168,16 @@ export function createDashboardQueryService(options: {
                 now: options.now,
             }).query(input)
         },
+        async queryPaint(sessionToken, projectId, appId, input) {
+            const access = await authorize(sessionToken, projectId, appId)
+            if (!access.ok) return access
+            return createPaintMetricsService({
+                repository: options.eventRepository,
+                projectId,
+                appId,
+                now: options.now,
+            }).query(input)
+        },
         async queryMemoryHealth(sessionToken, projectId, appId, input) {
             const access = await authorize(sessionToken, projectId, appId)
 
@@ -107,6 +191,49 @@ export function createDashboardQueryService(options: {
                 appId,
                 now: options.now,
             }).query(input)
+        },
+        async queryLcpDiagnostic(sessionToken, projectId, appId, input) {
+            const access = await authorize(sessionToken, projectId, appId)
+            if (!access.ok) return access
+            return createLcpDiagnosticService({
+                repository: options.lcpDiagnosticRepository,
+                projectId,
+                appId,
+                now: options.now,
+            }).query(input)
+        },
+        async queryClsDiagnostic(sessionToken, projectId, appId, input) {
+            const access = await authorize(sessionToken, projectId, appId)
+            if (!access.ok) return access
+            return createClsDiagnosticService({
+                repository: options.clsDiagnosticRepository,
+                projectId,
+                appId,
+                now: options.now,
+            }).query(input)
+        },
+        async queryInpDiagnostic(sessionToken, projectId, appId, input) {
+            const access = await authorize(sessionToken, projectId, appId)
+            if (!access.ok) return access
+            return createInpDiagnosticService({
+                repository: options.inpDiagnosticRepository,
+                projectId,
+                appId,
+                now: options.now,
+            }).query(input)
+        },
+        async evaluateAlerts(sessionToken, projectId, appId, input) {
+            const access = await authorize(sessionToken, projectId, appId)
+            if (!access.ok) return access
+            return createAlertEvaluationService({
+                metricRepository: options.metricRepository,
+                lcpDiagnosticRepository: options.lcpDiagnosticRepository,
+                clsDiagnosticRepository: options.clsDiagnosticRepository,
+                inpDiagnosticRepository: options.inpDiagnosticRepository,
+                projectId,
+                appId,
+                now: options.now,
+            }).evaluate(input)
         },
     }
 }

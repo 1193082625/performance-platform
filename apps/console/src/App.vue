@@ -8,6 +8,7 @@
       :range="selectedRange"
       @go-apps="$emit('go-apps')"
       @sign-out="$emit('sign-out')"
+      @manage-keys="$emit('manage-keys')"
       @open-alerts="alertDrawerOpen = true"
       @select-range="handleSelectedRange"
     />
@@ -178,8 +179,8 @@ import { createLcpDiagnosticApi } from './api/lcp-diagnostic.js'
 import { createClsDiagnosticApi } from './api/cls-diagnostic.js'
 import { createInpDiagnosticApi } from './api/inp-diagnostic.js'
 import { createAlertEvaluationApi } from './api/alert-evaluation.js'
-
 import { usePaintMetrics } from './composables/use-paint-metrics.js'
+
 import { useMetricQuery } from './composables/use-metric-query.js'
 import {
   resolveMetricsRange,
@@ -268,7 +269,7 @@ const selectedApp = computed<DashboardApp>(
 )
 const userName = computed(() => props.userName ?? '')
 
-const emit = defineEmits(['go-apps', 'sign-out'])
+const emit = defineEmits(['go-apps', 'sign-out', 'manage-keys'])
 
 async function queryDashboardMetric(
   params: Parameters<typeof dashboardMetricQueryApi.query>[1],
@@ -291,7 +292,7 @@ async function loadLcpDiagnosticRange(
   const { from, to } = resolveMetricsRange(range, Date.now())
 
   try {
-    const response = await lcpDiagnosticApi.query({ from, to })
+    const response = await lcpDiagnosticApi.query(dashboardScope.value, { from, to })
     if (requestId === latestLcpDiagnosticRequestId) {
       lcpDiagnostic.value = response
     }
@@ -315,7 +316,7 @@ async function loadClsDiagnosticRange(
   const { from, to } = resolveMetricsRange(range, Date.now())
 
   try {
-    const response = await clsDiagnosticApi.query({ from, to })
+    const response = await clsDiagnosticApi.query(dashboardScope.value, { from, to })
     if (requestId === latestClsDiagnosticRequestId) {
       clsDiagnostic.value = response
     }
@@ -338,7 +339,7 @@ async function loadInpDiagnosticRange(
   const requestId = ++latestInpDiagnosticRequestId
   const { from, to } = resolveMetricsRange(range, Date.now())
   try {
-    const response = await inpDiagnosticApi.query({ from, to })
+    const response = await inpDiagnosticApi.query(dashboardScope.value, { from, to })
     if (requestId === latestInpDiagnosticRequestId) {
       inpDiagnostic.value = response
     }
@@ -367,7 +368,9 @@ async function loadAlertEvaluationRange(
   alertEvaluationLoading.value = true
   alertEvaluationError.value = null
   try {
-    const response = await alertEvaluationApi.query({ from, to })
+    if (dashboardScope.value === null)
+      throw new Error('No dashboard application selected')
+    const response = await alertEvaluationApi.query(dashboardScope.value, { from, to })
     if (requestId === latestAlertEvaluationRequestId) {
       alertEvaluation.value = response
     }
@@ -484,7 +487,7 @@ async function loadMemoryHealth(range: MetricsRange = '24h'): Promise<void> {
 }
 
 const { data, loading, error, loadRange } = usePaintMetrics({
-  query: metricsApi.query,
+  query: (params) => metricsApi.query(dashboardScope.value, params),
 })
 
 const {
@@ -907,7 +910,6 @@ const totalSamples = computed(() => {
   if (data.value === null) {
     return 0
   }
-
   const lcpSamples =
     lcpData.value?.metric?.type === 'web.vital.lcp'
       ? lcpData.value.summary.count
@@ -983,4 +985,3 @@ onMounted(() => {
 
 onUnmounted(stopLiveRefresh)
 </script>
-dd

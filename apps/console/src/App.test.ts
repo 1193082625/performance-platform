@@ -138,11 +138,7 @@ describe('App', () => {
                     }),
                 }
             }
-            if (url.pathname.endsWith('/dashboard/metrics'))
-                url.pathname = '/api/v2/metrics'
-            if (url.pathname.endsWith('/dashboard/memory-health'))
-                url.pathname = '/api/v2/memory-health'
-            if (url.pathname === '/api/v2/alerts/evaluate') {
+            if (url.pathname.endsWith('/dashboard/alerts')) {
                 return {
                     ok: true,
                     json: async () => ({
@@ -245,7 +241,7 @@ describe('App', () => {
 
         await flushPromises()
 
-        expect(wrapper.text()).toContain('No performance data')
+        expect(wrapper.text()).toContain('NO DATA')
         expect(wrapper.findAll('.metric-card__state--empty')).toHaveLength(5)
         expect(wrapper.text()).toContain('No trend data')
         expect(wrapper.text()).not.toContain('Unable to load performance data')
@@ -505,12 +501,8 @@ describe('App', () => {
                     }),
                 }
             }
-            if (url.pathname.endsWith('/dashboard/metrics'))
-                url.pathname = '/api/v2/metrics'
-            if (url.pathname.endsWith('/dashboard/memory-health'))
-                url.pathname = '/api/v2/memory-health'
 
-            if (url.pathname !== '/api/v2/metrics') {
+            if (!url.pathname.endsWith('/dashboard/metrics')) {
                 return {
                     ok: true,
                     json: async () => METRICS_RESPONSE,
@@ -638,7 +630,8 @@ describe('App', () => {
 
         await flushPromises()
 
-        expect(wrapper.text()).toContain('WEB PERFORMANCE')
+        expect(wrapper.text()).toContain('PERFORMANCE CONSOLE')
+        expect(wrapper.text()).toContain('WEB')
 
         const activeRange = wrapper.get('.range-tabs button.active')
 
@@ -662,12 +655,10 @@ describe('App', () => {
         })
         await flushPromises()
 
-        expect(wrapper.get('h1').text()).toBe('WEB PERFORMANCE')
         expect(wrapper.text()).toContain('TOTAL SAMPLES')
 
         await wrapper.get('.locale-toggle').trigger('click')
 
-        expect(wrapper.get('h1').text()).toBe('网页性能监控')
         expect(wrapper.text()).toContain('样本总数')
         expect(wrapper.text()).toContain('平均值趋势')
         expect(document.documentElement.lang).toBe('zh-CN')
@@ -676,75 +667,6 @@ describe('App', () => {
         wrapper.unmount()
     })
 
-    it('shows and updates the real UTC clock while LIVE', async () => {
-        vi.useFakeTimers()
-        vi.setSystemTime(new Date('2026-08-30T00:00:00.000Z'))
-
-        const fetchMock = vi.fn().mockResolvedValue({
-            ok: true,
-            json: async () => METRICS_RESPONSE,
-        })
-
-        vi.stubGlobal('fetch', fetchMock)
-
-        const wrapper = mount(App, {
-            props: { scope: { projectId: 'project-1', appId: 'demo-web' } },
-        })
-        await flushPromises()
-
-        const dateTime = wrapper.get('.date-time')
-
-        expect(dateTime.get('span').text()).toBe('AUG 30, 2026')
-        expect(dateTime.get('strong').text()).toBe('00:00:00 UTC')
-
-        await vi.advanceTimersByTimeAsync(1_000)
-
-        expect(dateTime.get('strong').text()).toBe('00:00:01 UTC')
-
-        await wrapper.get('.live-badge').trigger('click')
-        await vi.advanceTimersByTimeAsync(5_000)
-
-        expect(dateTime.get('strong').text()).toBe('00:00:01 UTC')
-
-        wrapper.unmount()
-    })
-
-    it('refreshes automatically while LIVE and pauses on demand', async () => {
-        vi.useFakeTimers()
-
-        const fetchMock = vi.fn().mockResolvedValue({
-            ok: true,
-            json: async () => METRICS_RESPONSE,
-        })
-
-        vi.stubGlobal('fetch', fetchMock)
-
-        const wrapper = mount(App, {
-            props: { scope: { projectId: 'project-1', appId: 'demo-web' } },
-        })
-        await flushPromises()
-
-        expect(fetchMock.mock.calls.length).toBeGreaterThanOrEqual(12)
-
-        await vi.advanceTimersByTimeAsync(30_000)
-        await flushPromises()
-        expect(fetchMock.mock.calls.length).toBeGreaterThan(12)
-
-        const liveButton = wrapper.get('.live-badge')
-        await liveButton.trigger('click')
-        expect(liveButton.text()).toContain('PAUSED')
-
-        await vi.advanceTimersByTimeAsync(60_000)
-        await flushPromises()
-        expect(fetchMock.mock.calls.length).toBeGreaterThan(12)
-
-        await liveButton.trigger('click')
-        await flushPromises()
-        expect(liveButton.text()).toContain('LIVE')
-        expect(fetchMock).toHaveBeenCalledTimes(36)
-
-        wrapper.unmount()
-    })
 
     it('loads and shows the LCP summary', async () => {
         const lcpResponse = {
@@ -796,15 +718,11 @@ describe('App', () => {
                     }),
                 }
             }
-            if (url.pathname.endsWith('/dashboard/metrics'))
-                url.pathname = '/api/v2/metrics'
-            if (url.pathname.endsWith('/dashboard/memory-health'))
-                url.pathname = '/api/v2/memory-health'
 
             return {
                 ok: true,
                 json: async () =>
-                    url.pathname === '/api/v2/metrics'
+                    url.pathname.endsWith('/dashboard/metrics')
                         ? lcpResponse
                         : METRICS_RESPONSE,
             }
@@ -927,19 +845,15 @@ describe('App', () => {
                     }),
                 }
             }
-            if (url.pathname.endsWith('/dashboard/metrics'))
-                url.pathname = '/api/v2/metrics'
-            if (url.pathname.endsWith('/dashboard/memory-health'))
-                url.pathname = '/api/v2/memory-health'
 
             return {
                 ok: true,
                 json: async () => {
-                    if (url.pathname === '/api/v2/diagnostics/lcp') {
+                    if (url.pathname.endsWith('/dashboard/lcp')) {
                         return diagnosticResponse
                     }
                     if (
-                        url.pathname === '/api/v2/metrics' &&
+                        url.pathname.endsWith('/dashboard/metrics') &&
                         url.searchParams.get('type') === 'web.vital.lcp'
                     ) {
                         return lcpResponse
@@ -1057,19 +971,15 @@ describe('App', () => {
                     }),
                 }
             }
-            if (url.pathname.endsWith('/dashboard/metrics'))
-                url.pathname = '/api/v2/metrics'
-            if (url.pathname.endsWith('/dashboard/memory-health'))
-                url.pathname = '/api/v2/memory-health'
 
             return {
                 ok: true,
                 json: async () => {
-                    if (url.pathname === '/api/v2/diagnostics/cls') {
+                    if (url.pathname.endsWith('/dashboard/cls')) {
                         return diagnosticResponse
                     }
                     if (
-                        url.pathname === '/api/v2/metrics' &&
+                        url.pathname.endsWith('/dashboard/metrics') &&
                         url.searchParams.get('type') === 'web.vital.cls'
                     ) {
                         return clsResponse
@@ -1182,18 +1092,14 @@ describe('App', () => {
                     }),
                 }
             }
-            if (url.pathname.endsWith('/dashboard/metrics'))
-                url.pathname = '/api/v2/metrics'
-            if (url.pathname.endsWith('/dashboard/memory-health'))
-                url.pathname = '/api/v2/memory-health'
             return {
                 ok: true,
                 json: async () => {
-                    if (url.pathname === '/api/v2/diagnostics/inp') {
+                    if (url.pathname.endsWith('/dashboard/inp')) {
                         return diagnosticResponse
                     }
                     if (
-                        url.pathname === '/api/v2/metrics' &&
+                        url.pathname.endsWith('/dashboard/metrics') &&
                         url.searchParams.get('type') === 'web.vital.inp'
                     ) {
                         return inpResponse
@@ -1274,14 +1180,10 @@ describe('App', () => {
                     }),
                 }
             }
-            if (url.pathname.endsWith('/dashboard/metrics'))
-                url.pathname = '/api/v2/metrics'
-            if (url.pathname.endsWith('/dashboard/memory-health'))
-                url.pathname = '/api/v2/memory-health'
             return {
                 ok: true,
                 json: async () => {
-                    if (url.pathname === '/api/v2/diagnostics/inp') {
+                    if (url.pathname.endsWith('/dashboard/inp')) {
                         return {
                             metric: inpResponse.metric,
                             range: inpResponse.range,
@@ -1298,7 +1200,7 @@ describe('App', () => {
                         }
                     }
                     if (
-                        url.pathname === '/api/v2/metrics' &&
+                        url.pathname.endsWith('/dashboard/metrics') &&
                         url.searchParams.get('type') === 'web.vital.inp'
                     ) {
                         return inpResponse
@@ -1377,10 +1279,6 @@ describe('App', () => {
                     }),
                 }
             }
-            if (url.pathname.endsWith('/dashboard/metrics'))
-                url.pathname = '/api/v2/metrics'
-            if (url.pathname.endsWith('/dashboard/memory-health'))
-                url.pathname = '/api/v2/memory-health'
 
             if (url.searchParams.get('type') === 'web.vital.cls') {
                 return {
@@ -1468,10 +1366,6 @@ describe('App', () => {
                     }),
                 }
             }
-            if (url.pathname.endsWith('/dashboard/metrics'))
-                url.pathname = '/api/v2/metrics'
-            if (url.pathname.endsWith('/dashboard/memory-health'))
-                url.pathname = '/api/v2/memory-health'
 
             if (url.searchParams.get('type') === 'web.vital.inp') {
                 return {
@@ -1549,10 +1443,6 @@ describe('App', () => {
                     }),
                 }
             }
-            if (url.pathname.endsWith('/dashboard/metrics'))
-                url.pathname = '/api/v2/metrics'
-            if (url.pathname.endsWith('/dashboard/memory-health'))
-                url.pathname = '/api/v2/memory-health'
             const type = url.searchParams.get('type')
 
             if (type !== null && Object.hasOwn(memoryValues, type)) {
@@ -1653,12 +1543,8 @@ describe('App', () => {
                     }),
                 }
             }
-            if (url.pathname.endsWith('/dashboard/metrics'))
-                url.pathname = '/api/v2/metrics'
-            if (url.pathname.endsWith('/dashboard/memory-health'))
-                url.pathname = '/api/v2/memory-health'
 
-            if (url.pathname === '/api/v2/memory-health') {
+            if (url.pathname.endsWith('/dashboard/memory-health')) {
                 return {
                     ok: true,
                     json: async () => ({

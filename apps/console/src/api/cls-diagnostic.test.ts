@@ -4,6 +4,8 @@ import type {
 } from '@performance-platform/protocol'
 import { createClsDiagnosticApi } from './cls-diagnostic.js'
 
+const SCOPE = { projectId: 'project-1', appId: 'app-1' }
+
 const RESPONSE = {
     metric: { type: 'web.vital.cls', unit: 'score', metricVersion: 'cls-v1' },
     range: {
@@ -34,10 +36,10 @@ describe('createClsDiagnosticApi', () => {
             fetch: fetcher,
         })
 
-        await expect(api.query(RESPONSE.range)).resolves.toEqual(RESPONSE)
+        await expect(api.query(SCOPE, RESPONSE.range)).resolves.toEqual(RESPONSE)
 
         const url = new URL(String(fetcher.mock.calls[0]?.[0]))
-        expect(url.pathname).toBe('/api/v2/diagnostics/cls')
+        expect(url.pathname).toBe('/monitor-api/projects/project-1/apps/app-1/dashboard/cls')
         expect(Object.fromEntries(url.searchParams)).toEqual(RESPONSE.range)
     })
 
@@ -50,7 +52,7 @@ describe('createClsDiagnosticApi', () => {
             fetch: fetcher,
         })
 
-        await expect(api.query()).rejects.toThrow(
+        await expect(api.query(SCOPE)).rejects.toThrow(
             'CLS diagnostic query failed with status 503',
         )
     })

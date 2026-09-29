@@ -1,4 +1,5 @@
 import type { InpDiagnosticAnalysisResponse } from '@performance-platform/protocol'
+import type { DashboardScope } from './dashboard-scope.js'
 
 interface InpDiagnosticQueryParams {
     from?: string
@@ -11,14 +12,19 @@ export function createInpDiagnosticApi(options: {
 }) {
     return {
         async query(
+            scope: DashboardScope,
             params: InpDiagnosticQueryParams = {},
         ): Promise<InpDiagnosticAnalysisResponse> {
-            const url = new URL('/api/v2/diagnostics/inp', options.baseUrl)
+            const url = new URL(
+                `/monitor-api/projects/${encodeURIComponent(scope.projectId)}/apps/${encodeURIComponent(scope.appId)}/dashboard/inp`,
+                options.baseUrl,
+            )
             if (params.from !== undefined)
                 url.searchParams.set('from', params.from)
             if (params.to !== undefined) url.searchParams.set('to', params.to)
 
             const response = await options.fetch(url.toString(), {
+                credentials: 'include',
                 headers: { accept: 'application/json' },
             })
             if (!response.ok) {

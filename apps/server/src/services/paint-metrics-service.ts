@@ -8,6 +8,7 @@ const MAX_RANGE_MS = 30 * 24 * 60 * 60 * 1_000
 
 interface PaintMetricsServiceOptions {
     repository: EventRepository
+    projectId?: string
     appId: string
     now: () => number
 }
@@ -125,6 +126,9 @@ export function createPaintMetricsService(
 
             try {
                 value = await options.repository.queryPaintMetrics({
+                    ...(options.projectId === undefined
+                        ? {}
+                        : { projectId: options.projectId }),
                     appId: options.appId,
                     from,
                     to,

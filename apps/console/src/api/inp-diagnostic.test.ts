@@ -2,6 +2,8 @@ import type { InpDiagnosticAnalysisResponse } from '@performance-platform/protoc
 import { describe, expect, it, vi } from 'vitest'
 import { createInpDiagnosticApi } from './inp-diagnostic.js'
 
+const SCOPE = { projectId: 'project-1', appId: 'app-1' }
+
 const RESPONSE = {
     metric: { type: 'web.vital.inp', unit: 'ms', metricVersion: 'inp-v1' },
     range: {
@@ -29,9 +31,9 @@ describe('createInpDiagnosticApi', () => {
             baseUrl: 'http://localhost:5001',
             fetch: fetcher,
         })
-        await expect(api.query(RESPONSE.range)).resolves.toEqual(RESPONSE)
+        await expect(api.query(SCOPE, RESPONSE.range)).resolves.toEqual(RESPONSE)
         const url = new URL(String(fetcher.mock.calls[0]?.[0]))
-        expect(url.pathname).toBe('/api/v2/diagnostics/inp')
+        expect(url.pathname).toBe('/monitor-api/projects/project-1/apps/app-1/dashboard/inp')
         expect(Object.fromEntries(url.searchParams)).toEqual(RESPONSE.range)
     })
 
@@ -43,7 +45,7 @@ describe('createInpDiagnosticApi', () => {
             baseUrl: 'http://localhost:5001',
             fetch: fetcher,
         })
-        await expect(api.query()).rejects.toThrow(
+        await expect(api.query(SCOPE)).rejects.toThrow(
             'INP diagnostic query failed with status 503',
         )
     })

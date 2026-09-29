@@ -13,6 +13,8 @@ import {
     createPaintMetricsApi,
 } from './metrics.js'
 
+const SCOPE = { projectId: 'project-1', appId: 'app-1' }
+
 const EMPTY_STATS = {
     count: 0,
     average: null,
@@ -62,11 +64,12 @@ describe('createPaintMetricsApi', () => {
             fetch: fetcher,
         })
 
-        const result = await api.query({})
+        const result = await api.query(SCOPE, {})
 
         expect(fetcher).toHaveBeenCalledWith(
-            'http://localhost:5001/api/v1/metrics/paint',
+            'http://localhost:5001/monitor-api/projects/project-1/apps/app-1/dashboard/paint',
             {
+                credentials: 'include',
                 headers: {
                     accept:
                         'application/json',
@@ -102,7 +105,7 @@ describe('createPaintMetricsApi', () => {
             fetch: fetcher,
         })
     
-        await api.query({
+        await api.query(SCOPE, {
             from: '2026-08-29T00:00:00.000Z',
             to: '2026-08-30T00:00:00.000Z',
             interval: 'day',
@@ -153,7 +156,7 @@ describe('createPaintMetricsApi', () => {
         })
     
         await expect(
-            api.query({}),
+            api.query(SCOPE, {}),
         ).rejects.toThrow(
             'Metrics request failed with status 503',
         )
