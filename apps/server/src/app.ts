@@ -2,7 +2,6 @@
  * 负责 HTTP：request、reply、status
  */
 import Fastify, { type FastifyInstance, type FastifyError } from 'fastify'
-import { createEventIngestionService } from './services/event-ingestion-service.js'
 import { createApiErrorResponse } from './http/api-error.js'
 
 import { registerEventRoutes } from './routes/events.js'
@@ -10,7 +9,6 @@ import { createPaintMetricsService } from './services/paint-metrics-service.js'
 import { registerMetricsRoutes } from './routes/metrics.js'
 import { registerHealthRoutes } from './routes/health.js'
 import cors from '@fastify/cors'
-import { createMetricEventIngestionService } from './services/metric-event-ingestion-service.js'
 import type {
     EventRepository,
     MetricQueryRepository,
@@ -18,7 +16,6 @@ import type {
     LcpDiagnosticRepository,
     ClsDiagnosticRepository,
     InpDiagnosticRepository,
-    ProjectKeyRepository,
 } from './repositories/event-repository.js'
 
 import { createMetricQueryService } from './services/metric-query-service.js'
@@ -36,8 +33,30 @@ import { createInpDiagnosticService } from './services/inp-diagnostic-service.js
 import { registerInpDiagnosticRoutes } from './routes/inp-diagnostic.js'
 import { createAlertEvaluationService } from './services/alert-evaluation-service.js'
 import { registerAlertEvaluationRoutes } from './routes/alert-evaluation.js'
-import { createProjectKeyAuthenticationService } from './services/project-key-authentication-service.js'
 import { createProjectMetricEventIngestionService } from './services/project-metric-event-ingestion-service.js'
+import type { UserRepository } from './repositories/user-repository.js'
+import { createRegisterService } from './services/register-service.js'
+import { registerRegistrationRoutes } from './routes/register.js'
+
+import cookie from '@fastify/cookie'
+import type { SessionRepository } from './repositories/session-repository.js'
+import { createLoginService } from './services/login-service.js'
+import { registerLoginRoutes } from './routes/login.js'
+import { createSessionAuthenticationService } from './services/session-authentication-service.js'
+import { createCurrentUserService } from './services/current-user-service.js'
+import { registerCurrentUserRoutes } from './routes/current-user.js'
+import { createLogoutService } from './services/logout-service.js'
+import { registerLogoutRoutes } from './routes/logout.js'
+import type { ProjectAppRepository } from './repositories/project-app-repository.js'
+import type { ProjectAppKeyRepository } from './repositories/project-app-key-repository.js'
+import { createProjectAppKeyAuthenticationService } from './services/project-app-key-authentication-service.js'
+import type { ProjectRepository } from './repositories/project-repository.js'
+import { createProjectService } from './services/project-service.js'
+import { registerProjectRoutes } from './routes/projects.js'
+import { createProjectAppService } from './services/project-app-service.js'
+import { registerProjectAppRoutes } from './routes/project-apps.js'
+import { createProjectAppKeyService } from './services/project-app-key-service.js'
+import { registerProjectAppKeyRoutes } from './routes/project-app-keys.js'
 
 interface BuildAppOptions {
     eventRepository: EventRepository
@@ -50,7 +69,12 @@ interface BuildAppOptions {
     now: () => number
     corsOrigins?: string[]
     logLevel?: string
-    projectKeyRepository?: ProjectKeyRepository
+    projectRepository?: ProjectRepository
+    projectAppRepository?: ProjectAppRepository
+    projectAppKeyRepository?: ProjectAppKeyRepository
+    userRepository?: UserRepository
+    sessionRepository?: SessionRepository
+    cookieSecure?: boolean
 }
 
 export function buildApp(options: BuildAppOptions): FastifyInstance {
@@ -101,30 +125,19 @@ export function buildApp(options: BuildAppOptions): FastifyInstance {
         }
     })
 
-    const ingestionService = createEventIngestionService({
-        repository: options.eventRepository,
-        appId: options.appId,
-        now: options.now,
-    })
-
-    const metricIngestionService = createMetricEventIngestionService({
-        repository: options.eventRepository,
-        appId: options.appId,
-        now: options.now,
-    })
-
-    const projectKeyAuthenticationService =
-        options.projectKeyRepository === undefined
+    const projectAppKeyAuthenticationService =
+        options.projectAppKeyRepository === undefined
             ? undefined
-            : createProjectKeyAuthenticationService(
-                  options.projectKeyRepository,
+            : createProjectAppKeyAuthenticationService(
+                  options.projectAppKeyRepository,
               )
 
     const projectMetricIngestionService =
-        options.projectKeyRepository === undefined
+        options.projectAppRepository === undefined
             ? undefined
             : createProjectMetricEventIngestionService({
                   repository: options.eventRepository,
+                  projectAppRepository: options.projectAppRepository,
                   now: options.now,
               })
 
@@ -140,6 +153,7 @@ export function buildApp(options: BuildAppOptions): FastifyInstance {
         now: options.now,
     })
 
+    app.register(cookie)
     app.register(registerHealthRoutes)
 
     app.register(cors, {
@@ -147,14 +161,11 @@ export function buildApp(options: BuildAppOptions): FastifyInstance {
     })
 
     app.register(registerEventRoutes, {
-        ingestionService,
-        metricIngestionService,
-
-        ...(projectKeyAuthenticationService === undefined ||
+        ...(projectAppKeyAuthenticationService === undefined ||
         projectMetricIngestionService === undefined
             ? {}
             : {
-                  projectKeyAuthenticationService,
+                  projectAppKeyAuthenticationService,
                   projectMetricIngestionService,
               }),
     })
@@ -228,6 +239,92 @@ export function buildApp(options: BuildAppOptions): FastifyInstance {
 
         app.register(registerMemoryHealthRoutes, {
             memoryHealthService,
+        })
+    }
+
+    if (options.userRepository !== undefined) {
+        const registerService = createRegisterService(options.userRepository)
+        app.register(registerRegistrationRoutes, {
+            registerService,
+        })
+    }
+
+    if (
+        options.userRepository !== undefined &&
+        options.sessionRepository !== undefined &&
+        options.cookieSecure !== undefined
+    ) {
+        const currentTime = () => new Date(options.now())
+
+        const loginService = createLoginService(
+            options.userRepository,
+            options.sessionRepository,
+            currentTime,
+        )
+
+        app.register(registerLoginRoutes, {
+            loginService,
+            cookieSecure: options.cookieSecure,
+        })
+
+        const sessionAuthenticationService = createSessionAuthenticationService(
+            options.sessionRepository,
+            currentTime,
+        )
+
+        const currentUserService = createCurrentUserService(
+            sessionAuthenticationService,
+            options.userRepository,
+        )
+
+        app.register(registerCurrentUserRoutes, {
+            currentUserService,
+        })
+
+        if (options.projectRepository !== undefined) {
+            const projectService = createProjectService(
+                sessionAuthenticationService,
+                options.projectRepository,
+            )
+
+            app.register(registerProjectRoutes, {
+                projectService,
+            })
+
+            if (options.projectAppRepository !== undefined) {
+                const projectAppService = createProjectAppService(
+                    sessionAuthenticationService,
+                    options.projectRepository,
+                    options.projectAppRepository,
+                )
+
+                app.register(registerProjectAppRoutes, {
+                    projectAppService,
+                })
+
+                if (options.projectAppKeyRepository !== undefined) {
+                    const projectAppKeyService = createProjectAppKeyService(
+                        sessionAuthenticationService,
+                        options.projectRepository,
+                        options.projectAppRepository,
+                        options.projectAppKeyRepository,
+                    )
+
+                    app.register(registerProjectAppKeyRoutes, {
+                        projectAppKeyService,
+                    })
+                }
+            }
+        }
+
+        const logoutService = createLogoutService(
+            options.sessionRepository,
+            currentTime,
+        )
+
+        app.register(registerLogoutRoutes, {
+            logoutService,
+            cookieSecure: options.cookieSecure,
         })
     }
 

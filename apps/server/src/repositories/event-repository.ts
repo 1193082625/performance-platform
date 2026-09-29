@@ -48,13 +48,13 @@ export interface InpDiagnosticRepository {
 export type StorableMetricEvent = PaintEventV1 | MetricEventV2
 
 export interface InsertBatchOptions {
-    projectId?: string
+    projectId: string
 }
 
 export interface EventRepository {
     insertBatch(
         events: readonly StorableMetricEvent[],
-        options?: InsertBatchOptions,
+        options: InsertBatchOptions,
     ): Promise<void>
 
     queryPaintMetrics(query: PaintMetricsQuery): Promise<PaintMetricsData>

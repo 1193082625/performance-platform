@@ -1,16 +1,9 @@
-import {
-    describe,
-    it,
-    afterAll,
-    beforeEach,
-    expect
-} from 'vitest'
+import { describe, it, afterAll, beforeEach, expect } from 'vitest'
 
-import {
-    createDatabasePool
-} from './pool.js'
+import { createDatabasePool } from './pool.js'
 
-const TEST_DATABASE_URL = 'postgresql://postgres:postgres@localhost:5433/performance_platform_test'
+const TEST_DATABASE_URL =
+    'postgresql://postgres:postgres@localhost:5433/performance_platform_test'
 
 interface MetricInput {
     eventId: string
@@ -21,11 +14,45 @@ interface MetricInput {
     metricVersion: string
 }
 
+const TEST_USER_ID = '-2'
+const TEST_PROJECT_ID = '-2'
+
 describe('metric_events schema', () => {
     const pool = createDatabasePool(TEST_DATABASE_URL)
 
     beforeEach(async () => {
         await pool.query('TRUNCATE TABLE metric_events RESTART IDENTITY')
+        await pool.query(
+            `
+            INSERT INTO users (
+                id,
+                name,
+                phone,
+                password_hash
+            )
+            VALUES ($1, $2, $3, $4)
+            ON CONFLICT (id) DO NOTHING
+            `,
+            [
+                TEST_USER_ID,
+                'schema-test-user',
+                '15800000000',
+                'test-password-hash',
+            ],
+        )
+
+        await pool.query(
+            `
+            INSERT INTO projects (
+                id,
+                name,
+                owner_id
+            )
+            VALUES ($1, $2, $3)
+            ON CONFLICT (id) DO NOTHING
+            `,
+            [TEST_PROJECT_ID, 'schema-test-project', TEST_USER_ID],
+        )
     })
 
     afterAll(async () => {
@@ -51,10 +78,11 @@ describe('metric_events schema', () => {
                 metric_value,
                 metric_unit,
                 sample_rate,
-                metric_version
+                metric_version,
+                project_id
             )
             VALUES (
-                $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16
+                $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17
             )
             `,
             [
@@ -74,14 +102,14 @@ describe('metric_events schema', () => {
                 input.unit,
                 input.sampleRate,
                 input.metricVersion,
-            ]
+                TEST_PROJECT_ID,
+            ],
         )
     }
 
     it('accepts a valid LCP metric', async () => {
         await insertMetric({
-            eventId:
-                '10000000-0000-4000-8000-000000000001',
+            eventId: '10000000-0000-4000-8000-000000000001',
             type: 'web.vital.lcp',
             value: 2500,
             unit: 'ms',
@@ -93,53 +121,45 @@ describe('metric_events schema', () => {
     it('rejects sample rate zero', async () => {
         await expect(
             insertMetric({
-                eventId:
-                    '10000000-0000-4000-8000-000000000002',
+                eventId: '10000000-0000-4000-8000-000000000002',
                 type: 'web.vital.lcp',
                 value: 2500,
                 unit: 'ms',
                 sampleRate: 0,
                 metricVersion: 'lcp-v1',
-            })
+            }),
         ).rejects.toThrow(/metric_events_sample_rate_check/)
     })
 
     it('rejects LCP with score unit', async () => {
         await expect(
             insertMetric({
-                eventId:
-                    '10000000-0000-4000-8000-000000000003',
+                eventId: '10000000-0000-4000-8000-000000000003',
                 type: 'web.vital.lcp',
                 value: 2500,
                 unit: 'score',
                 sampleRate: 1,
                 metricVersion: 'lcp-v1',
             }),
-        ).rejects.toThrow(
-            /metric_events_metric_definition_check/,
-        )
+        ).rejects.toThrow(/metric_events_metric_definition_check/)
     })
-    
+
     it('rejects LCP with CLS algorithm version', async () => {
         await expect(
             insertMetric({
-                eventId:
-                    '10000000-0000-4000-8000-000000000004',
+                eventId: '10000000-0000-4000-8000-000000000004',
                 type: 'web.vital.lcp',
                 value: 2500,
                 unit: 'ms',
                 sampleRate: 1,
                 metricVersion: 'cls-v1',
             }),
-        ).rejects.toThrow(
-            /metric_events_metric_definition_check/,
-        )
+        ).rejects.toThrow(/metric_events_metric_definition_check/)
     })
 
     it('accepts a safe integer memory value', async () => {
         await insertMetric({
-            eventId:
-                '10000000-0000-4000-8000-000000000005',
+            eventId: '10000000-0000-4000-8000-000000000005',
             type: 'web.memory.used_heap',
             value: Number.MAX_SAFE_INTEGER,
             unit: 'byte',
@@ -147,20 +167,17 @@ describe('metric_events schema', () => {
             metricVersion: 'memory-v1',
         })
     })
-    
+
     it('rejects a fractional memory value', async () => {
         await expect(
             insertMetric({
-                eventId:
-                    '10000000-0000-4000-8000-000000000006',
+                eventId: '10000000-0000-4000-8000-000000000006',
                 type: 'web.memory.used_heap',
                 value: 1024.5,
                 unit: 'byte',
                 sampleRate: 1,
                 metricVersion: 'memory-v1',
             }),
-        ).rejects.toThrow(
-            /metric_events_metric_value_check/,
-        )
+        ).rejects.toThrow(/metric_events_metric_value_check/)
     })
 })

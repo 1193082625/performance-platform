@@ -246,6 +246,18 @@ export type ApiErrorCode =
     | 'STORAGE_UNAVAILABLE' // PostgreSQL 不可用
     | 'UNSUPPORTED_METRIC'
     | 'INVALID_PROJECT_KEY'
+    | 'INVALID_REGISTER_INPUT' // 注册资料不符合要求
+    | 'INVALID_PROJECT_INPUT' // 项目输入不符合要求
+    | 'INVALID_PROJECT_APP_INPUT' // 应用输入不符合要求
+    | 'PROJECT_NOT_FOUND' // 项目不存在或不属于当前用户
+    | 'PROJECT_APP_NOT_FOUND' // 应用不存在或不属于当前项目
+    | 'PHONE_TAKEN' // 手机号已注册
+    | 'INVALID_LOGIN_INPUT' // 登录输入不符合要求
+    | 'INVALID_CREDENTIALS' // 手机号或密码错误
+    | 'UNAUTHENTICATED' // 缺少、过期或已撤销的登录会话
+    | 'PROJECT_APP_NOT_REGISTERED' // 应用未登记在当前项目
+    | 'APP_KEY_MISMATCH' // 应用密钥与事件中的 App ID 不匹配
+    | 'INVALID_APP_KEY' // 缺少、未知或已停用的应用密钥
 
 // 统一的非成功响应
 export interface ApiErrorResponse {

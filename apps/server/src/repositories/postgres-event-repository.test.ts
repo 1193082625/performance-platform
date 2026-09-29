@@ -1,27 +1,24 @@
 import { describe, it, expect, afterAll, beforeEach } from 'vitest'
-
 import type {
     PaintEventV1,
     MetricEventV2,
 } from '@performance-platform/protocol'
-
 import { createDatabasePool } from '../db/pool.js'
-
 import { createPostgresEventRepository } from './postgres-event-repository.js'
 
 type LcpEvent = Extract<MetricEventV2, { type: 'web.vital.lcp' }>
-
 type LcpAttribution = NonNullable<LcpEvent['payload']['attribution']>
 
+const TEST_USER_ID = '-1'
+const TEST_PROJECT_ID = '-1'
+const PROJECT_INSERT_OPTIONS = {
+    projectId: TEST_PROJECT_ID,
+}
 const TEST_DATABASE_URL =
     'postgresql://postgres:postgres@localhost:5433/performance_platform_test'
-
 const EVENT_TIMESTAMP = Date.UTC(2026, 7, 28, 3, 0, 0)
-
 const QUERY_FROM = new Date('2026-08-28T03:00:00.000Z')
-
 const QUERY_TO = new Date('2026-08-28T04:00:00.000Z')
-
 const EMPTY_STATS = {
     count: 0,
     average: null,
@@ -29,7 +26,6 @@ const EMPTY_STATS = {
     p75: null,
     p90: null,
 }
-
 const EVENT: PaintEventV1 = {
     schemaVersion: '1.0',
     eventId: '7ae498ca-1dc3-4cf7-be84-67e3c8cd2e1a',
@@ -70,6 +66,37 @@ describe('PostgresEventRepository', () => {
         // TRUNCATE 会在每个测试前清空表，确保测试互不影响
         // RESTART IDENTITY 会把自增id重置
         await pool.query('TRUNCATE TABLE metric_events RESTART IDENTITY')
+        await pool.query(
+            `
+            INSERT INTO users (
+                id,
+                name,
+                phone,
+                password_hash
+            )
+            VALUES ($1, $2, $3, $4)
+            ON CONFLICT (id) DO NOTHING
+            `,
+            [
+                TEST_USER_ID,
+                'repository-test-user',
+                '15900000000',
+                'test-password-hash',
+            ],
+        )
+
+        await pool.query(
+            `
+            INSERT INTO projects (
+                id,
+                name,
+                owner_id
+            )
+            VALUES ($1, $2, $3)
+            ON CONFLICT (id) DO NOTHING
+            `,
+            [TEST_PROJECT_ID, 'repository-test-project', TEST_USER_ID],
+        )
     })
 
     afterAll(async () => {
@@ -77,7 +104,7 @@ describe('PostgresEventRepository', () => {
     })
 
     it('inserts a paint event', async () => {
-        await repository.insertBatch([EVENT])
+        await repository.insertBatch([EVENT], PROJECT_INSERT_OPTIONS)
 
         const result = await pool.query<{
             event_id: string
@@ -89,6 +116,7 @@ describe('PostgresEventRepository', () => {
             metric_unit: string
             sample_rate: number
             metric_version: string
+            project_id: string
         }>(`
             SELECT
                 event_id,
@@ -99,7 +127,8 @@ describe('PostgresEventRepository', () => {
                 metric_value,
                 metric_unit,
                 sample_rate,
-                metric_version
+                metric_version,
+                project_id
             FROM metric_events
         `)
 
@@ -114,14 +143,17 @@ describe('PostgresEventRepository', () => {
                 metric_unit: EVENT.payload.unit,
                 sample_rate: 1,
                 metric_version: 'paint-v1',
+                project_id: TEST_PROJECT_ID,
             },
         ])
     })
 
     it('treats duplicate event IDs as idempotent', async () => {
-        await repository.insertBatch([EVENT])
+        await repository.insertBatch([EVENT], PROJECT_INSERT_OPTIONS)
 
-        await expect(repository.insertBatch([EVENT])).resolves.toBeUndefined()
+        await expect(
+            repository.insertBatch([EVENT], PROJECT_INSERT_OPTIONS),
+        ).resolves.toBeUndefined()
 
         const result = await pool.query<{
             count: string
@@ -161,7 +193,10 @@ describe('PostgresEventRepository', () => {
             },
         }
 
-        await repository.insertBatch([fpEvent, fcpEvent])
+        await repository.insertBatch(
+            [fpEvent, fcpEvent],
+            PROJECT_INSERT_OPTIONS,
+        )
         const result = await pool.query<{
             event_type: string
             metric_value: number
@@ -193,24 +228,27 @@ describe('PostgresEventRepository', () => {
             timestamp,
         })
 
-        await repository.insertBatch([
-            makeEvent(
-                '97f10bd9-150f-4d73-88e5-b84450e59787',
-                QUERY_FROM.getTime() - 1,
-            ),
-            makeEvent(
-                '35969e8c-785b-44cb-b8d4-20ec8e3fb74e',
-                QUERY_FROM.getTime(),
-            ),
-            makeEvent(
-                '752ff96d-104f-43cd-82cd-8df808d17e67',
-                QUERY_TO.getTime() - 1,
-            ),
-            makeEvent(
-                '834c4693-252c-4ca2-9a81-c31665ac7579',
-                QUERY_TO.getTime(),
-            ),
-        ])
+        await repository.insertBatch(
+            [
+                makeEvent(
+                    '97f10bd9-150f-4d73-88e5-b84450e59787',
+                    QUERY_FROM.getTime() - 1,
+                ),
+                makeEvent(
+                    '35969e8c-785b-44cb-b8d4-20ec8e3fb74e',
+                    QUERY_FROM.getTime(),
+                ),
+                makeEvent(
+                    '752ff96d-104f-43cd-82cd-8df808d17e67',
+                    QUERY_TO.getTime() - 1,
+                ),
+                makeEvent(
+                    '834c4693-252c-4ca2-9a81-c31665ac7579',
+                    QUERY_TO.getTime(),
+                ),
+            ],
+            PROJECT_INSERT_OPTIONS,
+        )
 
         const result = await repository.queryPaintMetrics({
             appId: 'demo-web',
@@ -235,7 +273,10 @@ describe('PostgresEventRepository', () => {
         }
 
         await expect(
-            repository.insertBatch([EVENT, invalidEvent]),
+            repository.insertBatch(
+                [EVENT, invalidEvent],
+                PROJECT_INSERT_OPTIONS,
+            ),
         ).rejects.toThrow()
 
         const result = await pool.query<{
@@ -283,7 +324,7 @@ describe('PostgresEventRepository', () => {
     })
 
     it('aggregates an event into its time bucket', async () => {
-        await repository.insertBatch([EVENT])
+        await repository.insertBatch([EVENT], PROJECT_INSERT_OPTIONS)
 
         const result = await repository.queryPaintMetrics({
             appId: 'demo-web',
@@ -326,7 +367,7 @@ describe('PostgresEventRepository', () => {
             },
         }))
 
-        await repository.insertBatch(events)
+        await repository.insertBatch(events, PROJECT_INSERT_OPTIONS)
 
         const result = await repository.queryPaintMetrics({
             appId: 'demo-web',
@@ -380,7 +421,7 @@ describe('PostgresEventRepository', () => {
             },
         }
 
-        await repository.insertBatch([event])
+        await repository.insertBatch([event], PROJECT_INSERT_OPTIONS)
 
         const result = await pool.query<{
             schema_version: string
@@ -446,7 +487,7 @@ describe('PostgresEventRepository', () => {
             },
         }
 
-        await repository.insertBatch([EVENT, event])
+        await repository.insertBatch([EVENT, event], PROJECT_INSERT_OPTIONS)
 
         const result = await repository.queryMetric({
             appId: 'demo-web',
@@ -521,7 +562,7 @@ describe('PostgresEventRepository', () => {
             },
         }
 
-        await repository.insertBatch([EVENT, clsEvent])
+        await repository.insertBatch([EVENT, clsEvent], PROJECT_INSERT_OPTIONS)
 
         const result = await repository.queryMetric({
             appId: 'demo-web',
@@ -578,7 +619,7 @@ describe('PostgresEventRepository', () => {
             },
         }
 
-        await repository.insertBatch([EVENT, inpEvent])
+        await repository.insertBatch([EVENT, inpEvent], PROJECT_INSERT_OPTIONS)
 
         const result = await repository.queryMetric({
             appId: 'demo-web',
@@ -679,7 +720,7 @@ describe('PostgresEventRepository', () => {
             },
         )
 
-        await repository.insertBatch(events)
+        await repository.insertBatch(events, PROJECT_INSERT_OPTIONS)
 
         const snapshots = await repository.queryLatestViewMemorySnapshots({
             appId: 'demo-web',
@@ -738,7 +779,7 @@ describe('PostgresEventRepository', () => {
             },
         }
 
-        await repository.insertBatch([event])
+        await repository.insertBatch([event], PROJECT_INSERT_OPTIONS)
 
         const result = await pool.query<{
             metric_attribution: typeof attribution
@@ -823,11 +864,10 @@ describe('PostgresEventRepository', () => {
             },
         }
 
-        await repository.insertBatch([
-            firstEvent,
-            secondEvent,
-            eventWithoutEvidence,
-        ])
+        await repository.insertBatch(
+            [firstEvent, secondEvent, eventWithoutEvidence],
+            PROJECT_INSERT_OPTIONS,
+        )
 
         const result = await repository.queryLcpDiagnostics({
             appId: 'demo-web',
@@ -933,11 +973,10 @@ describe('PostgresEventRepository', () => {
             },
         }
 
-        await repository.insertBatch([
-            baseEvent,
-            secondEvent,
-            eventWithoutEvidence,
-        ])
+        await repository.insertBatch(
+            [baseEvent, secondEvent, eventWithoutEvidence],
+            PROJECT_INSERT_OPTIONS,
+        )
 
         const result = await repository.queryClsDiagnostics({
             appId: 'demo-web',
@@ -980,11 +1019,13 @@ describe('PostgresEventRepository', () => {
     })
 
     it('returns empty CLS diagnostics without samples', async () => {
-        await expect(repository.queryClsDiagnostics({
-            appId: 'demo-web',
-            from: QUERY_FROM,
-            to: QUERY_TO,
-        })).resolves.toEqual({
+        await expect(
+            repository.queryClsDiagnostics({
+                appId: 'demo-web',
+                from: QUERY_FROM,
+                to: QUERY_TO,
+            }),
+        ).resolves.toEqual({
             metric: {
                 type: 'web.vital.cls',
                 unit: 'score',
@@ -1060,14 +1101,23 @@ describe('PostgresEventRepository', () => {
             payload: { value: 400, unit: 'ms' },
         }
 
-        await repository.insertBatch([baseEvent, secondEvent, eventWithoutEvidence])
+        await repository.insertBatch(
+            [baseEvent, secondEvent, eventWithoutEvidence],
+            PROJECT_INSERT_OPTIONS,
+        )
 
-        await expect(repository.queryInpDiagnostics({
-            appId: 'demo-web',
-            from: QUERY_FROM,
-            to: QUERY_TO,
-        })).resolves.toEqual({
-            metric: { type: 'web.vital.inp', unit: 'ms', metricVersion: 'inp-v1' },
+        await expect(
+            repository.queryInpDiagnostics({
+                appId: 'demo-web',
+                from: QUERY_FROM,
+                to: QUERY_TO,
+            }),
+        ).resolves.toEqual({
+            metric: {
+                type: 'web.vital.inp',
+                unit: 'ms',
+                metricVersion: 'inp-v1',
+            },
             range: {
                 from: QUERY_FROM.toISOString(),
                 to: QUERY_TO.toISOString(),
@@ -1085,12 +1135,18 @@ describe('PostgresEventRepository', () => {
     })
 
     it('returns empty INP diagnostics without samples', async () => {
-        await expect(repository.queryInpDiagnostics({
-            appId: 'demo-web',
-            from: QUERY_FROM,
-            to: QUERY_TO,
-        })).resolves.toEqual({
-            metric: { type: 'web.vital.inp', unit: 'ms', metricVersion: 'inp-v1' },
+        await expect(
+            repository.queryInpDiagnostics({
+                appId: 'demo-web',
+                from: QUERY_FROM,
+                to: QUERY_TO,
+            }),
+        ).resolves.toEqual({
+            metric: {
+                type: 'web.vital.inp',
+                unit: 'ms',
+                metricVersion: 'inp-v1',
+            },
             range: {
                 from: QUERY_FROM.toISOString(),
                 to: QUERY_TO.toISOString(),

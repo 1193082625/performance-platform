@@ -1,5 +1,4 @@
-type Environment =
-    Record<string, string | undefined>
+type Environment = Record<string, string | undefined>
 
 export interface ServerConfig {
     port: number
@@ -7,6 +6,7 @@ export interface ServerConfig {
     appId: string
     corsOrigins: string[]
     logLevel: string
+    cookieSecure: boolean
 }
 
 const LOG_LEVELS = [
@@ -19,25 +19,16 @@ const LOG_LEVELS = [
     'silent',
 ]
 
-export function loadConfig(
-    env: Environment,
-): ServerConfig {
-    const corsOrigins =
-        (env.CORS_ORIGINS ?? '')
-            .split(',')
-            .map((origin) => origin.trim())
-            .filter((origin) => origin.length > 0)
+export function loadConfig(env: Environment): ServerConfig {
+    const corsOrigins = (env.CORS_ORIGINS ?? '')
+        .split(',')
+        .map((origin) => origin.trim())
+        .filter((origin) => origin.length > 0)
 
     const port = Number(env.PORT ?? '5000')
     // TCP/UDP 端口是 16 位无符号数，合法范围是 0–65535；其中 0 通常表示让操作系统随机分配端口，不适合作为这里的明确服务配置，所以要求 1–65535
-    if (
-        !Number.isInteger(port)
-        || port < 1
-        || port > 65_535
-    ) {
-        throw new Error(
-            'PORT must be an integer between 1 and 65535',
-        )
+    if (!Number.isInteger(port) || port < 1 || port > 65_535) {
+        throw new Error('PORT must be an integer between 1 and 65535')
     }
 
     const databaseUrl = env.DATABASE_URL?.trim() ?? ''
@@ -56,12 +47,20 @@ export function loadConfig(
             'LOG_LEVEL must be one of trace, debug, info, warn, error, fatal, or silent',
         )
     }
-    
+
+    const cookieSecureValue = env.COOKIE_SECURE?.trim() ?? 'false'
+
+    if (cookieSecureValue !== 'true' && cookieSecureValue !== 'false') {
+        throw new Error('COOKIE_SECURE must be true or false')
+    }
+    const cookieSecure = cookieSecureValue === 'true'
+
     return {
         port,
         databaseUrl,
         appId,
         corsOrigins,
         logLevel,
+        cookieSecure,
     }
 }

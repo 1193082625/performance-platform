@@ -1,16 +1,12 @@
 import type { FastifyInstance } from 'fastify'
 import type { BatchErrorCode } from '@performance-platform/protocol'
-import type { EventIngestionService } from '../services/event-ingestion-service.js'
 import { createApiErrorResponse } from '../http/api-error.js'
-import type { MetricEventIngestionService } from '../services/metric-event-ingestion-service.js'
-import type { ProjectKeyAuthenticationService } from '../services/project-key-authentication-service.js'
 import type { ProjectMetricEventIngestionService } from '../services/project-metric-event-ingestion-service.js'
+import type { ProjectAppKeyAuthenticationService } from '../services/project-app-key-authentication-service.js'
 
 interface EventRoutesOptions {
-    ingestionService: EventIngestionService
-    metricIngestionService: MetricEventIngestionService
-    projectKeyAuthenticationService?: ProjectKeyAuthenticationService
     projectMetricIngestionService?: ProjectMetricEventIngestionService
+    projectAppKeyAuthenticationService?: ProjectAppKeyAuthenticationService
 }
 
 function batchErrorMessage(code: BatchErrorCode): string {
@@ -53,88 +49,26 @@ function parseEventBatchBody(input: unknown): ParseEventBatchBodyResult {
     }
 }
 
-function readProjectKey(input: unknown): string | undefined {
+function readAppKey(input: unknown): string | undefined {
     if (typeof input !== 'object' || input === null || Array.isArray(input)) {
         return undefined
     }
-    const projectKey = (input as Record<string, unknown>).projectKey
 
-    return typeof projectKey === 'string' ? projectKey : undefined
+    const appKey = (input as Record<string, unknown>).appKey
+
+    return typeof appKey === 'string' ? appKey : undefined
 }
 
 export async function registerEventRoutes(
     app: FastifyInstance,
     options: EventRoutesOptions,
 ): Promise<void> {
-    const routes = [
-        {
-            url: '/api/v1/events/batch',
-            service: options.ingestionService,
-        },
-        {
-            url: '/api/v2/events/batch',
-            service: options.metricIngestionService,
-        },
-    ] as const
-
-    for (const route of routes) {
-        app.post(route.url, async (request, reply) => {
-            const parsedBody = parseEventBatchBody(request.body)
-
-            if (!parsedBody.ok) {
-                return reply
-                    .status(400)
-                    .send(
-                        createApiErrorResponse(
-                            'INVALID_JSON',
-                            'request body must contain valid JSON',
-                            request.id,
-                        ),
-                    )
-            }
-
-            const result = await route.service.ingest(parsedBody.value)
-
-            if (!result.ok) {
-                // 'cause' in result 是一个类型守卫
-                if ('cause' in result) {
-                    request.log.error(
-                        {
-                            err: result.cause,
-                        },
-                        'event storage unavailable',
-                    )
-                    return reply
-                        .status(503)
-                        .send(
-                            createApiErrorResponse(
-                                'STORAGE_UNAVAILABLE',
-                                'event storage is temporarily unavailable',
-                                request.id,
-                            ),
-                        )
-                }
-                return reply
-                    .status(400)
-                    .send(
-                        createApiErrorResponse(
-                            result.code,
-                            batchErrorMessage(result.code),
-                            request.id,
-                        ),
-                    )
-            }
-
-            return result.value
-        })
-    }
-
-    const projectKeyAuthenticationService =
-        options.projectKeyAuthenticationService
+    const projectAppKeyAuthenticationService =
+        options.projectAppKeyAuthenticationService
 
     const projectMetricIngestionService = options.projectMetricIngestionService
     if (
-        projectKeyAuthenticationService !== undefined &&
+        projectAppKeyAuthenticationService !== undefined &&
         projectMetricIngestionService !== undefined
     ) {
         app.post('/ingest/v2/events/batch', async (request, reply) => {
@@ -152,8 +86,8 @@ export async function registerEventRoutes(
             }
 
             const authentication =
-                await projectKeyAuthenticationService.authenticate(
-                    readProjectKey(parsedBody.value),
+                await projectAppKeyAuthenticationService.authenticate(
+                    readAppKey(parsedBody.value),
                 )
 
             if (!authentication?.ok) {
@@ -161,8 +95,8 @@ export async function registerEventRoutes(
                     .status(401)
                     .send(
                         createApiErrorResponse(
-                            'INVALID_PROJECT_KEY',
-                            'project key is invalid',
+                            'INVALID_APP_KEY',
+                            'app key is invalid',
                             request.id,
                         ),
                     )
@@ -171,6 +105,7 @@ export async function registerEventRoutes(
             const result = await projectMetricIngestionService.ingest(
                 parsedBody.value,
                 authentication.projectId,
+                authentication.appId,
             )
 
             if (!result.ok) {
@@ -185,6 +120,30 @@ export async function registerEventRoutes(
                             createApiErrorResponse(
                                 'STORAGE_UNAVAILABLE',
                                 'event storage is temporarily unavailable',
+                                request.id,
+                            ),
+                        )
+                }
+
+                if (result.code === 'PROJECT_APP_NOT_REGISTERED') {
+                    return reply
+                        .status(403)
+                        .send(
+                            createApiErrorResponse(
+                                'PROJECT_APP_NOT_REGISTERED',
+                                'application is not registered for this project',
+                                request.id,
+                            ),
+                        )
+                }
+
+                if (result.code === 'APP_KEY_MISMATCH') {
+                    return reply
+                        .status(403)
+                        .send(
+                            createApiErrorResponse(
+                                'APP_KEY_MISMATCH',
+                                'app key does not permit events for this application',
                                 request.id,
                             ),
                         )

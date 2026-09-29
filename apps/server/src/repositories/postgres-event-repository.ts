@@ -263,7 +263,7 @@ export function createPostgresEventRepository(
                             sampleRate,
                             metricVersion,
                             metricAttribution,
-                            options?.projectId,
+                            options.projectId,
                         ],
                     )
                 }

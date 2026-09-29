@@ -1,16 +1,12 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-
 import type {
     PaintEventV1,
     MetricEventV2,
 } from '@performance-platform/protocol'
-
-import type {
-    EventRepository,
-    ProjectKeyRepository,
-} from '../repositories/event-repository.js'
-
+import type { EventRepository } from '../repositories/event-repository.js'
 import { buildApp } from '../app.js'
+import type { ProjectAppRepository } from '../repositories/project-app-repository.js'
+import type { ProjectAppKeyRepository } from '../repositories/project-app-key-repository.js'
 
 const NOW = Date.UTC(2026, 7, 28, 8, 0, 0)
 
@@ -83,6 +79,15 @@ const V2_EVENT: MetricEventV2 = {
     },
 }
 
+const APP_KEY = 'ppk_valid'
+
+function createProjectIngestPayload(events: readonly MetricEventV2[]) {
+    return {
+        appKey: APP_KEY,
+        events,
+    }
+}
+
 describe('event batch routes', () => {
     const apps: Array<{
         close(): Promise<void>
@@ -101,14 +106,37 @@ describe('event batch routes', () => {
             queryPaintMetrics: vi.fn<EventRepository['queryPaintMetrics']>(),
         }
 
-        const findActiveProjectByKeyHash = vi
-            .fn<ProjectKeyRepository['findActiveProjectByKeyHash']>()
+        const findActiveProjectAppByKeyHash = vi
+            .fn<ProjectAppKeyRepository['findActiveProjectAppByKeyHash']>()
             .mockResolvedValue({
                 projectId: '42',
+                appId: V2_EVENT.application.id,
             })
 
-        const projectKeyRepository: ProjectKeyRepository = {
-            findActiveProjectByKeyHash,
+        const projectAppKeyRepository: ProjectAppKeyRepository = {
+            createProjectAppKey:
+                vi.fn<ProjectAppKeyRepository['createProjectAppKey']>(),
+            findActiveProjectAppByKeyHash,
+            listProjectAppKeys:
+                vi.fn<ProjectAppKeyRepository['listProjectAppKeys']>(),
+            revokeProjectAppKey:
+                vi.fn<ProjectAppKeyRepository['revokeProjectAppKey']>(),
+        }
+
+        const findProjectApp = vi
+            .fn<ProjectAppRepository['findProjectApp']>()
+            .mockResolvedValue({
+                id: '1',
+                projectId: '42',
+                appId: V2_EVENT.application.id,
+                name: '测试 Web 应用',
+                platform: 'web',
+            })
+
+        const projectAppRepository: ProjectAppRepository = {
+            createProjectApp: vi.fn<ProjectAppRepository['createProjectApp']>(),
+            findProjectApp,
+            listProjectApps: vi.fn(),
         }
 
         const metricQueryRepository = {
@@ -118,7 +146,8 @@ describe('event batch routes', () => {
         const app = buildApp({
             eventRepository: repository,
             metricQueryRepository,
-            projectKeyRepository,
+            projectAppKeyRepository,
+            projectAppRepository,
             appId: 'demo-web',
             now: () => NOW,
         })
@@ -128,59 +157,20 @@ describe('event batch routes', () => {
         return {
             app,
             insertBatch,
-            findActiveProjectByKeyHash,
+            findActiveProjectAppByKeyHash,
+            findProjectApp,
         }
     }
 
-    it('accepts a valid event batch', async () => {
-        const { app, insertBatch } = createTestApp()
-
-        const response = await app.inject({
-            method: 'POST',
-            url: '/api/v1/events/batch',
-
-            payload: {
-                events: [EVENT],
-            },
-        })
-
-        expect(response.statusCode).toBe(200)
-        expect(response.json()).toEqual({
-            accepted: 1,
-            discarded: 0,
-            reasons: {},
-        })
-        expect(insertBatch).toHaveBeenCalledOnce()
-        expect(insertBatch).toHaveBeenCalledWith([EVENT])
-    })
-
-    it('accepts a valid ingest event batch', async () => {
-        const { app, insertBatch } = createTestApp()
-
-        const response = await app.inject({
-            method: 'POST',
-            url: '/ingest/v2/events/batch',
-
-            payload: {
-                projectKey: 'ppk_valid',
-                events: [V2_EVENT],
-            },
-        })
-
-        expect(response.statusCode).toBe(200)
-        expect(insertBatch).toHaveBeenCalledWith([V2_EVENT], {
-            projectId: '42',
-        })
-    })
-
-    it('accepts a project-key-authenticated V2 metric batch', async () => {
-        const { app, insertBatch, findActiveProjectByKeyHash } = createTestApp()
+    it('accepts an app-key-authenticated V2 metric batch', async () => {
+        const { app, insertBatch, findActiveProjectAppByKeyHash } =
+            createTestApp()
 
         const response = await app.inject({
             method: 'POST',
             url: '/ingest/v2/events/batch',
             payload: {
-                projectKey: 'ppk_valid',
+                appKey: APP_KEY,
                 events: [V2_EVENT],
             },
         })
@@ -191,13 +181,12 @@ describe('event batch routes', () => {
             discarded: 0,
             reasons: {},
         })
-        expect(findActiveProjectByKeyHash).toHaveBeenCalledOnce()
+        expect(findActiveProjectAppByKeyHash).toHaveBeenCalledOnce()
         expect(insertBatch).toHaveBeenCalledWith([V2_EVENT], {
             projectId: '42',
         })
     })
-
-    it('rejects a project ingestion request without a project key', async () => {
+    it('rejects a project ingestion request without a app key', async () => {
         const { app, insertBatch } = createTestApp()
 
         const response = await app.inject({
@@ -211,8 +200,8 @@ describe('event batch routes', () => {
         expect(response.statusCode).toBe(401)
         expect(response.json()).toEqual({
             error: {
-                code: 'INVALID_PROJECT_KEY',
-                message: 'project key is invalid',
+                code: 'INVALID_APP_KEY',
+                message: 'app key is invalid',
                 requestId: expect.any(String),
             },
         })
@@ -222,8 +211,8 @@ describe('event batch routes', () => {
     it('accepts valid events and reports discarded events', async () => {
         const { app, insertBatch } = createTestApp()
 
-        const invalidEvent: PaintEventV1 = {
-            ...EVENT,
+        const invalidEvent: MetricEventV2 = {
+            ...V2_EVENT,
 
             eventId: '178714a8-1cd5-4900-baf4-4d8761451806',
 
@@ -235,11 +224,8 @@ describe('event batch routes', () => {
 
         const response = await app.inject({
             method: 'POST',
-            url: '/api/v1/events/batch',
-
-            payload: {
-                events: [EVENT, invalidEvent],
-            },
+            url: '/ingest/v2/events/batch',
+            payload: createProjectIngestPayload([V2_EVENT, invalidEvent]),
         })
 
         expect(response.statusCode).toBe(200)
@@ -253,7 +239,9 @@ describe('event batch routes', () => {
 
         expect(insertBatch).toHaveBeenCalledOnce()
 
-        expect(insertBatch).toHaveBeenCalledWith([EVENT])
+        expect(insertBatch).toHaveBeenCalledWith([V2_EVENT], {
+            projectId: '42',
+        })
     })
 
     it('rejects an empty event batch with a stable error response', async () => {
@@ -261,11 +249,8 @@ describe('event batch routes', () => {
 
         const response = await app.inject({
             method: 'POST',
-            url: '/api/v1/events/batch',
-
-            payload: {
-                events: [],
-            },
+            url: '/ingest/v2/events/batch',
+            payload: createProjectIngestPayload([]),
         })
 
         expect(response.statusCode).toBe(400)
@@ -286,16 +271,10 @@ describe('event batch routes', () => {
 
         const response = await app.inject({
             method: 'POST',
-            url: '/api/v1/events/batch',
-
-            payload: {
-                events: Array.from(
-                    {
-                        length: 21,
-                    },
-                    () => EVENT,
-                ),
-            },
+            url: '/ingest/v2/events/batch',
+            payload: createProjectIngestPayload(
+                Array.from({ length: 21 }, () => V2_EVENT),
+            ),
         })
 
         expect(response.statusCode).toBe(400)
@@ -312,23 +291,18 @@ describe('event batch routes', () => {
     it('rejects request bodies larger than 32 KiB', async () => {
         const { app, insertBatch } = createTestApp()
 
-        const oversizedEvent: PaintEventV1 = {
-            ...EVENT,
-
+        const oversizedEvent: MetricEventV2 = {
+            ...V2_EVENT,
             application: {
                 ...EVENT.application,
-
                 version: 'x'.repeat(33 * 1024),
             },
         }
 
         const response = await app.inject({
             method: 'POST',
-            url: '/api/v1/events/batch',
-
-            payload: {
-                events: [oversizedEvent],
-            },
+            url: '/ingest/v2/events/batch',
+            payload: createProjectIngestPayload([oversizedEvent]),
         })
 
         expect(response.statusCode).toBe(413)
@@ -349,12 +323,10 @@ describe('event batch routes', () => {
 
         const response = await app.inject({
             method: 'POST',
-            url: '/api/v1/events/batch',
-
+            url: '/ingest/v2/events/batch',
             headers: {
                 'content-type': 'application/json',
             },
-
             payload: '{"events":',
         })
 
@@ -377,12 +349,10 @@ describe('event batch routes', () => {
 
         const response = await app.inject({
             method: 'POST',
-            url: '/api/v1/events/batch',
-
+            url: '/ingest/v2/events/batch',
             headers: {
                 'content-type': 'application/xml',
             },
-
             payload: '<events></events>',
         })
 
@@ -400,39 +370,31 @@ describe('event batch routes', () => {
         expect(insertBatch).not.toHaveBeenCalled()
     })
 
-    it('discards events belonging to another app', async () => {
+    it('accepts an event from another application through a project key', async () => {
         const { app, insertBatch } = createTestApp()
 
-        const wrongAppEvent: PaintEventV1 = {
-            ...EVENT,
+        const anotherAppEvent: MetricEventV2 = {
+            ...V2_EVENT,
             application: {
-                ...EVENT.application,
+                ...V2_EVENT.application,
                 id: 'another-app',
             },
         }
 
         const response = await app.inject({
             method: 'POST',
-            url: '/api/v1/events/batch',
-            payload: {
-                events: [wrongAppEvent],
-            },
+            url: '/ingest/v2/events/batch',
+            payload: createProjectIngestPayload([anotherAppEvent]),
         })
-
-        expect(response.statusCode).toBe(200)
-
+        expect(response.statusCode).toBe(403)
         expect(response.json()).toEqual({
-            accepted: 0,
-            discarded: 1,
-
-            reasons: {
-                invalid_app_id: 1,
+            error: {
+                code: 'APP_KEY_MISMATCH',
+                message: 'app key does not permit events for this application',
+                requestId: expect.any(String),
             },
         })
-
-        expect(insertBatch).toHaveBeenCalledOnce()
-
-        expect(insertBatch).toHaveBeenCalledWith([])
+        expect(insertBatch).not.toHaveBeenCalled()
     })
 
     it('returns a stable error when event storage is unavailable', async () => {
@@ -444,26 +406,22 @@ describe('event batch routes', () => {
 
         const response = await app.inject({
             method: 'POST',
-            url: '/api/v1/events/batch',
-
-            payload: {
-                events: [EVENT],
-            },
+            url: '/ingest/v2/events/batch',
+            payload: createProjectIngestPayload([V2_EVENT]),
         })
 
         expect(response.statusCode).toBe(503)
-
         expect(response.json()).toEqual({
             error: {
                 code: 'STORAGE_UNAVAILABLE',
-
                 message: 'event storage is temporarily unavailable',
-
                 requestId: expect.any(String),
             },
         })
-
         expect(response.body).not.toContain('ECONNREFUSED')
+        expect(insertBatch).toHaveBeenCalledWith([V2_EVENT], {
+            projectId: '42',
+        })
     })
 
     it('treats duplicate event IDs as accepted', async () => {
@@ -471,24 +429,20 @@ describe('event batch routes', () => {
 
         const response = await app.inject({
             method: 'POST',
-            url: '/api/v1/events/batch',
-
-            payload: {
-                events: [EVENT, EVENT],
-            },
+            url: '/ingest/v2/events/batch',
+            payload: createProjectIngestPayload([V2_EVENT, V2_EVENT]),
         })
 
         expect(response.statusCode).toBe(200)
-
         expect(response.json()).toEqual({
             accepted: 2,
             discarded: 0,
             reasons: {},
         })
-
         expect(insertBatch).toHaveBeenCalledOnce()
-
-        expect(insertBatch).toHaveBeenCalledWith([EVENT, EVENT])
+        expect(insertBatch).toHaveBeenCalledWith([V2_EVENT, V2_EVENT], {
+            projectId: '42',
+        })
     })
 
     it('accepts a Beacon JSON batch sent as text/plain', async () => {
@@ -496,34 +450,30 @@ describe('event batch routes', () => {
 
         const response = await app.inject({
             method: 'POST',
-            url: '/api/v1/events/batch',
-
+            url: '/ingest/v2/events/batch',
+            payload: JSON.stringify(createProjectIngestPayload([V2_EVENT])),
             headers: {
                 'content-type': 'text/plain;charset=UTF-8',
             },
-
-            payload: JSON.stringify({
-                events: [EVENT],
-            }),
         })
 
         expect(response.statusCode).toBe(200)
-
         expect(response.json()).toEqual({
             accepted: 1,
             discarded: 0,
             reasons: {},
         })
-
         expect(insertBatch).toHaveBeenCalledOnce()
-        expect(insertBatch).toHaveBeenCalledWith([EVENT])
+        expect(insertBatch).toHaveBeenCalledWith([V2_EVENT], {
+            projectId: '42',
+        })
     })
 
     it('rejects malformed Beacon JSON with a stable error response', async () => {
         const { app, insertBatch } = createTestApp()
         const response = await app.inject({
             method: 'POST',
-            url: '/api/v1/events/batch',
+            url: '/ingest/v2/events/batch',
             headers: {
                 'content-type': 'text/plain;charset=UTF-8',
             },
@@ -540,78 +490,39 @@ describe('event batch routes', () => {
         expect(insertBatch).not.toHaveBeenCalled()
     })
 
-    it('accepts a valid V2 metric batch', async () => {
-        const { app, insertBatch } = createTestApp()
+    it.each(['/api/v1/events/batch', '/api/v2/events/batch'])(
+        'does not expose the retired endpoint %s',
+        async (url) => {
+            const { app } = createTestApp()
+
+            const response = await app.inject({
+                method: 'POST',
+                url,
+                payload: createProjectIngestPayload([V2_EVENT]),
+            })
+
+            expect(response.statusCode).toBe(404)
+        },
+    )
+    it('rejects an application that is not registered for the project', async () => {
+        const { app, insertBatch, findProjectApp } = createTestApp()
+
+        findProjectApp.mockResolvedValueOnce(undefined)
 
         const response = await app.inject({
             method: 'POST',
-            url: '/api/v2/events/batch',
-
-            payload: {
-                events: [V2_EVENT],
-            },
+            url: '/ingest/v2/events/batch',
+            payload: createProjectIngestPayload([V2_EVENT]),
         })
 
-        expect(response.statusCode).toBe(200)
-
+        expect(response.statusCode).toBe(403)
         expect(response.json()).toEqual({
-            accepted: 1,
-            discarded: 0,
-            reasons: {},
-        })
-
-        expect(insertBatch).toHaveBeenCalledOnce()
-
-        expect(insertBatch).toHaveBeenCalledWith([V2_EVENT])
-    })
-
-    it('does not accept V1 events through the V2 endpoint', async () => {
-        const { app, insertBatch } = createTestApp()
-
-        const response = await app.inject({
-            method: 'POST',
-            url: '/api/v2/events/batch',
-
-            payload: {
-                events: [EVENT],
+            error: {
+                code: 'PROJECT_APP_NOT_REGISTERED',
+                message: 'application is not registered for this project',
+                requestId: expect.any(String),
             },
         })
-
-        expect(response.statusCode).toBe(200)
-
-        expect(response.json()).toEqual({
-            accepted: 0,
-            discarded: 1,
-            reasons: {
-                unsupported_schema_version: 1,
-            },
-        })
-
-        expect(insertBatch).toHaveBeenCalledWith([])
-    })
-
-    it('does not accept V2 events through the V1 endpoint', async () => {
-        const { app, insertBatch } = createTestApp()
-
-        const response = await app.inject({
-            method: 'POST',
-            url: '/api/v1/events/batch',
-
-            payload: {
-                events: [V2_EVENT],
-            },
-        })
-
-        expect(response.statusCode).toBe(200)
-
-        expect(response.json()).toEqual({
-            accepted: 0,
-            discarded: 1,
-            reasons: {
-                unsupported_schema_version: 1,
-            },
-        })
-
-        expect(insertBatch).toHaveBeenCalledWith([])
+        expect(insertBatch).not.toHaveBeenCalled()
     })
 })
