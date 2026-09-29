@@ -136,7 +136,9 @@ const submitting = ref(false)
 const password = ref('')
 const user = ref<ConsoleUser | null>(null)
 
-const emit = defineEmits(['load-projects'])
+const emit = defineEmits<{
+  authenticated: [user: ConsoleUser]
+}>()
 
 function setRegisterMode(value: boolean): void {
   registerMode.value = value
@@ -162,7 +164,7 @@ async function submit(): Promise<void> {
         phone: phone.value,
         password: password.value,
       })
-      emit('load-projects')
+      emit('authenticated', user.value)
     }
   } catch {
     error.value = registerMode.value

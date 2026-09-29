@@ -1,7 +1,7 @@
 <template>
   <Loading v-if="loadingSession" />
 
-  <Login v-else-if="user === null" @load-projects="loadProjects" />
+  <Login v-else-if="user === null" @authenticated="handleAuthenticated" />
 
   <main v-else class="workspace">
     <Header
@@ -27,8 +27,8 @@
         @sign-out="signOut"
       />
     </template>
-    <section v-else v-frame class="selection-page">
-      <header class="selection-heading">
+    <section v-else class="selection-page">
+      <header v-frame class="selection-heading tech-frame">
         <div>
           <p class="eyebrow">
             {{
@@ -83,9 +83,14 @@
             v-model.trim="projectDescription"
             placeholder="这个项目用于什么？（可选）"
         /></label>
-        <button class="primary" :disabled="projectSubmitting">
-          {{ projectSubmitting ? '创建中…' : '创建项目' }}
-        </button>
+        <div class="entry-form__btn-group">
+          <button class="default" @click="showProjectForm = !showProjectForm">
+            取消创建
+          </button>
+          <button class="primary" :disabled="projectSubmitting">
+            {{ projectSubmitting ? '创建中…' : '创建项目' }}
+          </button>
+        </div>
       </form>
       <form
         v-if="selectedProject && showAppForm"
@@ -116,7 +121,8 @@
           <button
             v-for="project in projects"
             :key="project.id"
-            class="selection-card"
+            v-frame
+            class="selection-card tech-frame"
             type="button"
             @click="selectProject(project.id)"
           >
@@ -146,7 +152,8 @@
           <button
             v-for="appItem in apps"
             :key="appItem.id"
-            class="selection-card"
+            v-frame
+            class="selection-card tech-frame"
             type="button"
             @click="selectedApp = appItem"
           >
@@ -206,7 +213,6 @@ const projectsLoading = ref(false)
 const appsError = ref(false)
 let appsRequestId = 0
 const showProjectForm = ref(false)
-const password = ref('')
 const projectName = ref('')
 const projectDescription = ref('')
 const appName = ref('')
@@ -218,11 +224,15 @@ const selectedProject = computed(() =>
   projects.value.find((project) => project.id === selectedProjectId.value),
 )
 const userName = computed(() => {
-  if (user !== null) {
-    return user.value?.name
-  }
-  return ''
+  return user.value?.name ?? ''
 })
+
+async function handleAuthenticated(
+  authenticatedUser: ConsoleUser,
+): Promise<void> {
+  user.value = authenticatedUser
+  await loadProjects()
+}
 
 function goProjects(): void {
   appsRequestId++
@@ -336,7 +346,6 @@ async function signOut(): Promise<void> {
     goProjects()
     user.value = null
     projects.value = []
-    password.value = ''
   } catch {
     managementError.value = '退出失败，请重试。'
   }
@@ -429,6 +438,7 @@ onMounted(() => {
   min-height: 100vh;
   background: #080e16;
   color: #e7eff8;
+  padding: 10px;
 }
 .breadcrumbs {
   display: flex;
@@ -454,20 +464,34 @@ onMounted(() => {
   color: #405366;
 }
 .selection-page {
-  max-width: 1280px;
-  margin: auto;
-  padding: 56px 40px 80px;
+  margin: 0 auto;
 }
 .selection-heading {
   display: flex;
   justify-content: space-between;
   align-items: center;
   gap: 24px;
-  margin-bottom: 36px;
+  min-height: 132px;
+  margin-bottom: 20px;
+  padding: 24px 30px;
+  --accent: #13ccf6;
+  background: transparent;
+}
+.selection-heading :deep(.frame-surface) {
+  fill: #061323;
+  fill-opacity: 0.94;
+}
+.selection-heading :deep(.frame-outline) {
+  stroke: #48a7ec;
+}
+.selection-heading :deep(.frame-trailing) {
+  stroke: #8a89e9;
+  opacity: 0.9;
 }
 .selection-heading h1 {
-  margin: 12px 0;
-  font-size: 36px;
+  margin: 8px 0;
+  font-size: clamp(30px, 3.1vw, 42px);
+  line-height: 1;
   letter-spacing: -0.02em;
 }
 .selection-heading p:last-child {
@@ -475,18 +499,18 @@ onMounted(() => {
   line-height: 1.7;
 }
 .secondary {
-  height: 42px;
-  padding: 0 18px;
+  height: 44px;
+  padding: 0 20px;
   color: #70ddea;
-  border: 1px solid #315667;
-  background: #102330;
-  border-radius: 6px;
+  border: 1px solid #2c7191;
+  border-radius: 0;
+  background: #082239;
   white-space: nowrap;
 }
 .selection-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(270px, 1fr));
-  gap: 22px;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr));
+  gap: 14px;
 }
 .selection-card {
   position: relative;
@@ -494,20 +518,37 @@ onMounted(() => {
   flex-direction: column;
   align-items: flex-start;
   text-align: left;
-  padding: 26px;
-  border: 1px solid #253847;
-  background: #0e1924;
-  border-radius: 10px;
-  min-height: 230px;
+  min-height: 244px;
+  padding: 24px;
+  --accent: #13ccf6;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
   transition:
-    background 0.15s,
-    border-color 0.15s,
+    filter 0.15s,
     transform 0.15s;
 }
 .selection-card:hover {
-  background: #132531;
-  border-color: #4da1b1;
+  background: transparent;
+  filter: drop-shadow(0 0 11px #00bedd38);
   transform: translateY(-2px);
+}
+.selection-card :deep(.frame-surface) {
+  fill: #061321;
+  transition: fill 0.15s;
+}
+.selection-card :deep(.frame-outline) {
+  stroke: #08b9e7;
+  transition:
+    stroke 0.15s,
+    opacity 0.15s;
+}
+.selection-card:hover :deep(.frame-surface) {
+  fill: #092033;
+}
+.selection-card:hover :deep(.frame-outline) {
+  stroke: #63eaff;
+  opacity: 1;
 }
 .selection-card h2 {
   font-size: 23px;
@@ -527,7 +568,7 @@ onMounted(() => {
   color: #70ddea;
   border: 1px solid #285366;
   background: #102c3a;
-  border-radius: 8px;
+  border-radius: 0;
   font-size: 24px;
 }
 .card-action {
@@ -552,14 +593,20 @@ onMounted(() => {
 }
 .entry-form {
   display: flex;
-  align-items: end;
-  flex-wrap: wrap;
-  gap: 18px;
+  flex-direction: column;
+  gap: 20px;
   padding: 24px;
   margin-bottom: 30px;
   border: 1px solid #315160;
   background: #0e1d28;
-  border-radius: 8px;
+  border-radius: 0;
+  width: 500px;
+  position: fixed;
+  z-index: 999;
+  left: 50%;
+  top: 50%;
+  margin-top: -10%;
+  margin-left: -250px;
 }
 .entry-form label {
   flex: 1;
@@ -586,10 +633,35 @@ onMounted(() => {
   align-self: center;
   color: #8a9fad;
 }
+.entry-form__btn-group {
+  display: flex;
+  gap: 26px;
+  margin-top: 16px;
+}
+.entry-form__btn-group button {
+  flex: 1;
+}
+.entry-form__btn-group button.default {
+  height: 49px;
+  padding: 0 17px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  border-radius: 3px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  box-shadow: 0 10px 30px #1dbdd324;
+
+  color: #70ddea;
+  border: 1px solid #2c7191;
+  background: #082239;
+  white-space: nowrap;
+}
 .selection-empty {
   padding: 64px 20px;
   border: 1px dashed #2a4051;
-  border-radius: 10px;
+  border-radius: 0;
   text-align: center;
   color: #8fa5b8;
 }
@@ -632,13 +704,12 @@ onMounted(() => {
   .workspace-account {
     gap: 12px;
   }
-  .selection-page {
-    padding: 32px 20px;
-  }
   .selection-heading {
     align-items: flex-start;
     flex-direction: column;
-    gap: 20px;
+    gap: 18px;
+    min-height: 0;
+    padding: 22px 20px;
   }
   .selection-heading h1 {
     font-size: 30px;

@@ -64,6 +64,40 @@ test('starts at projects without fetching apps or mounting monitoring', async ()
     wrapper.unmount()
 })
 
+test('moves to projects and loads them after Login authenticates', async () => {
+    const fetcher = vi.fn(async (input: RequestInfo | URL) => {
+        const path = new URL(String(input)).pathname
+        if (path.endsWith('/auth/me')) return { ok: false, status: 401 }
+        if (path.endsWith('/auth/login'))
+            return response({
+                user: { id: 'u1', name: 'Demo', phone: '13800000000' },
+            })
+        if (path.endsWith('/projects')) return response({ projects })
+        throw new Error('unexpected request: ' + path)
+    })
+    vi.stubGlobal('fetch', fetcher)
+    const wrapper = mount(ConsoleShell)
+    await flushPromises()
+
+    await wrapper.get('input[autocomplete="tel"]').setValue('13800000000')
+    await wrapper
+        .get('input[autocomplete="current-password"]')
+        .setValue('password')
+    await wrapper.get('.stack-form').trigger('submit')
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('你的项目')
+    expect(wrapper.text()).toContain('商店')
+    expect(
+        fetcher.mock.calls.map(([url]) => new URL(String(url)).pathname),
+    ).toEqual([
+        '/monitor-api/auth/me',
+        '/monitor-api/auth/login',
+        '/monitor-api/projects',
+    ])
+    wrapper.unmount()
+})
+
 test('requires project then app selection, and clears scope when returning', async () => {
     const { wrapper, fetcher } = setup()
     await flushPromises()
