@@ -1,57 +1,16 @@
 <template>
   <main class="dashboard">
-    <header v-frame class="topbar tech-frame">
-      <div class="brand">
-        <Icon name="pulse" />
-        <h1>{{ t('app.title') }}</h1>
-      </div>
-      <div class="monitor-context">
-        <div>
-          <span class="eyebrow">APPLICATION MONITORING</span>
-          <h2>
-            {{ selectedApp?.name }}
-            <small>{{ selectedApp?.platform?.toUpperCase() }}</small>
-          </h2>
-        </div>
-        <button class="secondary" type="button" @click="$emit('go-apps')">
-          切换应用
-        </button>
-      </div>
-      <div class="sample-total">
-        <span>{{ t('app.totalSamples') }}</span>
-        <strong>{{ n(totalSamples) }}</strong>
-      </div>
-      <MetricsRangeSelector
-        :range="selectedRange"
-        @select="handleSelectedRange"
-      />
-      <div class="date-time">
-        <Icon name="clock" />
-        <div>
-          <span>{{ dashboardDate }}</span
-          ><strong>{{ dashboardTime }} UTC</strong>
-        </div>
-      </div>
-
-      <button
-        type="button"
-        class="locale-toggle"
-        :title="t('app.switchLanguage')"
-        @click="toggleLocale"
-      >
-        {{ locale === 'en-US' ? '中文' : 'EN' }}
-      </button>
-      <button
-        type="button"
-        class="alert-count-button"
-        :class="{ 'alert-count-button--active': alertCount > 0 }"
-        :aria-label="t('alerts.open', { count: alertCount })"
-        @click="alertDrawerOpen = true"
-      >
-        <span>{{ t('alerts.current') }}</span>
-        <strong>{{ alertCount }}</strong>
-      </button>
-    </header>
+    <Header
+      :total-samples="totalSamples"
+      :selected-app="selectedApp"
+      :user-name="userName"
+      :alert-count="alertCount"
+      :range="selectedRange"
+      @go-apps="$emit('go-apps')"
+      @sign-out="$emit('sign-out')"
+      @open-alerts="alertDrawerOpen = true"
+      @select-range="handleSelectedRange"
+    />
 
     <p v-if="loading && data === null" class="dashboard-state" role="status">
       {{ t('app.loading') }}
@@ -62,17 +21,6 @@
       role="alert"
     >
       {{ t('app.error') }}
-    </p>
-    <p
-      v-else-if="
-        data !== null &&
-        data.summary.fp.count === 0 &&
-        data.summary.fcp.count === 0
-      "
-      class="dashboard-state"
-      role="status"
-    >
-      {{ t('app.empty') }}
     </p>
 
     <div v-frame class="main-shell tech-frame">
@@ -233,7 +181,6 @@ import { createAlertEvaluationApi } from './api/alert-evaluation.js'
 
 import { usePaintMetrics } from './composables/use-paint-metrics.js'
 import { useMetricQuery } from './composables/use-metric-query.js'
-import MetricsRangeSelector from './components/MetricsRangeSelector.vue'
 import {
   resolveMetricsRange,
   type MetricsRange,
@@ -252,7 +199,6 @@ import {
   WEB_VITAL_THRESHOLDS,
 } from '@performance-platform/protocol'
 import { useI18n } from 'vue-i18n'
-import { LOCALE_STORAGE_KEY, type AppLocale } from './i18n.js'
 import { formatBytes } from './components/metric-value-format.js'
 import { createPerformanceRecommendations } from './components/performance-recommendations.js'
 
@@ -267,19 +213,13 @@ import {
 } from './components/trend-series.js'
 
 import type { TrendSeries, TrendStatistic } from './components/trend-series.js'
+import Header from './components/Header.vue'
 
 const TrendChart = defineAsyncComponent(
   () => import('./components/TrendChart.vue'),
 )
-const { t, n, locale } = useI18n()
+const { t, locale } = useI18n()
 document.documentElement.lang = locale.value
-
-function toggleLocale(): void {
-  const nextLocale: AppLocale = locale.value === 'en-US' ? 'zh-CN' : 'en-US'
-  locale.value = nextLocale
-  window.localStorage.setItem(LOCALE_STORAGE_KEY, nextLocale)
-  document.documentElement.lang = nextLocale
-}
 
 type TrendMode = 'PAINT' | 'LCP' | 'CLS' | 'INP' | 'MEMORY'
 type DataState = 'loading' | 'error' | 'empty' | null
@@ -311,13 +251,24 @@ const dashboardMemoryHealthApi = createDashboardMemoryHealthApi({
   fetch: window.fetch.bind(window),
 })
 const props = defineProps<{
+  selectedApp?: DashboardApp
   scope: DashboardScope
-  selectedApp: DashboardApp
+  userName?: string
 }>()
 const dashboardScope = computed(() => props.scope)
-const selectedApp = computed(() => props.selectedApp)
+const selectedApp = computed<DashboardApp>(
+  () =>
+    props.selectedApp ?? {
+      id: '',
+      projectId: props.scope.projectId,
+      appId: props.scope.appId,
+      name: '',
+      platform: 'web',
+    },
+)
+const userName = computed(() => props.userName ?? '')
 
-const emit = defineEmits(['go-apps'])
+const emit = defineEmits(['go-apps', 'sign-out'])
 
 async function queryDashboardMetric(
   params: Parameters<typeof dashboardMetricQueryApi.query>[1],
@@ -937,7 +888,6 @@ function trendState(mode: TrendMode): { loading: boolean; error: boolean } {
   }
 }
 
-const live = ref(true)
 const LIVE_REFRESH_INTERVAL_MS = 30_000
 const LIVE_CLOCK_INTERVAL_MS = 1_000
 let liveRefreshTimer: ReturnType<typeof setInterval> | undefined
@@ -951,25 +901,6 @@ const p75TrendSeries = computed(() =>
   createDashboardTrendSeries(p75Mode.value, 'p75'),
 )
 const dashboardTimestamp = ref(Date.now())
-const dashboardDate = computed(() =>
-  new Intl.DateTimeFormat(locale.value, {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
-    timeZone: 'UTC',
-  })
-    .format(dashboardTimestamp.value)
-    .toUpperCase(),
-)
-const dashboardTime = computed(() =>
-  new Intl.DateTimeFormat(locale.value, {
-    hour: '2-digit',
-    minute: '2-digit',
-    second: '2-digit',
-    hourCycle: 'h23',
-    timeZone: 'UTC',
-  }).format(dashboardTimestamp.value),
-)
 const selectedRange = ref<MetricsRange>('24h')
 
 const totalSamples = computed(() => {
@@ -1040,25 +971,9 @@ function startLiveRefresh(): void {
   }, LIVE_CLOCK_INTERVAL_MS)
 }
 
-function toggleLive(): void {
-  live.value = !live.value
-
-  if (live.value) {
-    dashboardTimestamp.value = Date.now()
-    void refreshDashboard()
-    startLiveRefresh()
-  } else {
-    stopLiveRefresh()
-  }
-}
-
 function handleSelectedRange(range: MetricsRange): void {
   selectedRange.value = range
   void refreshDashboard(range)
-
-  if (live.value) {
-    startLiveRefresh()
-  }
 }
 
 onMounted(() => {
@@ -1068,3 +983,4 @@ onMounted(() => {
 
 onUnmounted(stopLiveRefresh)
 </script>
+dd

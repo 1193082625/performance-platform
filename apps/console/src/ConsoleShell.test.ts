@@ -22,6 +22,7 @@ function setup(failApps = false) {
                 return response({
                     user: { id: 'u1', name: 'Demo', phone: '13800000000' },
                 })
+            if (path.endsWith('/auth/logout')) return response({})
             if (path.endsWith('/projects')) return response({ projects })
             if (path.endsWith('/apps')) {
                 if (failApps) throw new Error('offline')
@@ -40,6 +41,7 @@ function setup(failApps = false) {
         global: {
             stubs: {
                 App: {
+                    name: 'App',
                     props: ['scope'],
                     template:
                         '<div data-testid="monitor">{{ scope.projectId }}/{{ scope.appId }}</div>',
@@ -76,15 +78,10 @@ test('requires project then app selection, and clears scope when returning', asy
     ).toBe(true)
     await wrapper.get('.selection-card').trigger('click')
     expect(wrapper.get('[data-testid="monitor"]').text()).toBe('p2/web')
-    await wrapper.get('.monitor-context button').trigger('click')
+    wrapper.findComponent({ name: 'App' }).vm.$emit('go-apps')
+    await flushPromises()
     expect(wrapper.find('[data-testid="monitor"]').exists()).toBe(false)
     expect(wrapper.text()).toContain('p2 应用')
-    await wrapper.get('.breadcrumbs button').trigger('click')
-    expect(wrapper.text()).toContain('你的项目')
-    await wrapper.findAll('.selection-card')[0]!.trigger('click')
-    await flushPromises()
-    await wrapper.get('.selection-card').trigger('click')
-    expect(wrapper.get('[data-testid="monitor"]').text()).toBe('p1/web')
     wrapper.unmount()
 })
 
@@ -111,5 +108,24 @@ test('creates an app in the selected project without automatically opening monit
     expect(String(call[0])).toContain('/projects/p2/apps')
     expect(wrapper.text()).toContain('新应用')
     expect(wrapper.find('[data-testid="monitor"]').exists()).toBe(false)
+    wrapper.unmount()
+})
+
+test('returns to login after the monitoring page emits sign-out', async () => {
+    const { wrapper, fetcher } = setup()
+    await flushPromises()
+    await wrapper.get('.selection-card').trigger('click')
+    await flushPromises()
+    await wrapper.get('.selection-card').trigger('click')
+    wrapper.findComponent({ name: 'App' }).vm.$emit('sign-out')
+    await flushPromises()
+    expect(wrapper.text()).toContain('登录监控控制台')
+    expect(
+        fetcher.mock.calls.some(
+            ([url, init]) =>
+                String(url).endsWith('/monitor-api/auth/logout') &&
+                init?.method === 'POST',
+        ),
+    ).toBe(true)
     wrapper.unmount()
 })

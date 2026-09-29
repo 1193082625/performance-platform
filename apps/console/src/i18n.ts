@@ -184,7 +184,7 @@ export const i18n = createI18n({
                 totalSamples: '样本总数',
                 loading: '正在加载性能数据',
                 error: '性能数据加载失败',
-                empty: '暂无性能数据1',
+                empty: '暂无性能数据',
                 averageTrend: '平均值趋势',
                 p75Trend: 'P75 趋势',
                 averageTrendLabel: '{metric} 平均性能趋势',
