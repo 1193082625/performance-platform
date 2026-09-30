@@ -4,15 +4,16 @@
   <Login v-else-if="user === null" @authenticated="handleAuthenticated" />
 
   <main v-else class="workspace">
+    <UsageGuide v-if="isGuideRoute" @go-projects="goProjects" />
     <p
-      v-if="managementError"
+      v-if="!isGuideRoute && managementError"
       class="workspace-message notice error"
       role="alert"
     >
       {{ managementError }}
       <button v-if="!selectedProject" @click="loadProjects">重试</button>
     </p>
-    <template v-if="selectedProject && selectedApp">
+    <template v-if="!isGuideRoute && selectedProject && selectedApp">
       <App
         :key="selectedProject.id + '/' + selectedApp.appId"
         :scope="{ projectId: selectedProject.id, appId: selectedApp.appId }"
@@ -21,16 +22,18 @@
         @go-apps="goApps"
         @sign-out="signOut"
         @manage-keys="selectedApp && openKeyManager(selectedApp)"
+        @open-guide="openGuide"
       />
     </template>
     <AppKeyManager
-      v-if="selectedProject && keyManagerApp"
+      v-if="!isGuideRoute && selectedProject && keyManagerApp"
       :project-id="selectedProject.id"
       :app="keyManagerApp"
       @availability-change="updateAppKeyAvailability"
+      @open-guide="openGuide"
       @close="closeKeyManager"
     />
-    <section v-else class="selection-page">
+    <section v-else-if="!isGuideRoute" class="selection-page">
       <header v-frame class="selection-heading tech-frame">
         <div>
           <p class="eyebrow">
@@ -50,8 +53,15 @@
           </p>
         </div>
         <div class="flex-col gap-12">
-          <Logout :user-name="userName" />
+          <Logout :user-name="userName" @sign-out="signOut" />
           <div class="selection-heading__actions">
+            <button
+              class="secondary guide-entry-button"
+              type="button"
+              @click="openGuide"
+            >
+              使用指南
+            </button>
             <button
               v-if="selectedProject"
               class="secondary back-button"
@@ -246,8 +256,8 @@ import {
 import Loading from './components/Loading.vue'
 import Login from './views/Login.vue'
 import Logout from './components/Logout.vue'
-import Header from './components/Header.vue'
 import AppKeyManager from './components/AppKeyManager.vue'
+import UsageGuide from './components/UsageGuide.vue'
 import { createProjectAppKeyApi } from './api/project-app-keys.js'
 
 const route = useRoute()
@@ -288,6 +298,7 @@ const selectedProject = computed(() =>
 const userName = computed(() => {
   return user.value?.name ?? ''
 })
+const isGuideRoute = computed(() => route.name === 'guide')
 
 async function handleAuthenticated(
   authenticatedUser: ConsoleUser,
@@ -299,6 +310,10 @@ async function handleAuthenticated(
 
 function goProjects(): void {
   void router.push({ name: 'projects' })
+}
+function openGuide(): void {
+  keyManagerApp.value = null
+  void router.push({ name: 'guide' })
 }
 function goApps(): void {
   if (!selectedProjectId.value) return

@@ -39,7 +39,7 @@ describe('AppKeyManager', () => {
     await flushPromises()
     expect(wrapper.text()).toContain('ppk_old_••••')
 
-    await wrapper.get('.key-dialog__actions button').trigger('click')
+    await wrapper.get('.key-dialog__buttons button:last-child').trigger('click')
     await flushPromises()
     expect(wrapper.text()).toContain('ppk_live_secret')
     expect(wrapper.text()).toContain('ppk_new_••••')

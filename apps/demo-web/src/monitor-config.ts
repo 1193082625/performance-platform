@@ -8,7 +8,7 @@ interface ResolveMonitorConfigOptions {
     VITE_APP_VERSION?: string
     VITE_APP_ENVIRONMENT?: string
     VITE_MONITOR_SAMPLE_RATE?: string
-    VITE_MONITOR_PROJECT_KEY?: string
+    VITE_MONITOR_APP_KEY?: string
 }
 
 const requireEnvironmentVariable = (
@@ -81,9 +81,9 @@ export function resolveMonitorConfig(
         options.VITE_MONITOR_SAMPLE_RATE,
     )
 
-    const projectKey = requireEnvironmentVariable(
-        'VITE_MONITOR_PROJECT_KEY',
-        options.VITE_MONITOR_PROJECT_KEY,
+    const appKey = requireEnvironmentVariable(
+        'VITE_MONITOR_APP_KEY',
+        options.VITE_MONITOR_APP_KEY,
     )
 
     return {
@@ -92,6 +92,6 @@ export function resolveMonitorConfig(
         appVersion,
         environment,
         sampleRate,
-        projectKey,
+        appKey,
     }
 }

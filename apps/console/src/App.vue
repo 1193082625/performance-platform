@@ -9,6 +9,7 @@
       @go-apps="$emit('go-apps')"
       @sign-out="$emit('sign-out')"
       @manage-keys="$emit('manage-keys')"
+      @open-guide="$emit('open-guide')"
       @open-alerts="alertDrawerOpen = true"
       @select-range="handleSelectedRange"
     />
@@ -269,7 +270,7 @@ const selectedApp = computed<DashboardApp>(
 )
 const userName = computed(() => props.userName ?? '')
 
-const emit = defineEmits(['go-apps', 'sign-out', 'manage-keys'])
+const emit = defineEmits(['go-apps', 'sign-out', 'manage-keys', 'open-guide'])
 
 async function queryDashboardMetric(
   params: Parameters<typeof dashboardMetricQueryApi.query>[1],

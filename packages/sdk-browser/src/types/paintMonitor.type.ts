@@ -18,7 +18,7 @@ export interface PaintMonitorConfig {
     environment: Environment // 上报时 环境
     endpoint: string // 上报地址
     sampleRate?: number
-    projectKey?: string // 项目专属的上报凭证
+    appKey?: string // 应用专属的上报凭证
     debug?: (
         // SDK 内部诊断出口
         message: string,

@@ -18,9 +18,12 @@
 
       <div class="key-dialog__actions">
         <p>将密钥放入真实项目的 SDK 配置中，勿提交到公开仓库。</p>
-        <button class="secondary" type="button" :disabled="creating" @click="createKey">
-          {{ creating ? '创建中…' : '+ 创建 App Key' }}
-        </button>
+        <div class="key-dialog__buttons">
+          <button class="secondary" type="button" @click="emit('open-guide')">查看接入指南</button>
+          <button class="secondary" type="button" :disabled="creating" @click="createKey">
+            {{ creating ? '创建中…' : '+ 创建 App Key' }}
+          </button>
+        </div>
       </div>
 
       <p v-if="error" class="notice error" role="alert">{{ error }}</p>
@@ -55,6 +58,7 @@ import {
 const props = defineProps<{ projectId: string; app: DashboardApp }>()
 const emit = defineEmits<{
   close: []
+  'open-guide': []
   'availability-change': [availability: { hasActiveKey: boolean; hasAnyKey: boolean }]
 }>()
 
@@ -142,7 +146,8 @@ onMounted(() => void loadKeys())
 .key-dialog-backdrop { position: fixed; inset: 0; z-index: 30; display: grid; place-items: center; padding: 24px; background: #010716ba; backdrop-filter: blur(8px); }
 .key-dialog { --accent: #17d6f3; width: min(100%, 720px); padding: 30px; background: transparent; }
 .key-dialog :deep(.frame-surface) { fill: #06111ff7; }
-.key-dialog__header, .key-dialog__actions, .key-row, .key-row__state { display: flex; align-items: center; }
+.key-dialog__header, .key-dialog__actions, .key-row, .key-row__state, .key-dialog__buttons { display: flex; align-items: center; }
+.key-dialog__buttons { gap: 10px; flex-wrap: wrap; }
 .key-dialog__header, .key-dialog__actions { justify-content: space-between; gap: 20px; }
 .key-dialog__header h2 { margin: 8px 0; font-size: 30px; }
 .key-dialog__header p:last-child, .key-dialog__actions p, .key-row span { color: #8da1b5; }

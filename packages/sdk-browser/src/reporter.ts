@@ -107,10 +107,10 @@ export function createReporter(options: ReporterOptions): Reporter {
 
     const createRequestBody = (events: readonly ReportableEvent[]): string => {
         return JSON.stringify({
-            ...(options.projectKey === undefined
+            ...(options.appKey === undefined
                 ? {}
                 : {
-                      projectKey: options.projectKey,
+                      appKey: options.appKey,
                   }),
             events,
         })

@@ -58,7 +58,12 @@
         应用密钥
       </button>
     </div>
-    <Logout :user-name="userName" />
+    <div class="header-account-actions">
+      <button class="guide-button" type="button" @click="emit('open-guide')">
+        使用指南
+      </button>
+      <Logout :user-name="userName" @sign-out="emit('sign-out')" />
+    </div>
   </header>
 </template>
 <script setup lang="ts">
@@ -91,6 +96,7 @@ const emit = defineEmits<{
   'manage-keys': []
   'sign-out': []
   'open-alerts': []
+  'open-guide': []
 }>()
 const selectedApp = computed(() => props.selectedApp)
 </script>
@@ -104,6 +110,8 @@ const selectedApp = computed(() => props.selectedApp)
   background: none;
   text-align: left;
 }
+.header-account-actions { display: flex; align-items: center; gap: 12px; margin-left: auto; }
+.guide-button { height: 34px; padding: 0 10px; border-color: #2a556d; background: #061b2d; color: #93e8f1; font-size: 13px; }
 .workspace-brand strong {
   font-size: 14px;
   letter-spacing: 0.1em;

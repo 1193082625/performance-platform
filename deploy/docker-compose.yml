@@ -111,8 +111,8 @@ services:
                 VITE_APP_ENVIRONMENT: ${DEMO_APP_ENVIRONMENT:-development}
                 VITE_MONITOR_SAMPLE_RATE: >-
                     ${VITE_MONITOR_SAMPLE_RATE:-1}
-                VITE_MONITOR_PROJECT_KEY: >-
-                    ${VITE_MONITOR_PROJECT_KEY:?VITE_MONITOR_PROJECT_KEY is required}
+                VITE_MONITOR_APP_KEY: >-
+                    ${VITE_MONITOR_APP_KEY:?VITE_MONITOR_APP_KEY is required}
         ports:
             - '${DEMO_PORT:-5173}:80'
         depends_on:

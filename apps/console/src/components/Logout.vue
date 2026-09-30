@@ -17,6 +17,9 @@ import Icon from './Icon.vue'
 const props = defineProps<{
   userName: string
 }>()
+const emit = defineEmits<{
+  'sign-out': []
+}>()
 </script>
 <style scoped>
 .workspace-account {

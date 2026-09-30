@@ -13,7 +13,7 @@ const paintMonitor = createPaintMonitor(
         VITE_APP_VERSION: import.meta.env.VITE_APP_VERSION,
         VITE_APP_ENVIRONMENT: import.meta.env.VITE_APP_ENVIRONMENT,
         VITE_MONITOR_SAMPLE_RATE: import.meta.env.VITE_MONITOR_SAMPLE_RATE,
-        VITE_MONITOR_PROJECT_KEY: import.meta.env.VITE_MONITOR_PROJECT_KEY,
+        VITE_MONITOR_APP_KEY: import.meta.env.VITE_MONITOR_APP_KEY,
     }),
 )
 paintMonitor.start()

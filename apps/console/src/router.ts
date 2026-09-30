@@ -12,6 +12,7 @@ export function createConsoleRouter(history: RouterHistory = createWebHistory())
     routes: [
       { path: '/', redirect: '/projects' },
       { path: '/projects', name: 'projects', component: RouteState },
+      { path: '/guide', name: 'guide', component: RouteState },
       {
         path: '/projects/:projectId/apps',
         name: 'applications',

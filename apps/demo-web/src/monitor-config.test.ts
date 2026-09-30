@@ -82,7 +82,7 @@ describe('resolveMonitorConfig', () => {
                 VITE_APP_VERSION: '  0.2.0+test  ',
                 VITE_APP_ENVIRONMENT: '  production  ',
                 VITE_MONITOR_SAMPLE_RATE: '  0.25  ',
-                VITE_MONITOR_PROJECT_KEY: '  ppk_test-project-key  ',
+                VITE_MONITOR_APP_KEY: '  ppk_test-project-key  ',
             }),
         ).toEqual({
             endpoint: 'http://localhost:5000/api/v2/events/batch',
@@ -90,7 +90,7 @@ describe('resolveMonitorConfig', () => {
             appVersion: '0.2.0+test',
             environment: 'production',
             sampleRate: 0.25,
-            projectKey: 'ppk_test-project-key',
+            appKey: 'ppk_test-project-key',
         })
     })
 
@@ -120,12 +120,12 @@ describe('resolveMonitorConfig', () => {
             VITE_APP_ID: 'demo-web',
             VITE_APP_VERSION: '0.2.0+test',
             VITE_APP_ENVIRONMENT: 'test',
-            VITE_MONITOR_PROJECT_KEY: 'ppk_test-project-key',
+            VITE_MONITOR_APP_KEY: 'ppk_test-project-key',
         })
 
         expect(config.sampleRate).toBe(1)
     })
-    it('Missing required environment variable: VITE_MONITOR_PROJECT_KEY', () => {
+    it('Missing required environment variable: VITE_MONITOR_APP_KEY', () => {
         expect(() => {
             resolveMonitorConfig({
                 VITE_MONITOR_ENDPOINT:
@@ -135,7 +135,7 @@ describe('resolveMonitorConfig', () => {
                 VITE_APP_ENVIRONMENT: 'test',
             })
         }).toThrowError(
-            'Missing required environment variable: VITE_MONITOR_PROJECT_KEY',
+            'Missing required environment variable: VITE_MONITOR_APP_KEY',
         )
     })
 })

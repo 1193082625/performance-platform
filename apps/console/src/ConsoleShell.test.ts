@@ -190,6 +190,18 @@ test('returns to the project list from the application list', async () => {
     wrapper.unmount()
 })
 
+test('opens the usage guide from the project selection page', async () => {
+    const { wrapper, router } = await setup()
+    await flushPromises()
+    await wrapper.get('.guide-entry-button').trigger('click')
+    await flushPromises()
+
+    expect(router.currentRoute.value.name).toBe('guide')
+    expect(wrapper.text()).toContain('使用指南')
+    expect(wrapper.text()).toContain('VITE_MONITOR_APP_KEY')
+    wrapper.unmount()
+})
+
 test('shows historical monitoring only after previously created keys were all revoked', async () => {
     const { wrapper } = await setup(false, 'all-revoked')
     await flushPromises()

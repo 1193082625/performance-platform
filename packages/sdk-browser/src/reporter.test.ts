@@ -530,7 +530,7 @@ describe('Reporter', () => {
 
         const reporter = createReporter({
             endpoint: ENDPOINT,
-            projectKey: 'ppk_test-project-key',
+            appKey: 'ppk_test-project-key',
             sendBeacon,
             fetch: fetchTransport,
         })
@@ -539,7 +539,7 @@ describe('Reporter', () => {
         await reporter.flush()
 
         const expectedBody = JSON.stringify({
-            projectKey: 'ppk_test-project-key',
+            appKey: 'ppk_test-project-key',
             events: [event],
         })
 

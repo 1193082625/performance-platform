@@ -205,9 +205,9 @@ export function createPaintMonitorWithDependencies(
 
     const reporter = createReporter({
         endpoint: config.endpoint,
-        ...(config.projectKey === undefined
+        ...(config.appKey === undefined
             ? {}
-            : { projectKey: config.projectKey }),
+            : { appKey: config.appKey }),
 
         ...(dependencies.sendBeacon === undefined
             ? {}

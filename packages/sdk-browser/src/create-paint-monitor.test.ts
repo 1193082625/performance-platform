@@ -53,7 +53,7 @@ describe('createPaintMonitor', () => {
             {
                 appId: 'demo-web',
                 appVersion: '0.1.0+test',
-                projectKey: 'ppk_monitor_test',
+                appKey: 'ppk_monitor_test',
                 environment: 'test',
                 endpoint: ENDPOINT,
             },
@@ -131,7 +131,7 @@ describe('createPaintMonitor', () => {
                     },
                 },
             ],
-            projectKey: 'ppk_monitor_test',
+            appKey: 'ppk_monitor_test',
         })
     })
 

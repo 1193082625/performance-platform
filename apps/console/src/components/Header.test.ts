@@ -35,3 +35,9 @@ test('emits navigation and sign-out events from actual button clicks', async () 
     expect(wrapper.emitted('go-apps')).toEqual([[]])
     expect(wrapper.emitted('sign-out')).toEqual([[]])
 })
+
+test('opens the usage guide from the global header action', async () => {
+    const wrapper = mountHeader()
+    await wrapper.get('.guide-button').trigger('click')
+    expect(wrapper.emitted('open-guide')).toEqual([[]])
+})

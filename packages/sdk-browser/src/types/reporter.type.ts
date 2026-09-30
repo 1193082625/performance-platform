@@ -34,7 +34,7 @@ export interface ReporterScheduler {
 // 创建 Reporter 时由外部提供的配置和传输能力
 export interface ReporterOptions {
     endpoint: string // 上报API地址
-    projectKey?: string
+    appKey?: string
     sendBeacon?: SendBeacon
     fetch?: FetchTransport
     scheduler?: ReporterScheduler
