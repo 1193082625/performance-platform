@@ -53,7 +53,10 @@ import {
 } from '../api/project-app-keys.js'
 
 const props = defineProps<{ projectId: string; app: DashboardApp }>()
-defineEmits<{ close: [] }>()
+const emit = defineEmits<{
+  close: []
+  'availability-change': [availability: { hasActiveKey: boolean; hasAnyKey: boolean }]
+}>()
 
 const api = createProjectAppKeyApi({
   baseUrl: window.location.origin,
@@ -77,6 +80,10 @@ async function loadKeys(): Promise<void> {
   error.value = ''
   try {
     keys.value = await api.list(props.projectId, props.app.appId)
+    emit('availability-change', {
+      hasActiveKey: keys.value.some((key) => !key.revokedAt),
+      hasAnyKey: keys.value.length > 0,
+    })
   } catch {
     error.value = '密钥加载失败，请稍后重试。'
   } finally {
@@ -92,6 +99,7 @@ async function createKey(): Promise<void> {
     plainTextKey.value = created.plainText
     copyLabel.value = '复制密钥'
     keys.value.unshift(created)
+    emit('availability-change', { hasActiveKey: true, hasAnyKey: true })
   } catch {
     error.value = '密钥创建失败，请稍后重试。'
   } finally {
@@ -116,6 +124,10 @@ async function revokeKey(keyId: string): Promise<void> {
     keys.value = keys.value.map((key) =>
       key.id === keyId ? { ...key, revokedAt: new Date().toISOString() } : key,
     )
+    emit('availability-change', {
+      hasActiveKey: keys.value.some((key) => !key.revokedAt),
+      hasAnyKey: keys.value.length > 0,
+    })
   } catch {
     error.value = '密钥停用失败，请稍后重试。'
   } finally {

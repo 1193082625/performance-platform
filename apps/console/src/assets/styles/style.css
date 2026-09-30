@@ -978,3 +978,7 @@ footer svg {
         display: none;
     }
 }
+
+.gap-12 {
+    gap: 12px;
+}

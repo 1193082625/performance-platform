@@ -30,6 +30,10 @@ defineProps({ name: String });
       <circle cx="32" cy="32" r="25" />
       <path d="M32 14v19l13 7" />
     </template>
+    <template v-else-if="name === 'logout'">
+      <path d="M29 11H14v42h15" />
+      <path d="M36 20l12 12-12 12M48 32H23" />
+    </template>
     <template v-else>
       <circle cx="32" cy="32" r="25" />
       <path d="M32 29v15m0-24v1" />

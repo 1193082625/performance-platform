@@ -4,11 +4,6 @@
   <Login v-else-if="user === null" @authenticated="handleAuthenticated" />
 
   <main v-else class="workspace">
-    <Header
-      v-if="!selectedProject || !selectedApp"
-      :user-name="userName || ''"
-      @sign-out="signOut"
-    />
     <p
       v-if="managementError"
       class="workspace-message notice error"
@@ -25,14 +20,15 @@
         :user-name="userName || ''"
         @go-apps="goApps"
         @sign-out="signOut"
-        @manage-keys="showKeyManager = true"
+        @manage-keys="selectedApp && openKeyManager(selectedApp)"
       />
     </template>
     <AppKeyManager
-      v-if="selectedProject && selectedApp && showKeyManager"
+      v-if="selectedProject && keyManagerApp"
       :project-id="selectedProject.id"
-      :app="selectedApp"
-      @close="showKeyManager = false"
+      :app="keyManagerApp"
+      @availability-change="updateAppKeyAvailability"
+      @close="closeKeyManager"
     />
     <section v-else class="selection-page">
       <header v-frame class="selection-heading tech-frame">
@@ -48,36 +44,57 @@
           <p>
             {{
               selectedProject
-                ? '选择一个应用，进入它的性能监控。'
+                ? '选择一个应用。没有启用 App Key 时，请先完成配置；仍可查看历史监控。'
                 : '选择项目，再选择需要查看的应用。'
             }}
           </p>
         </div>
-        <button
-          class="secondary"
-          type="button"
-          @click="
-            selectedProject
-              ? (showAppForm = !showAppForm)
-              : (showProjectForm = !showProjectForm)
-          "
-        >
-          {{
-            selectedProject
-              ? showAppForm
-                ? '取消创建'
-                : '+ 创建应用'
-              : showProjectForm
-                ? '取消创建'
-                : '+ 创建项目'
-          }}
-        </button>
+        <div class="flex-col gap-12">
+          <Logout :user-name="userName" />
+          <div class="selection-heading__actions">
+            <button
+              v-if="selectedProject"
+              class="secondary back-button"
+              type="button"
+              @click="goProjects"
+            >
+              ← 返回项目列表
+            </button>
+            <button
+              class="secondary create-entry-button"
+              type="button"
+              @click="
+                selectedProject
+                  ? (showAppForm = !showAppForm)
+                  : (showProjectForm = !showProjectForm)
+              "
+            >
+              {{
+                selectedProject
+                  ? showAppForm
+                    ? '取消创建'
+                    : '+ 创建应用'
+                  : showProjectForm
+                    ? '取消创建'
+                    : '+ 创建项目'
+              }}
+            </button>
+          </div>
+        </div>
       </header>
       <form
         v-if="!selectedProject && showProjectForm"
         class="entry-form"
         @submit.prevent="createProject"
       >
+        <button
+          class="entry-form__close"
+          type="button"
+          aria-label="关闭创建项目"
+          @click="showProjectForm = !showProjectForm"
+        >
+          ×
+        </button>
         <label
           >项目名称<input
             v-model.trim="projectName"
@@ -104,6 +121,15 @@
         class="entry-form"
         @submit.prevent="createApp"
       >
+        <button
+          class="entry-form__close"
+          type="button"
+          aria-label="关闭创建应用"
+          @click="showAppForm = !showAppForm"
+        >
+          ×
+        </button>
+        <p>创建到项目：{{ selectedProject.name }} · Web 应用</p>
         <label
           >应用名称<input
             v-model.trim="appName"
@@ -111,10 +137,14 @@
             maxlength="100"
             placeholder="例如：官网 Web"
         /></label>
-        <p>创建到项目：{{ selectedProject.name }} · Web 应用</p>
-        <button class="primary" :disabled="appSubmitting">
-          {{ appSubmitting ? '创建中…' : '创建应用' }}
-        </button>
+        <div class="entry-form__btn-group">
+          <button class="default" @click="showAppForm = !showAppForm">
+            取消创建
+          </button>
+          <button class="primary" :disabled="appSubmitting">
+            {{ appSubmitting ? '创建中…' : '创建应用' }}
+          </button>
+        </div>
       </form>
       <p
         v-if="projectsLoading || appsLoading"
@@ -156,24 +186,37 @@
           </button>
         </p>
         <div v-else-if="apps.length" class="selection-grid">
-          <button
+          <article
             v-for="appItem in apps"
             :key="appItem.id"
             v-frame
             class="selection-card tech-frame"
-            type="button"
-            @click="selectedApp = appItem"
           >
-            <span class="card-symbol" aria-hidden="true">▣</span
-            ><span class="platform-label">{{
-              appItem.platform.toUpperCase()
-            }}</span>
-            <h2>{{ appItem.name }}</h2>
-            <p class="app-identifier">{{ appItem.appId }}</p>
-            <span class="card-action"
-              >查看监控 <span aria-hidden="true">→</span></span
+            <button
+              class="app-card__entry"
+              type="button"
+              :disabled="appKeyStatus(appItem) === 'loading'"
+              @click="selectApp(appItem)"
             >
-          </button>
+              <span class="card-symbol" aria-hidden="true">▣</span
+              ><span class="platform-label">{{
+                appItem.platform.toUpperCase()
+              }}</span>
+              <h2>{{ appItem.name }}</h2>
+              <p class="app-identifier">{{ appItem.appId }}</p>
+              <span class="card-action">
+                {{ appCardAction(appItem) }} <span aria-hidden="true">→</span>
+              </span>
+            </button>
+            <button
+              v-if="appKeyStatus(appItem) === 'all-revoked'"
+              class="history-button"
+              type="button"
+              @click="enterMonitoring(appItem)"
+            >
+              查看历史监控
+            </button>
+          </article>
         </div>
         <div v-else class="selection-empty">
           <h2>这个项目还没有应用</h2>
@@ -188,7 +231,8 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import App from './App.vue'
 import {
   createConsoleAccountApi,
@@ -201,8 +245,13 @@ import {
 } from './api/dashboard-scope.js'
 import Loading from './components/Loading.vue'
 import Login from './views/Login.vue'
+import Logout from './components/Logout.vue'
 import Header from './components/Header.vue'
 import AppKeyManager from './components/AppKeyManager.vue'
+import { createProjectAppKeyApi } from './api/project-app-keys.js'
+
+const route = useRoute()
+const router = useRouter()
 
 const options = {
   baseUrl: window.location.origin,
@@ -210,14 +259,18 @@ const options = {
 }
 const account = createConsoleAccountApi(options)
 const scope = createDashboardScopeApi(options)
+const appKeys = createProjectAppKeyApi(options)
 const user = ref<ConsoleUser | null>(null)
 const loadingSession = ref(true)
 const projects = ref<DashboardProject[]>([])
 const apps = ref<DashboardApp[]>([])
 const selectedProjectId = ref('')
 const selectedApp = ref<DashboardApp | null>(null)
+const keyManagerApp = ref<DashboardApp | null>(null)
 const showAppForm = ref(false)
-const showKeyManager = ref(false)
+type AppKeyAvailability =
+  'loading' | 'active' | 'never-created' | 'all-revoked' | 'unavailable'
+const appKeyAvailability = ref<Record<string, AppKeyAvailability>>({})
 const projectsLoading = ref(false)
 const appsError = ref(false)
 let appsRequestId = 0
@@ -241,24 +294,18 @@ async function handleAuthenticated(
 ): Promise<void> {
   user.value = authenticatedUser
   await loadProjects()
+  await syncRoute()
 }
 
 function goProjects(): void {
-  appsRequestId++
-  selectedProjectId.value = ''
-  selectedApp.value = null
-  apps.value = []
-  appsLoading.value = false
-  showAppForm.value = false
-  showKeyManager.value = false
-  showProjectForm.value = false
-  managementError.value = ''
-  appsError.value = false
+  void router.push({ name: 'projects' })
 }
 function goApps(): void {
-  selectedApp.value = null
-  showKeyManager.value = false
-  managementError.value = ''
+  if (!selectedProjectId.value) return
+  void router.push({
+    name: 'applications',
+    params: { projectId: selectedProjectId.value },
+  })
 }
 async function loadApps(): Promise<void> {
   const projectId = selectedProjectId.value
@@ -269,7 +316,37 @@ async function loadApps(): Promise<void> {
   apps.value = []
   try {
     const result = await scope.listApps(projectId)
-    if (requestId === appsRequestId) apps.value = result
+    if (requestId === appsRequestId) {
+      apps.value = result
+      appKeyAvailability.value = Object.fromEntries(
+        result.map((appItem) => [appItem.id, 'loading']),
+      )
+      void Promise.all(
+        result.map(async (appItem) => {
+          try {
+            const keys = await appKeys.list(projectId, appItem.appId)
+
+            if (requestId === appsRequestId) {
+              appKeyAvailability.value = {
+                ...appKeyAvailability.value,
+                [appItem.id]: keys.some((key) => !key.revokedAt)
+                  ? 'active'
+                  : keys.length
+                    ? 'all-revoked'
+                    : 'never-created',
+              }
+            }
+          } catch {
+            if (requestId === appsRequestId) {
+              appKeyAvailability.value = {
+                ...appKeyAvailability.value,
+                [appItem.id]: 'unavailable',
+              }
+            }
+          }
+        }),
+      )
+    }
   } catch {
     if (requestId === appsRequestId) appsError.value = true
   } finally {
@@ -293,20 +370,14 @@ async function loadSession(): Promise<void> {
   } catch {
     user.value = null
   }
-  if (user.value) await loadProjects()
+  if (user.value) {
+    await loadProjects()
+    await syncRoute()
+  }
   loadingSession.value = false
 }
 async function selectProject(projectId: string): Promise<void> {
-  selectedProjectId.value = projectId
-  selectedApp.value = null
-  showAppForm.value = false
-  appName.value = ''
-  managementError.value = ''
-  try {
-    await loadApps()
-  } catch {
-    managementError.value = '应用列表加载失败，请稍后重试。'
-  }
+  await router.push({ name: 'applications', params: { projectId } })
 }
 async function createProject(): Promise<void> {
   projectSubmitting.value = true
@@ -317,13 +388,13 @@ async function createProject(): Promise<void> {
       description: projectDescription.value,
     })
     projects.value.push(project)
-    selectedProjectId.value = project.id
-    selectedApp.value = null
-    apps.value = []
-    appsError.value = false
     projectName.value = ''
     projectDescription.value = ''
     showProjectForm.value = false
+    await router.push({
+      name: 'applications',
+      params: { projectId: project.id },
+    })
   } catch {
     managementError.value = '项目创建失败，请检查名称后重试。'
   } finally {
@@ -342,6 +413,10 @@ async function createApp(): Promise<void> {
     })
     if (selectedProjectId.value === projectId) {
       apps.value.push(created)
+      appKeyAvailability.value = {
+        ...appKeyAvailability.value,
+        [created.id]: 'never-created',
+      }
       appName.value = ''
       showAppForm.value = false
     }
@@ -350,6 +425,52 @@ async function createApp(): Promise<void> {
   } finally {
     appSubmitting.value = false
   }
+}
+function appKeyStatus(appItem: DashboardApp): AppKeyAvailability {
+  return appKeyAvailability.value[appItem.id] ?? 'loading'
+}
+function appCardAction(appItem: DashboardApp): string {
+  const status = appKeyStatus(appItem)
+  if (status === 'active') return '查看监控'
+  if (status === 'loading') return '检查 App Key…'
+  if (status === 'never-created' || status === 'all-revoked') {
+    return '配置 App Key'
+  }
+  return '检查密钥失败，点击重试'
+}
+function enterMonitoring(appItem: DashboardApp): void {
+  void router.push({
+    name: 'monitor',
+    params: { projectId: appItem.projectId, appId: appItem.appId },
+  })
+}
+function openKeyManager(appItem: DashboardApp): void {
+  keyManagerApp.value = appItem
+}
+function selectApp(appItem: DashboardApp): void {
+  if (appKeyStatus(appItem) === 'active') {
+    enterMonitoring(appItem)
+    return
+  }
+  openKeyManager(appItem)
+}
+function updateAppKeyAvailability(availability: {
+  hasActiveKey: boolean
+  hasAnyKey: boolean
+}): void {
+  const appItem = keyManagerApp.value
+  if (!appItem) return
+  appKeyAvailability.value = {
+    ...appKeyAvailability.value,
+    [appItem.id]: availability.hasActiveKey
+      ? 'active'
+      : availability.hasAnyKey
+        ? 'all-revoked'
+        : 'never-created',
+  }
+}
+function closeKeyManager(): void {
+  keyManagerApp.value = null
 }
 async function signOut(): Promise<void> {
   try {
@@ -361,6 +482,42 @@ async function signOut(): Promise<void> {
     managementError.value = '退出失败，请重试。'
   }
 }
+async function syncRoute(): Promise<void> {
+  if (user.value === null) return
+  const projectId =
+    typeof route.params.projectId === 'string' ? route.params.projectId : ''
+  const appId = typeof route.params.appId === 'string' ? route.params.appId : ''
+
+  if (!projectId) {
+    appsRequestId++
+    selectedProjectId.value = ''
+    selectedApp.value = null
+    apps.value = []
+    appsLoading.value = false
+    showAppForm.value = false
+    keyManagerApp.value = null
+    appKeyAvailability.value = {}
+    showProjectForm.value = false
+    managementError.value = ''
+    appsError.value = false
+    return
+  }
+
+  selectedProjectId.value = projectId
+  selectedApp.value = null
+  showAppForm.value = false
+  appName.value = ''
+  managementError.value = ''
+  await loadApps()
+  if (projectId !== selectedProjectId.value) return
+  selectedApp.value = appId
+    ? (apps.value.find((appItem) => appItem.appId === appId) ?? null)
+    : null
+}
+watch(
+  () => [route.params.projectId, route.params.appId],
+  () => void syncRoute(),
+)
 onMounted(() => {
   void loadSession()
 })
@@ -370,6 +527,21 @@ onMounted(() => {
 :global(body) {
   min-width: 320px;
   background: #05090f;
+}
+
+.workspace-account {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  white-space: nowrap;
+  font-size: 14px;
+  color: #9eafc0;
+}
+.workspace-account button {
+  padding: 8px 12px;
+  border-color: #2a3c4c;
+  background: transparent;
 }
 .eyebrow {
   color: #48d8f3;
@@ -509,6 +681,12 @@ onMounted(() => {
   color: #8c9fb1;
   line-height: 1.7;
 }
+.selection-heading__actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 10px;
+}
 .secondary {
   height: 44px;
   padding: 0 20px;
@@ -566,6 +744,41 @@ onMounted(() => {
   margin: 20px 0 9px;
   overflow-wrap: anywhere;
 }
+.app-card__entry {
+  display: flex;
+  flex: 1;
+  width: 100%;
+  min-height: 0;
+  flex-direction: column;
+  align-items: flex-start;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+}
+.app-card__entry:disabled {
+  cursor: wait;
+  opacity: 0.7;
+}
+.app-card__entry > .app-identifier {
+  color: #8c9fb1;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+.history-button {
+  align-self: stretch;
+  min-height: 38px;
+  margin-top: 10px;
+  border: 1px solid #315a73;
+  background: #071a2a;
+  color: #94dce6;
+  font-size: 13px;
+}
+.history-button:hover {
+  border-color: #62e0ee;
+  color: #d5fbff;
+}
 .selection-card > p {
   color: #8c9fb1;
   line-height: 1.6;
@@ -618,6 +831,18 @@ onMounted(() => {
   top: 50%;
   margin-top: -10%;
   margin-left: -250px;
+  padding-top: 50px;
+}
+.entry-form__close {
+  position: absolute;
+  top: 20px;
+  right: 20px;
+  z-index: 999;
+  width: 38px;
+  height: 38px;
+  border-color: #315a73;
+  font-size: 27px;
+  line-height: 1;
 }
 .entry-form label {
   flex: 1;
@@ -712,9 +937,6 @@ onMounted(() => {
     order: 3;
     width: 100%;
     font-size: 14px;
-  }
-  .workspace-account {
-    gap: 12px;
   }
   .selection-heading {
     align-items: flex-start;

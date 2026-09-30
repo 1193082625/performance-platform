@@ -58,10 +58,7 @@
         应用密钥
       </button>
     </div>
-    <div class="workspace-account">
-      <span>欢迎你，{{ userName }}</span>
-      <button type="button" @click="$emit('sign-out')">退出登录</button>
-    </div>
+    <Logout :user-name="userName" />
   </header>
 </template>
 <script setup lang="ts">
@@ -72,6 +69,7 @@ import { useI18n } from 'vue-i18n'
 import { LOCALE_STORAGE_KEY, type AppLocale } from '../i18n'
 import type { DashboardApp } from '../api/dashboard-scope'
 import type { MetricsRange } from '../composables/metrics-range.js'
+import Logout from './Logout.vue'
 const { t, n, locale } = useI18n()
 document.documentElement.lang = locale.value
 function toggleLocale(): void {
@@ -133,20 +131,6 @@ const selectedApp = computed(() => props.selectedApp)
   color: #859caf;
   margin-left: 12px;
 }
-.workspace-account {
-  margin-left: auto;
-  display: flex;
-  align-items: center;
-  gap: 20px;
-  white-space: nowrap;
-  font-size: 14px;
-  color: #9eafc0;
-}
-.workspace-account button {
-  padding: 8px 12px;
-  border-color: #2a3c4c;
-  background: transparent;
-}
 .secondary {
   white-space: nowrap;
   display: flex;
@@ -160,12 +144,6 @@ const selectedApp = computed(() => props.selectedApp)
   background: #03152a;
 }
 @media (max-width: 650px) {
-  .monitor-context {
-    padding: 20px;
-  }
-  .monitor-context h2 {
-    font-size: 22px;
-  }
   .workspace-account {
     gap: 12px;
   }

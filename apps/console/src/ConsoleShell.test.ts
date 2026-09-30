@@ -1,6 +1,8 @@
 import { flushPromises, mount } from '@vue/test-utils'
 import { afterEach, expect, test, vi } from 'vitest'
+import { createMemoryHistory } from 'vue-router'
 import ConsoleShell from './ConsoleShell.vue'
+import { createConsoleRouter } from './router.js'
 
 const projects = [
     { id: 'p1', name: '商店', description: '面向客户' },
@@ -14,7 +16,11 @@ const app = (projectId: string) => ({
     platform: 'web',
 })
 const response = (body: unknown) => ({ ok: true, json: async () => body })
-function setup(failApps = false) {
+async function setup(
+    failApps = false,
+    keyState: 'active' | 'never-created' | 'all-revoked' = 'active',
+    initialPath = '/projects',
+) {
     const fetcher = vi.fn(
         async (input: RequestInfo | URL, init?: RequestInit) => {
             const path = new URL(String(input)).pathname
@@ -24,6 +30,24 @@ function setup(failApps = false) {
                 })
             if (path.endsWith('/auth/logout')) return response({})
             if (path.endsWith('/projects')) return response({ projects })
+            if (path.endsWith('/keys')) {
+                return response({
+                    keys:
+                        keyState === 'never-created'
+                            ? []
+                            : [
+                              {
+                                  id: 'key-1',
+                                  prefix: 'ppk_live_',
+                                  createdAt: '2030-01-01T00:00:00.000Z',
+                                  revokedAt:
+                                      keyState === 'active'
+                                          ? null
+                                          : '2030-01-02T00:00:00.000Z',
+                              },
+                          ]
+                })
+            }
             if (path.endsWith('/apps')) {
                 if (failApps) throw new Error('offline')
                 const projectId = path.split('/')[3]!
@@ -37,8 +61,12 @@ function setup(failApps = false) {
         },
     )
     vi.stubGlobal('fetch', fetcher)
+    const router = createConsoleRouter(createMemoryHistory())
+    await router.push(initialPath)
+    await router.isReady()
     const wrapper = mount(ConsoleShell, {
         global: {
+            plugins: [router],
             stubs: {
                 App: {
                     name: 'App',
@@ -49,12 +77,12 @@ function setup(failApps = false) {
             },
         },
     })
-    return { wrapper, fetcher }
+    return { wrapper, fetcher, router }
 }
 afterEach(() => vi.unstubAllGlobals())
 
 test('starts at projects without fetching apps or mounting monitoring', async () => {
-    const { wrapper, fetcher } = setup()
+    const { wrapper, fetcher } = await setup()
     await flushPromises()
     expect(wrapper.text()).toContain('你的项目')
     expect(wrapper.find('[data-testid="monitor"]').exists()).toBe(false)
@@ -76,7 +104,10 @@ test('moves to projects and loads them after Login authenticates', async () => {
         throw new Error('unexpected request: ' + path)
     })
     vi.stubGlobal('fetch', fetcher)
-    const wrapper = mount(ConsoleShell)
+    const router = createConsoleRouter(createMemoryHistory())
+    await router.push('/projects')
+    await router.isReady()
+    const wrapper = mount(ConsoleShell, { global: { plugins: [router] } })
     await flushPromises()
 
     await wrapper.get('input[autocomplete="tel"]').setValue('13800000000')
@@ -99,7 +130,7 @@ test('moves to projects and loads them after Login authenticates', async () => {
 })
 
 test('requires project then app selection, and clears scope when returning', async () => {
-    const { wrapper, fetcher } = setup()
+    const { wrapper, fetcher, router } = await setup()
     await flushPromises()
     await wrapper.findAll('.selection-card')[1]!.trigger('click')
     await flushPromises()
@@ -110,8 +141,10 @@ test('requires project then app selection, and clears scope when returning', asy
             String(url).endsWith('/projects/p2/apps'),
         ),
     ).toBe(true)
-    await wrapper.get('.selection-card').trigger('click')
+    await wrapper.get('.app-card__entry').trigger('click')
+    await flushPromises()
     expect(wrapper.get('[data-testid="monitor"]').text()).toBe('p2/web')
+    expect(router.currentRoute.value.path).toBe('/projects/p2/apps/web/monitor')
     wrapper.findComponent({ name: 'App' }).vm.$emit('go-apps')
     await flushPromises()
     expect(wrapper.find('[data-testid="monitor"]').exists()).toBe(false)
@@ -119,8 +152,21 @@ test('requires project then app selection, and clears scope when returning', asy
     wrapper.unmount()
 })
 
+test('restores the selected app from a direct monitoring URL', async () => {
+    const { wrapper, router } = await setup(
+        false,
+        'active',
+        '/projects/p2/apps/web/monitor',
+    )
+    await flushPromises()
+
+    expect(wrapper.get('[data-testid="monitor"]').text()).toBe('p2/web')
+    expect(router.currentRoute.value.name).toBe('monitor')
+    wrapper.unmount()
+})
+
 test('shows a retry state instead of an empty list when apps fail', async () => {
-    const { wrapper } = setup(true)
+    const { wrapper } = await setup(true)
     await flushPromises()
     await wrapper.get('.selection-card').trigger('click')
     await flushPromises()
@@ -129,12 +175,59 @@ test('shows a retry state instead of an empty list when apps fail', async () => 
     wrapper.unmount()
 })
 
+test('returns to the project list from the application list', async () => {
+    const { wrapper, router } = await setup()
+    await flushPromises()
+    await wrapper.get('.selection-card').trigger('click')
+    await flushPromises()
+    expect(wrapper.text()).toContain('p1 应用')
+
+    await wrapper.get('.back-button').trigger('click')
+    await flushPromises()
+    expect(wrapper.text()).toContain('你的项目')
+    expect(router.currentRoute.value.path).toBe('/projects')
+    expect(wrapper.findAll('.selection-card')).toHaveLength(2)
+    wrapper.unmount()
+})
+
+test('shows historical monitoring only after previously created keys were all revoked', async () => {
+    const { wrapper } = await setup(false, 'all-revoked')
+    await flushPromises()
+    await wrapper.get('.selection-card').trigger('click')
+    await flushPromises()
+
+    expect(wrapper.get('.app-card__entry').text()).toContain('配置 App Key')
+    expect(wrapper.find('[data-testid="monitor"]').exists()).toBe(false)
+
+    await wrapper.get('.app-card__entry').trigger('click')
+    await flushPromises()
+    expect(wrapper.get('[role="dialog"]').text()).toContain('App Key')
+
+    await wrapper.get('.key-dialog__close').trigger('click')
+    await wrapper.get('.history-button').trigger('click')
+    await flushPromises()
+    expect(wrapper.get('[data-testid="monitor"]').text()).toBe('p1/web')
+    wrapper.unmount()
+})
+
+test('does not offer monitoring when an application has never created an App Key', async () => {
+    const { wrapper } = await setup(false, 'never-created')
+    await flushPromises()
+    await wrapper.get('.selection-card').trigger('click')
+    await flushPromises()
+
+    expect(wrapper.get('.app-card__entry').text()).toContain('配置 App Key')
+    expect(wrapper.find('.history-button').exists()).toBe(false)
+    expect(wrapper.find('[data-testid="monitor"]').exists()).toBe(false)
+    wrapper.unmount()
+})
+
 test('creates an app in the selected project without automatically opening monitoring', async () => {
-    const { wrapper, fetcher } = setup()
+    const { wrapper, fetcher } = await setup()
     await flushPromises()
     await wrapper.findAll('.selection-card')[1]!.trigger('click')
     await flushPromises()
-    await wrapper.get('.selection-heading button').trigger('click')
+    await wrapper.get('.create-entry-button').trigger('click')
     await wrapper.get('.entry-form input').setValue('新应用')
     await wrapper.get('.entry-form').trigger('submit')
     await flushPromises()
@@ -146,11 +239,12 @@ test('creates an app in the selected project without automatically opening monit
 })
 
 test('returns to login after the monitoring page emits sign-out', async () => {
-    const { wrapper, fetcher } = setup()
+    const { wrapper, fetcher } = await setup()
     await flushPromises()
     await wrapper.get('.selection-card').trigger('click')
     await flushPromises()
-    await wrapper.get('.selection-card').trigger('click')
+    await wrapper.get('.app-card__entry').trigger('click')
+    await flushPromises()
     wrapper.findComponent({ name: 'App' }).vm.$emit('sign-out')
     await flushPromises()
     expect(wrapper.text()).toContain('登录监控控制台')

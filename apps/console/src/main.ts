@@ -6,5 +6,6 @@ import './assets/styles/details.css'
 import App from './ConsoleShell.vue'
 import { frame } from './directives/frame.ts'
 import { i18n } from './i18n.js'
+import { router } from './router.js'
 
-createApp(App).use(i18n).directive('frame', frame).mount('#app')
+createApp(App).use(i18n).use(router).directive('frame', frame).mount('#app')
