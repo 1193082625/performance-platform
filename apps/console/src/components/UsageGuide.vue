@@ -25,7 +25,7 @@
         <div>
           <h2>创建项目与应用</h2>
           <p>
-            在项目列表创建项目，再创建一个 Web 应用。应用标识
+            在项目列表创建项目，再创建一个应用。应用标识
             <code>appId</code> 会用于 SDK 配置。
           </p>
         </div>
@@ -58,9 +58,7 @@ VITE_APP_ENVIRONMENT=production</code></pre>
         <span>04</span>
         <div>
           <h2>启动性能采集</h2>
-          <p>
-            在 Web 应用入口创建监控实例，并在初始化后调用 <code>start()</code>。
-          </p>
+          <p>在应用入口创建监控实例，并在初始化后调用 <code>start()</code>。</p>
           <pre><code>import { createPaintMonitor } from '@performance-platform/browser'
 
 createPaintMonitor({

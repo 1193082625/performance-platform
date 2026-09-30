@@ -139,7 +139,7 @@
         >
           ×
         </button>
-        <p>创建到项目：{{ selectedProject.name }} · Web 应用</p>
+        <p>创建到项目：{{ selectedProject.name }}</p>
         <label
           >应用名称<input
             v-model.trim="appName"
