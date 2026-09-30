@@ -52,6 +52,7 @@ services:
             CORS_ORIGINS: >-
                 ${CORS_ORIGINS:-http://localhost:5173,http://localhost:4173}
             LOG_LEVEL: ${LOG_LEVEL:-info}
+            COOKIE_SECURE: ${COOKIE_SECURE:-false}
         ports:
             - '${SERVER_PORT:-3000}:3000'
         depends_on:
