@@ -1,9 +1,12 @@
 {
     "name": "@performance-platform/protocol",
     "version": "0.3.0",
-    "private": true,
+    "private": false,
     "type": "module",
     "sideEffects": false,
+    "publishConfig": {
+        "access": "public"
+    },
     "files": [
         "dist"
     ],
